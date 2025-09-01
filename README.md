@@ -24,3 +24,5 @@ Der Aufbau der geänderten Version erfolgte testweise auf der alten Platinenvari
 Beim Test stellte sich auch heraus, dass der 7805 Spannungsregler für einen stabilen Betrieb mit einem kleinen Kühlkörper versehen werden muss. Auf der alten Platine wurde hier provisorisch für Testzwecke ein kleiner Kühlkörper verbaut. Der 7805 ist mit dem Kühlkörper stabil und hat neben dem Pi Zero auch den MSBC2-Z80 mit CPM moit Spannung versorgt.
 
 Alle Änderungen wurden dann im Schaltplan und im Layout berücksichtigt.
+
+Ein Adapter für den MBC2-Z80 zur Anbindung des Z80 über den Mini DIN8 Stecker wird im Teilprojekt Z80-SBC_Adapter beschrieben. Auf einen RS232 Anschluss wurde hier verzichtet. Neben dem Mini DIN8 Stecker kann der SBC aber auch über ein 4-poliges Jumper Kabel direkt mit der Adapterplatine verbunden werden.
