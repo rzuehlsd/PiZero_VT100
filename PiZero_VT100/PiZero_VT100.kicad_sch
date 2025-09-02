@@ -5001,10 +5001,6 @@
 		(uuid "866150ee-19e7-492f-a1af-aa2e57a08f48")
 	)
 	(no_connect
-		(at 199.39 125.73)
-		(uuid "8b284140-ea90-40f3-a216-63b8eec0dc62")
-	)
-	(no_connect
 		(at 31.75 55.88)
 		(uuid "8c2a3e91-4823-4f2f-ad87-c889041f732a")
 	)

@@ -38,8 +38,8 @@
         "other_text_upright": false,
         "pads": {
           "drill": 0.9,
-          "height": 2.0,
-          "width": 1.2
+          "height": 2.5,
+          "width": 1.5
         },
         "silk_line_width": 0.12,
         "silk_text_italic": false,
@@ -61,11 +61,7 @@
       ],
       "drc_exclusions": [
         [
-          "silk_over_copper|113980649|84650000|73b1f75f-ff97-4583-a308-d472edad8504|00000000-0000-0000-0000-000000000000",
-          ""
-        ],
-        [
-          "silk_over_copper|114222405|71922445|4324bddd-83b5-49d2-a417-17c82e55b545|00000000-0000-0000-0000-000000000000",
+          "silk_over_copper|127175000|138960000|0939f193-7572-482f-bd0d-b28d0c0e95ec|00000000-0000-0000-0000-000000000000",
           ""
         ]
       ],
@@ -112,8 +108,8 @@
         "pth_inside_courtyard": "ignore",
         "shorting_items": "error",
         "silk_edge_clearance": "warning",
-        "silk_over_copper": "error",
-        "silk_overlap": "error",
+        "silk_over_copper": "warning",
+        "silk_overlap": "warning",
         "skew_out_of_range": "error",
         "solder_mask_bridge": "error",
         "starved_thermal": "error",
