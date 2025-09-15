@@ -28,5 +28,5 @@ Alle Änderungen wurden dann im Schaltplan und im Layout berücksichtigt.
 Ein Adapter für den MBC2-Z80 zur Anbindung des Z80 über den Mini DIN8 Stecker wird im Teilprojekt Z80-SBC_Adapter beschrieben. Auf einen RS232 Anschluss wurde hier verzichtet. Neben dem Mini DIN8 Stecker kann der SBC aber auch über ein 4-poliges Jumper Kabel direkt mit der Adapterplatine verbunden werden.
 
 Die Platine wurde überarbeitet:
-- Hohlstecker für 9V DC / AC Spannung
-- Umschalter RxD <> TxD bzw Relais (klären wie man das über Pi schaltet)
+- [x] Hohlstecker für 9V DC / AC Spannung
+- [x] Umschalter RxD <> TxD bzw Relais schaltbar durch Pi GPIO Pin
