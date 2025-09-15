@@ -34,7 +34,7 @@ Ein Adapter für den MBC2-Z80 zur Anbindung des Z80 über den Mini DIN8 Stecker 
 
 Die Platine wurde überarbeitet:
 - [x] Hohlstecker für 9V DC / AC Spannung
-- [ ] Änderung für Spannungsregler LM350 einbauen 
+- [x] Änderung für Spannungsregler LM350 einbauen 
 - [ ] Kühlkörper prüfen und ggf. größeren einbauen
 - [X] LED Anzeige On/Off
 - [x] Kontakte für Ein/Ausschlater

@@ -38,8 +38,8 @@
         "other_text_upright": false,
         "pads": {
           "drill": 1.1,
-          "height": 3.0,
-          "width": 1.5
+          "height": 2.6,
+          "width": 1.4
         },
         "silk_line_width": 0.12,
         "silk_text_italic": false,
@@ -66,10 +66,6 @@
         ],
         [
           "annular_width|163350000|160000000|d7cfbd0c-7a8d-4b8e-953b-3a69cf328bf4|00000000-0000-0000-0000-000000000000",
-          ""
-        ],
-        [
-          "courtyards_overlap|119902537|114845000|a9a98488-c210-494d-8bad-b3535f74e483|fe0e9bfc-1a55-4426-ad30-6e3eff9732a1",
           ""
         ],
         [

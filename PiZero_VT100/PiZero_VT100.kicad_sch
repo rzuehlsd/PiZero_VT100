@@ -4371,7 +4371,7 @@
 			)
 			(embedded_fonts no)
 		)
-		(symbol "Regulator_Linear:LM7805_TO220"
+		(symbol "Regulator_Linear:LM350_TO220"
 			(pin_names
 				(offset 0.254)
 			)
@@ -4386,7 +4386,7 @@
 					)
 				)
 			)
-			(property "Value" "LM7805_TO220"
+			(property "Value" "LM350_TO220"
 				(at 0 3.175 0)
 				(effects
 					(font
@@ -4396,7 +4396,7 @@
 				)
 			)
 			(property "Footprint" "Package_TO_SOT_THT:TO-220-3_Vertical"
-				(at 0 5.715 0)
+				(at 0 6.35 0)
 				(effects
 					(font
 						(size 1.27 1.27)
@@ -4405,16 +4405,7 @@
 					(hide yes)
 				)
 			)
-			(property "Datasheet" "https://www.onsemi.cn/PowerSolutions/document/MC7800-D.PDF"
-				(at 0 -1.27 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Description" "Positive 1A 35V Linear Regulator, Fixed Output 5V, TO-220"
+			(property "Datasheet" "https://www.onsemi.com/pub/Collateral/LM350-D.pdf"
 				(at 0 0 0)
 				(effects
 					(font
@@ -4423,7 +4414,16 @@
 					(hide yes)
 				)
 			)
-			(property "ki_keywords" "Voltage Regulator 1A Positive"
+			(property "Description" "3A 33V Adjustable Linear Regulator, TO-220"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "Adjustable Voltage Regulator 3A Positive"
 				(at 0 0 0)
 				(effects
 					(font
@@ -4441,7 +4441,7 @@
 					(hide yes)
 				)
 			)
-			(symbol "LM7805_TO220_0_1"
+			(symbol "LM350_TO220_0_1"
 				(rectangle
 					(start -5.08 1.905)
 					(end 5.08 -5.08)
@@ -4454,7 +4454,7 @@
 					)
 				)
 			)
-			(symbol "LM7805_TO220_1_1"
+			(symbol "LM350_TO220_1_1"
 				(pin power_in line
 					(at -7.62 0 0)
 					(length 2.54)
@@ -4465,7 +4465,7 @@
 							)
 						)
 					)
-					(number "1"
+					(number "3"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -4473,17 +4473,17 @@
 						)
 					)
 				)
-				(pin power_in line
+				(pin input line
 					(at 0 -7.62 90)
 					(length 2.54)
-					(name "GND"
+					(name "ADJ"
 						(effects
 							(font
 								(size 1.27 1.27)
 							)
 						)
 					)
-					(number "2"
+					(number "1"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -4501,7 +4501,7 @@
 							)
 						)
 					)
-					(number "3"
+					(number "2"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -5702,7 +5702,13 @@
 		(uuid "2138e2a2-14d1-4d9a-88c4-3d8c39a6fd9c")
 	)
 	(junction
-		(at 120.65 153.67)
+		(at 92.71 143.51)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "39b2de63-35c8-47ba-b8fe-3a3c4c752aae")
+	)
+	(junction
+		(at 128.27 153.67)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "4248beba-bf19-445f-b060-36396100d062")
@@ -5712,6 +5718,12 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "4ec103b9-9cea-4b92-b708-5f32fd463ae8")
+	)
+	(junction
+		(at 120.65 132.08)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "53e664f4-c54b-4491-ba90-cadc94849e35")
 	)
 	(junction
 		(at 139.7 143.51)
@@ -5724,6 +5736,12 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "5c16d2d1-b822-45be-aa19-ed11c833abfd")
+	)
+	(junction
+		(at 128.27 143.51)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "679f02e3-fbe2-46f7-9e29-05ad357f4777")
 	)
 	(junction
 		(at 222.25 140.97)
@@ -5768,16 +5786,16 @@
 		(uuid "ae5a9ae7-f374-4dc1-9aad-7ffe805300c5")
 	)
 	(junction
+		(at 109.22 142.24)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "c146f23f-08c0-4029-b92b-e9f54b8f2a68")
+	)
+	(junction
 		(at 109.22 153.67)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "c1c448b9-6cba-493a-841a-4bef1dc7e908")
-	)
-	(junction
-		(at 92.71 143.51)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "c9a4a67a-3fbf-4fc3-b38e-182b3e02afde")
 	)
 	(junction
 		(at 73.66 143.51)
@@ -5796,12 +5814,6 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "e2d222cb-cce3-4970-97d3-efe885e0ba3d")
-	)
-	(junction
-		(at 120.65 143.51)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "e3316433-c281-44fc-be36-9fdae64c5175")
 	)
 	(junction
 		(at 125.73 44.45)
@@ -5995,7 +6007,7 @@
 	)
 	(wire
 		(pts
-			(xy 120.65 143.51) (xy 120.65 144.78)
+			(xy 128.27 143.51) (xy 128.27 144.78)
 		)
 		(stroke
 			(width 0)
@@ -6265,7 +6277,17 @@
 	)
 	(wire
 		(pts
-			(xy 120.65 152.4) (xy 120.65 153.67)
+			(xy 120.65 142.24) (xy 109.22 142.24)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "384e3ccc-f93f-4ce6-8df4-7ec17f687698")
+	)
+	(wire
+		(pts
+			(xy 128.27 152.4) (xy 128.27 153.67)
 		)
 		(stroke
 			(width 0)
@@ -6315,7 +6337,7 @@
 	)
 	(wire
 		(pts
-			(xy 120.65 153.67) (xy 109.22 153.67)
+			(xy 128.27 153.67) (xy 109.22 153.67)
 		)
 		(stroke
 			(width 0)
@@ -6425,16 +6447,6 @@
 	)
 	(wire
 		(pts
-			(xy 116.84 143.51) (xy 120.65 143.51)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "5470bee5-672b-4332-b78c-9b6c67068485")
-	)
-	(wire
-		(pts
 			(xy 73.66 76.2) (xy 100.33 76.2)
 		)
 		(stroke
@@ -6472,6 +6484,16 @@
 			(type default)
 		)
 		(uuid "567657b6-3433-494f-ba4b-07b02fd70d42")
+	)
+	(wire
+		(pts
+			(xy 128.27 132.08) (xy 128.27 143.51)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "56cc039c-05c6-4604-ae6d-4baed20f4723")
 	)
 	(wire
 		(pts
@@ -6592,6 +6614,16 @@
 			(type default)
 		)
 		(uuid "651537ae-40f0-4920-bd8e-70fa0de16915")
+	)
+	(wire
+		(pts
+			(xy 92.71 132.08) (xy 92.71 143.51)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6729abbe-b892-4d95-8396-66423ed42bfd")
 	)
 	(wire
 		(pts
@@ -6725,7 +6757,7 @@
 	)
 	(wire
 		(pts
-			(xy 139.7 143.51) (xy 120.65 143.51)
+			(xy 139.7 143.51) (xy 128.27 143.51)
 		)
 		(stroke
 			(width 0)
@@ -6885,6 +6917,16 @@
 	)
 	(wire
 		(pts
+			(xy 120.65 132.08) (xy 120.65 134.62)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "8a5d93e9-9809-4b99-927f-8ab14ce2ae97")
+	)
+	(wire
+		(pts
 			(xy 73.66 48.26) (xy 100.33 48.26)
 		)
 		(stroke
@@ -6925,6 +6967,16 @@
 	)
 	(wire
 		(pts
+			(xy 120.65 132.08) (xy 128.27 132.08)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "94f1c9ae-918b-4718-9bf8-11d9a4d5f32b")
+	)
+	(wire
+		(pts
 			(xy 175.26 106.68) (xy 175.26 133.35)
 		)
 		(stroke
@@ -6955,6 +7007,16 @@
 	)
 	(wire
 		(pts
+			(xy 116.84 132.08) (xy 120.65 132.08)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "975a4d8e-0dfe-434d-beba-861d743ae594")
+	)
+	(wire
+		(pts
 			(xy 31.75 53.34) (xy 60.96 53.34)
 		)
 		(stroke
@@ -6962,6 +7024,16 @@
 			(type solid)
 		)
 		(uuid "98a1aa7c-68bd-4966-834d-f673bb2b8d39")
+	)
+	(wire
+		(pts
+			(xy 109.22 142.24) (xy 109.22 143.51)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "99b3d833-2760-4ce2-91fa-2c57b1dd7503")
 	)
 	(wire
 		(pts
@@ -6982,16 +7054,6 @@
 			(type default)
 		)
 		(uuid "9f67497b-222f-46ea-97f5-5e28a7843191")
-	)
-	(wire
-		(pts
-			(xy 92.71 143.51) (xy 101.6 143.51)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "a20a5db1-414e-4c7e-8890-1133f50e384c")
 	)
 	(wire
 		(pts
@@ -7052,6 +7114,16 @@
 			(type solid)
 		)
 		(uuid "a82219f8-a00b-446a-aba9-4cd0a8dd81f2")
+	)
+	(wire
+		(pts
+			(xy 109.22 139.7) (xy 109.22 142.24)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a9a3a1b9-511e-4da3-a3de-435554026c5e")
 	)
 	(wire
 		(pts
@@ -7265,6 +7337,16 @@
 	)
 	(wire
 		(pts
+			(xy 101.6 132.08) (xy 92.71 132.08)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d3eaf595-da05-4b2b-b94e-9ccaf10e65a7")
+	)
+	(wire
+		(pts
 			(xy 227.33 80.01) (xy 227.33 82.55)
 		)
 		(stroke
@@ -7285,7 +7367,7 @@
 	)
 	(wire
 		(pts
-			(xy 139.7 153.67) (xy 120.65 153.67)
+			(xy 139.7 153.67) (xy 128.27 153.67)
 		)
 		(stroke
 			(width 0)
@@ -8280,78 +8362,6 @@
 		)
 	)
 	(symbol
-		(lib_id "Regulator_Linear:LM7805_TO220")
-		(at 109.22 143.51 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "0df6d247-5d46-47be-8992-6fd661ef0bb6")
-		(property "Reference" "U2"
-			(at 109.22 137.16 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "LM7805_TO220"
-			(at 109.22 139.7 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Package_TO_SOT_THT:TO-220-3_Vertical"
-			(at 109.22 137.795 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-					(italic yes)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "https://www.onsemi.cn/PowerSolutions/document/MC7800-D.PDF"
-			(at 109.22 144.78 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Positive 1A 35V Linear Regulator, Fixed Output 5V, TO-220"
-			(at 109.22 143.51 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "0372b238-2113-4920-937c-03a48897277f")
-		)
-		(pin "2"
-			(uuid "6bab7d67-86c0-4f33-bbd5-2efb68849547")
-		)
-		(pin "3"
-			(uuid "9150ab67-643d-43dc-a756-784ac0dd6acd")
-		)
-		(instances
-			(project ""
-				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
-					(reference "U2")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "power:GND")
 		(at 187.96 39.37 0)
 		(unit 1)
@@ -8697,6 +8707,78 @@
 			(project "PiZero_VT100"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
 					(reference "H4")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Regulator_Linear:LM350_TO220")
+		(at 109.22 132.08 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "277a1368-ea71-49cb-bbbd-4cf1f91c777c")
+		(property "Reference" "U1"
+			(at 109.22 125.73 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "LM350_TO220"
+			(at 109.22 128.27 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Package_TO_SOT_THT:TO-220-3_Vertical"
+			(at 109.22 125.73 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+					(italic yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "https://www.onsemi.com/pub/Collateral/LM350-D.pdf"
+			(at 109.22 132.08 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "3A 33V Adjustable Linear Regulator, TO-220"
+			(at 109.22 132.08 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "3"
+			(uuid "47410127-a309-4b84-9d27-1dc02ef5cd14")
+		)
+		(pin "2"
+			(uuid "4085777e-b04d-480b-95e0-4002ddc73df2")
+		)
+		(pin "1"
+			(uuid "c31b0129-c36b-4074-9603-427df659d4c3")
+		)
+		(instances
+			(project ""
+				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
+					(reference "U1")
 					(unit 1)
 				)
 			)
@@ -9743,6 +9825,73 @@
 		)
 	)
 	(symbol
+		(lib_id "Device:R")
+		(at 109.22 147.32 180)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "8a6d8a2c-23f1-4c78-a5c2-b9a0bed30b13")
+		(property "Reference" "R5"
+			(at 112.522 145.034 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "720"
+			(at 113.03 148.844 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal"
+			(at 110.998 147.32 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 109.22 147.32 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Resistor"
+			(at 109.22 147.32 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "9bfc4ad6-360a-43b9-89f8-9e059d9d12a1")
+		)
+		(pin "1"
+			(uuid "2fedd6ce-0b7d-4703-b16c-8d11158518c9")
+		)
+		(instances
+			(project "PiZero_VT100"
+				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
+					(reference "R5")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "Device:Polyfuse")
 		(at 43.18 133.35 90)
 		(unit 1)
@@ -9955,6 +10104,73 @@
 			(project "PiZero_VT100"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
 					(reference "#PWR08")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 120.65 138.43 180)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "91b99491-aa63-449c-904b-b2c3e87c923f")
+		(property "Reference" "R6"
+			(at 123.444 136.144 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "240"
+			(at 123.952 139.192 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal"
+			(at 122.428 138.43 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 120.65 138.43 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Resistor"
+			(at 120.65 138.43 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "bc65e80e-eb06-47ce-98ed-fcb2fb6639d1")
+		)
+		(pin "1"
+			(uuid "4c6f8ac0-c6d9-4600-bd3a-fd989b6ae0b2")
+		)
+		(instances
+			(project "PiZero_VT100"
+				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
+					(reference "R6")
 					(unit 1)
 				)
 			)
@@ -10844,16 +11060,15 @@
 	)
 	(symbol
 		(lib_id "Device:C_Polarized")
-		(at 120.65 148.59 0)
+		(at 128.27 148.59 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(fields_autoplaced yes)
 		(uuid "ee5b0644-4906-49ee-af08-da24b8305a9d")
 		(property "Reference" "C3"
-			(at 124.46 146.4309 0)
+			(at 132.08 146.4309 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10862,7 +11077,7 @@
 			)
 		)
 		(property "Value" "270u / 16V"
-			(at 124.46 148.9709 0)
+			(at 126.492 155.956 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10871,7 +11086,7 @@
 			)
 		)
 		(property "Footprint" "Capacitor_THT:CP_Radial_D10.0mm_P5.00mm"
-			(at 121.6152 152.4 0)
+			(at 129.2352 152.4 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10880,7 +11095,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 120.65 148.59 0)
+			(at 128.27 148.59 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10889,7 +11104,7 @@
 			)
 		)
 		(property "Description" "Polarized capacitor"
-			(at 120.65 148.59 0)
+			(at 128.27 148.59 0)
 			(effects
 				(font
 					(size 1.27 1.27)
