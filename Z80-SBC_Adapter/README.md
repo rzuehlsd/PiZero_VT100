@@ -13,10 +13,12 @@ Auf der Adapterplatine sind die folgenden Funktionen realisiert:
 - 5VDC Netzteil zur Spannungsversorgung des MBC2 über ein Steckernetzteil (7 - 9 VAC oder DC Spannung)
 - Mini DIN8 Buchse für die Verbindung mit dem Terminal Board. Über diesen Stecker kann auch der MBC2 mit einer 5VDC Betriebsspannung versorgt werden.
 - 4 poliger Pin Header zum direkten Anschluss des MBC2 über Jumper Kabel mit der Terminal Platine
+- USB to Seriall Adapter für direkten Anschluss an Mac
 - LED zu Anzeige der Betriebsspannung
+- Ein/Aus Schalter
 
 
 To Dos:
 
-- [ ] Die auf dem Board verbauten horizontalen Microschalter müssen durch vertikale Microschalter ersetzt werden um auch außerhalb eines Gehäuses bedienbar zus ein
-- [ ] Kunstruktion eines kleinen Gehäuses für den 3D Druck
+- [ ] Die auf dem MBC2 Board verbauten horizontalen Microschalter müssen durch vertikale Microschalter ersetzt werden, um auch außerhalb eines Gehäuses bedienbar zus ein
+- [x] Konstruktion eines kleinen Gehäuses für den 3D Druck

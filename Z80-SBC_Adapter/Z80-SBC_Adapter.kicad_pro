@@ -61,7 +61,15 @@
       ],
       "drc_exclusions": [
         [
-          "silk_over_copper|127175000|138960000|0939f193-7572-482f-bd0d-b28d0c0e95ec|00000000-0000-0000-0000-000000000000",
+          "lib_footprint_issues|108100000|81275000|a0121178-223a-44bc-b095-0c9f191f0764|00000000-0000-0000-0000-000000000000",
+          ""
+        ],
+        [
+          "lib_footprint_mismatch|157500000|132000000|eef73c3b-2763-47fb-83f2-37c4f76a6b92|00000000-0000-0000-0000-000000000000",
+          ""
+        ],
+        [
+          "lib_footprint_mismatch|82230000|169500000|229f0f75-c196-4628-9fef-e770ce302481|00000000-0000-0000-0000-000000000000",
           ""
         ]
       ],
@@ -108,8 +116,8 @@
         "pth_inside_courtyard": "ignore",
         "shorting_items": "error",
         "silk_edge_clearance": "warning",
-        "silk_over_copper": "warning",
-        "silk_overlap": "warning",
+        "silk_over_copper": "ignore",
+        "silk_overlap": "ignore",
         "skew_out_of_range": "error",
         "solder_mask_bridge": "error",
         "starved_thermal": "error",
@@ -465,6 +473,7 @@
       "single_global_label": "ignore",
       "unannotated": "error",
       "unconnected_wire_endpoint": "warning",
+      "undefined_netclass": "error",
       "unit_value_mismatch": "error",
       "unresolved_variable": "error",
       "wire_dangling": "error"
