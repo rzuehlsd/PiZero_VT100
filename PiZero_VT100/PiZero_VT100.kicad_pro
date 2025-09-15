@@ -69,12 +69,24 @@
           ""
         ],
         [
+          "courtyards_overlap|119902537|114845000|a9a98488-c210-494d-8bad-b3535f74e483|fe0e9bfc-1a55-4426-ad30-6e3eff9732a1",
+          ""
+        ],
+        [
+          "lib_footprint_issues|162050000|162225000|5e7ebef6-31f4-4b78-8596-3b8c9df05b32|00000000-0000-0000-0000-000000000000",
+          "GND wird über Pi verbunden"
+        ],
+        [
           "padstack|160750000|160000000|876b5796-6762-4d25-a1ca-6a8a3eeb3b35|00000000-0000-0000-0000-000000000000",
           ""
         ],
         [
           "padstack|163350000|160000000|d7cfbd0c-7a8d-4b8e-953b-3a69cf328bf4|00000000-0000-0000-0000-000000000000",
           ""
+        ],
+        [
+          "unconnected_items|133795703|100039980|F.Cu|4|6cb2a42c-db51-4c37-b225-0fc60e5b6926|6cb2a42c-db51-4c37-b225-0fc60e5b6926",
+          "GND wird über Pi verbunden"
         ]
       ],
       "meta": {
@@ -107,7 +119,7 @@
         "items_not_allowed": "error",
         "length_out_of_range": "error",
         "lib_footprint_issues": "warning",
-        "lib_footprint_mismatch": "warning",
+        "lib_footprint_mismatch": "ignore",
         "malformed_courtyard": "error",
         "microvia_drill_out_of_range": "error",
         "mirrored_text_on_front_layer": "warning",
@@ -477,6 +489,7 @@
       "single_global_label": "ignore",
       "unannotated": "error",
       "unconnected_wire_endpoint": "warning",
+      "undefined_netclass": "error",
       "unit_value_mismatch": "error",
       "unresolved_variable": "error",
       "wire_dangling": "error"
