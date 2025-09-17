@@ -43,4 +43,13 @@ Die Platine wurde überarbeitet:
 - [x] Mini DIN6 Buchse für direkten Anschluss des MBC2 mit Spannungsversorgung
 - [x] RS232 DB9 Buchse
 - [x] interne Steckerleiste für direkten Anschluss des MBC2 im Terminalgehäuse
-- [ ] Platinenaussparung für den USB Stecker einbauen (Anschlusspins sehr kurz)
+- [x] Platinenaussparung für den USB Stecker einbauen (Anschlusspins sehr kurz)
+- [x] Schaltung für Buzzer / Lautsprecher eingebaut
+    - Ansteuerung über GPIO12 über PWM (muß mit Overlay auf PWM gesetzt werden) oder direkte Ansteuerung über pigpio
+    - Beispielcode für PWM:
+    ```
+        int gpioHardwarePWM(12, 800, x% * 1000000) 
+        delay(250m)
+    ```
+    - Kontakte für Piezzobuzzer mit 12,5mm Durchmesser und 5mm Rastermaß zusätzlich zu Stecker für Lautsprecher vrgesehen
+- Schaltung überarbeitet für externe Fabrikation 
