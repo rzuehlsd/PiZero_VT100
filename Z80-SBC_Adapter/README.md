@@ -22,3 +22,4 @@ To Dos:
 
 - [ ] Die auf dem MBC2 Board verbauten horizontalen Microschalter müssen durch vertikale Microschalter ersetzt werden, um auch außerhalb eines Gehäuses bedienbar zus ein
 - [x] Konstruktion eines kleinen Gehäuses für den 3D Druck
+- [x] Das Layout wurde komplett auf die Rückseite verlegt
