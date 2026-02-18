@@ -8,12 +8,12 @@ Below you see the original VT100 terminal (the color has turned to yellow over t
 
 <table>
   <tr>
-    <td><img src="IMG_1088.jpeg" alt="VT100 original" width="80%"/></td>
-    <td><img src="IMG_1095.jpeg" alt="60% replica" width="80%"/></td>
+    <td><img src="VT100/docs/images/IMG_1088.jpeg" alt="VT100 original" width="80%"/></td>
+    <td><img src="VT100/docs/images/IMG_1095.jpeg" alt="60% replica" width="80%"/></td>
   </tr>
   <tr>
-    <td><img src="DEC_Font_test.jpeg" alt="VT100 original" width="80%"/></td>
-    <td><img src="DEC_Graphics_Font.jpeg" alt="60% replica" width="80%"/></td>
+    <td><img src="VT100/docs/images/DEC_Font_test.jpeg" alt="VT100 original" width="80%"/></td>
+    <td><img src="VT100/docs/images/DEC_Graphics_Font.jpeg" alt="60% replica" width="80%"/></td>
   </tr>
 </table>
 
@@ -42,9 +42,9 @@ This software and hardware design are released under the MIT License. You may us
 This project keeps documentation in a strict 4-document model:
 
 - This `README.md` document provides the functional overview of the implemented software and user-facing operation guidance.
-- [Architecture Overview](docs/VT100_Architecture.md) is the single technical architecture + implementation reference for developers.
-- [Configuration Guide](docs/Configuration_Guide.md) contains all configuration guidance, split into user/operator and admin/developer parts.
-- [Hardware Design](docs/Hardware.md) contains the KiCad design of the PCB and the OpenSCAD files for printing the backplate.
+- [Architecture Overview](VT100/docs/VT100_Architecture.md) is the single technical architecture + implementation reference for developers.
+- [Configuration Guide](VT100/docs/Configuration_Guide.md) contains all configuration guidance, split into user/operator and admin/developer parts.
+- [Hardware Design](VT100/docs/Hardware.md) contains the KiCad design of the PCB and the OpenSCAD files for printing the backplate.
 
 When implementation changes affect behavior, update these documents in lockstep and avoid introducing additional overlapping technical documents.
 
@@ -104,7 +104,7 @@ The following table gives an overview of implementation highlights:
 
 And here are the results of the internal tests which could be switched on in VT100.txt config file:
 
-<img src="Test Summary.jpeg" alt="VT100 original" width="70%"/>
+<img src="VT100/docs/images/Test Summary.jpeg" alt="VT100 original" width="70%"/>
 
 ## Compile Environment Setup
 

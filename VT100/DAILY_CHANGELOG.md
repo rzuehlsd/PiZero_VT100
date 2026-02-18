@@ -165,3 +165,5 @@ Reconstructed from git commit history and intended as a concise daily summary of
 - Codebase changes: inserted a `Make Targets` table in `README.md` below `Compile Environment Setup`, covering project-local targets (`all`, `kernel.img`, `docs`, `docs_clean`) plus inherited Circle `Rules.mk` targets (`clean`, `install`, `tftpboot`, `flash`, `monitor`, `cat`).
 - Implemented features: added explicit toolchain maintenance Make targets for one-command Circle toolchain configuration and compiler/header verification.
 - Codebase changes: extended `VT100/Makefile` with `toolchain-configure` (wraps `third_party/circle/configure -f -p <prefix>`) and `toolchain-check` defaults (`TOOLCHAIN_PREFIX`, `CHECK_TMPDIR`) to support stable checks even when system temp is constrained.
+- Implemented features: restored working README image embedding and documentation links after moving project README to repository root.
+- Codebase changes: updated root `README.md` relative paths for embedded images to `VT100/docs/images/...` and developer guide links to `VT100/docs/...` so GitHub rendering resolves correctly from the new location.
