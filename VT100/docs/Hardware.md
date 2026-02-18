@@ -17,8 +17,8 @@ The Pi Zero GPIO pins are not 5 V tolerant. Therefore, all incoming signals (her
 To provide the RS-232 connection I use a MAX3232 board with Vcc connected to the 3.3V output of the Pi zero which solves this compatibility problem, as all in and outgoing signals are 3.3V.
 
 <div style="text-align: center;">
-  <img src="Schematic_V22.png" alt="Schematic Adapterboard" width="60%" height="auto"/>
-  <img src="Layout_V22.png" alt="Layout Adapterboard" width="60%" height="auto"/>
+  <img src="images/Schematic_V22.png" alt="Schematic Adapterboard" width="60%" height="auto"/>
+  <img src="images/Layout_V22.png" alt="Layout Adapterboard" width="60%" height="auto"/>
 </div>
 
 
@@ -52,8 +52,8 @@ A new backplate has been developed in OpenScad to be able to mount the pcb and i
 
 
 <div style="text-align: center;">
-  <img src="Backplate_Front.png" alt="Schematic Adapterboard" width="60%" height="auto"/>
-  <img src="Backplate_Back.png" alt="Layout Adapterboard" width="60%" height="auto"/>
+  <img src="images/Backplate_Front.png" alt="Schematic Adapterboard" width="60%" height="auto"/>
+  <img src="images/Backplate_Back.png" alt="Layout Adapterboard" width="60%" height="auto"/>
 </div>
 
 Holes allow to add on/off toggle switch, give access to power connector, RS-232, Mini DIN6 and USB connector. The slot above the usb connector could be used to mount a SD-card extension cable to accomodate switching of sd card at the back of the VT100 case.

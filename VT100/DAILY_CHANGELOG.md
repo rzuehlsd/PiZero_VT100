@@ -177,3 +177,7 @@ Reconstructed from git commit history and intended as a concise daily summary of
 - Codebase changes: added standard fenced `mermaid` code blocks to `VT100/docs/VT100_Architecture.md` for the dependency graph and sequence diagrams, while preserving existing Doxygen `\htmlonly` Mermaid blocks for generated HTML docs.
 - Implemented features: removed duplicate architecture diagram output in Git Markdown views.
 - Codebase changes: removed legacy Doxygen-only `\htmlonly` Mermaid blocks from `VT100/docs/VT100_Architecture.md`, leaving a single canonical set of fenced `mermaid` diagrams to avoid rendered+text duplication in Git.
+
+## 2026-02-19
+- Implemented features: restored visible images in the hardware description markdown page.
+- Codebase changes: updated `VT100/docs/Hardware.md` image references from local-file names to `images/...` paths (`Schematic_V22.png`, `Layout_V22.png`, `Backplate_Front.png`, `Backplate_Back.png`) so Git Markdown and Doxygen resolve the assets from `VT100/docs/images` correctly.
