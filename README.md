@@ -46,6 +46,10 @@ This project keeps documentation in a strict 4-document model:
 - [Configuration Guide](VT100/docs/Configuration_Guide.md) contains all configuration guidance, split into user/operator and admin/developer parts.
 - [Hardware Design](VT100/docs/Hardware.md) contains the KiCad design of the PCB and the OpenSCAD files for printing the backplate.
 
+Generated API documentation is also published via GitHub Pages:
+
+- [Doxygen HTML Documentation](https://rzuehlsd.github.io/PiZero_VT100/)
+
 When implementation changes affect behavior, update these documents in lockstep and avoid introducing additional overlapping technical documents.
 
 # Software Implementation
@@ -357,7 +361,7 @@ wlan_host_autostart=0
 log_filename=vt100.log
 ```
 
-##Circle Boot Files
+## Circle Boot Files
 
 - `cmdline.txt` — Parsed by Circle during boot. Keep options on one line, e.g. `logdev=tty1 loglevel=4 width=1024 height=768 keymap=DE`.
 - `config.txt` / `config64.txt` — Raspberry Pi firmware settings. The template applies `dtoverlay=miniuart-bt`, `enable_uart=1`, and `display_hdmi_rotate=2` for the upside-down LCD in the replica enclosure.
