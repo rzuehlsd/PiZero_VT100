@@ -163,6 +163,8 @@ $(BINDIR)/kernel.img: $(TARGET).img | $(BINDIR)
 docs:
 	@echo "  DOXY  $(APPHOME)/Doxyfile"
 	@cd $(APPHOME) && doxygen Doxyfile
+	@mkdir -p $(APPHOME)/docs/doxygen/html/VT100/docs/images
+	@find $(APPHOME)/docs/images -maxdepth 1 -type f -exec cp {} $(APPHOME)/docs/doxygen/html/VT100/docs/images/ \;
 	@cd $(APPHOME)/docs/doxygen && ln -sf html/index.html index.html
 
 docs_clean:
