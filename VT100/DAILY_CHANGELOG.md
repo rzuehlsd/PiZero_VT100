@@ -175,3 +175,5 @@ Reconstructed from git commit history and intended as a concise daily summary of
 - Codebase changes: extended `VT100/Makefile` `docs` target to mirror `VT100/docs/images` into `VT100/docs/doxygen/html/VT100/docs/images`, matching root-README image paths (`VT100/docs/images/...`) used by Doxygen when `../README.md` is the main page.
 - Implemented features: restored Mermaid diagram rendering in Git-hosted Markdown views for architecture documentation.
 - Codebase changes: added standard fenced `mermaid` code blocks to `VT100/docs/VT100_Architecture.md` for the dependency graph and sequence diagrams, while preserving existing Doxygen `\htmlonly` Mermaid blocks for generated HTML docs.
+- Implemented features: removed duplicate architecture diagram output in Git Markdown views.
+- Codebase changes: removed legacy Doxygen-only `\htmlonly` Mermaid blocks from `VT100/docs/VT100_Architecture.md`, leaving a single canonical set of fenced `mermaid` diagrams to avoid rendered+text duplication in Git.

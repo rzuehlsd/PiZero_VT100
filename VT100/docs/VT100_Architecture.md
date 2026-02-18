@@ -86,38 +86,6 @@ graph TD
   CTRenderer --> CBcmFrameBuffer
 ```
 
-\htmlonly
-<pre class="mermaid">
-graph TD
-    CKernel --> CTConfig
-    CKernel --> CTFontConverter
-    CKernel --> CTRenderer
-    CKernel --> CTKeyboard
-    CKernel --> CTUART
-    CKernel --> CTSetup
-    CKernel --> CTFileLog
-    CKernel --> CTWlanLog
-    CKernel --> CHAL
-    CKernel --> CVTTest
-
-    CTSetup --> CTRenderer
-    CTSetup --> CTConfig
-    CTSetup --> CTKeyboard
-
-    CTKeyboard --> CTConfig
-    CTRenderer --> CTConfig
-    CTRenderer --> CTFontConverter
-
-    CTFileLog --> CLogger
-    CTWlanLog --> CLogger
-    CTWlanLog --> CNetSubSystem
-    CTWlanLog --> CWPASupplicant
-
-    CTUART --> CSerialDevice
-    CTRenderer --> CBcmFrameBuffer
-</pre>
-\endhtmlonly
-
 Notes:
 
 - `CKernel` remains the integration hub and lifecycle owner of singleton task modules.
@@ -165,35 +133,6 @@ sequenceDiagram
   end
   Main->>Kernel: Run()
 ```
-
-\htmlonly
-<pre class="mermaid">
-sequenceDiagram
-    participant Main as main.cpp
-    participant Kernel as CKernel
-    participant Config as CTConfig
-    participant Font as CTFontConverter
-    participant Renderer as CTRenderer
-    participant Keyboard as CTKeyboard
-    participant UART as CTUART
-    participant Setup as CTSetup
-    participant Wlan as CTWlanLog
-
-    Main->>Kernel: Initialize()
-    Kernel->>Config: Initialize()
-    Kernel->>Config: LoadFromFile()
-    Kernel->>Font: Initialize()
-    Kernel->>Renderer: Initialize()
-    Kernel->>Keyboard: Configure(callbacks)
-    Kernel->>Keyboard: Initialize()
-    Kernel->>UART: Initialize(&interrupt, nullptr)
-    Kernel->>Setup: Initialize(renderer, config, keyboard)
-    alt WLAN logging enabled
-        Kernel->>Wlan: Initialize(..., port 2323, fallback)
-    end
-    Main->>Kernel: Run()
-</pre>
-\endhtmlonly
 
 ## 5. Task model and interaction pattern
 
@@ -254,34 +193,6 @@ sequenceDiagram
   Wlan-->>Router: HandleWlanHostRx()
   Router->>Rndr: Write(host bridge bytes)
 ```
-
-\htmlonly
-<pre class="mermaid">
-sequenceDiagram
-    participant HID as USB Keyboard
-    participant Kbd as CTKeyboard
-    participant Kcb as kernel onKeyPressed
-    participant Router as CKernel::SendHostOutput
-    participant Uart as CTUART
-    participant Wlan as CTWlanLog
-    participant Rndr as CTRenderer
-
-    HID->>Kbd: key event
-    Kbd->>Kcb: translated text
-    Kcb->>Router: SendHostOutput()
-    alt WLAN host mode active
-        Router->>Wlan: SendHostData()
-    else UART mode
-        Router->>Uart: Send()
-    end
-
-    Uart-->>Router: DrainSerialInput()
-    Router->>Rndr: Write(serial bytes)
-
-    Wlan-->>Router: HandleWlanHostRx()
-    Router->>Rndr: Write(host bridge bytes)
-</pre>
-\endhtmlonly
 
 ## 7. Setup subsystem details
 
