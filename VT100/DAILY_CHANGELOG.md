@@ -173,3 +173,5 @@ Reconstructed from git commit history and intended as a concise daily summary of
 - Codebase changes: updated `.github/workflows/docs-pages.yml` checkout step to `submodules: recursive` so `third_party/circle/Rules.mk` is available during `make docs` in CI.
 - Implemented features: restored image rendering for root-README content on the generated Doxygen main page.
 - Codebase changes: extended `VT100/Makefile` `docs` target to mirror `VT100/docs/images` into `VT100/docs/doxygen/html/VT100/docs/images`, matching root-README image paths (`VT100/docs/images/...`) used by Doxygen when `../README.md` is the main page.
+- Implemented features: restored Mermaid diagram rendering in Git-hosted Markdown views for architecture documentation.
+- Codebase changes: added standard fenced `mermaid` code blocks to `VT100/docs/VT100_Architecture.md` for the dependency graph and sequence diagrams, while preserving existing Doxygen `\htmlonly` Mermaid blocks for generated HTML docs.

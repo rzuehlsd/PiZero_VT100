@@ -56,6 +56,36 @@ Primary modules in `VT100/src`:
 
 ## 3. Dependency graph (implementation-aligned)
 
+```mermaid
+graph TD
+  CKernel --> CTConfig
+  CKernel --> CTFontConverter
+  CKernel --> CTRenderer
+  CKernel --> CTKeyboard
+  CKernel --> CTUART
+  CKernel --> CTSetup
+  CKernel --> CTFileLog
+  CKernel --> CTWlanLog
+  CKernel --> CHAL
+  CKernel --> CVTTest
+
+  CTSetup --> CTRenderer
+  CTSetup --> CTConfig
+  CTSetup --> CTKeyboard
+
+  CTKeyboard --> CTConfig
+  CTRenderer --> CTConfig
+  CTRenderer --> CTFontConverter
+
+  CTFileLog --> CLogger
+  CTWlanLog --> CLogger
+  CTWlanLog --> CNetSubSystem
+  CTWlanLog --> CWPASupplicant
+
+  CTUART --> CSerialDevice
+  CTRenderer --> CBcmFrameBuffer
+```
+
 \htmlonly
 <pre class="mermaid">
 graph TD
@@ -108,6 +138,33 @@ Current initialization order in `CKernel::Initialize()`:
 6. Font converter, renderer, keyboard, UART, setup, test modules
 7. Optional WLAN log/telnet initialization
 8. Start periodic task and continue to runtime loop
+
+```mermaid
+sequenceDiagram
+  participant Main as main.cpp
+  participant Kernel as CKernel
+  participant Config as CTConfig
+  participant Font as CTFontConverter
+  participant Renderer as CTRenderer
+  participant Keyboard as CTKeyboard
+  participant UART as CTUART
+  participant Setup as CTSetup
+  participant Wlan as CTWlanLog
+
+  Main->>Kernel: Initialize()
+  Kernel->>Config: Initialize()
+  Kernel->>Config: LoadFromFile()
+  Kernel->>Font: Initialize()
+  Kernel->>Renderer: Initialize()
+  Kernel->>Keyboard: Configure(callbacks)
+  Kernel->>Keyboard: Initialize()
+  Kernel->>UART: Initialize(&interrupt, nullptr)
+  Kernel->>Setup: Initialize(renderer, config, keyboard)
+  alt WLAN logging enabled
+    Kernel->>Wlan: Initialize(..., port 2323, fallback)
+  end
+  Main->>Kernel: Run()
+```
 
 \htmlonly
 <pre class="mermaid">
@@ -171,6 +228,32 @@ Implementation notes aligned with current code:
 - UART RX polling path: kernel `ProcessSerial()` → renderer write
 - WLAN host mode RX path: `HandleWlanHostRx()` → renderer write
 - setup visibility guard: serial/host rendering is suppressed while setup overlay is visible
+
+```mermaid
+sequenceDiagram
+  participant HID as USB Keyboard
+  participant Kbd as CTKeyboard
+  participant Kcb as kernel onKeyPressed
+  participant Router as CKernel::SendHostOutput
+  participant Uart as CTUART
+  participant Wlan as CTWlanLog
+  participant Rndr as CTRenderer
+
+  HID->>Kbd: key event
+  Kbd->>Kcb: translated text
+  Kcb->>Router: SendHostOutput()
+  alt WLAN host mode active
+    Router->>Wlan: SendHostData()
+  else UART mode
+    Router->>Uart: Send()
+  end
+
+  Uart-->>Router: DrainSerialInput()
+  Router->>Rndr: Write(serial bytes)
+
+  Wlan-->>Router: HandleWlanHostRx()
+  Router->>Rndr: Write(host bridge bytes)
+```
 
 \htmlonly
 <pre class="mermaid">
