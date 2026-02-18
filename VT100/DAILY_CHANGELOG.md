@@ -169,3 +169,5 @@ Reconstructed from git commit history and intended as a concise daily summary of
 - Codebase changes: updated root `README.md` relative paths for embedded images to `VT100/docs/images/...` and developer guide links to `VT100/docs/...` so GitHub rendering resolves correctly from the new location.
 - Implemented features: enabled automatic publishing of generated Doxygen HTML documentation to GitHub Pages on each push to `main`.
 - Codebase changes: added repository-level GitHub Actions workflow `.github/workflows/docs-pages.yml` to install Doxygen/Graphviz, run `make docs` in `VT100/`, and deploy `VT100/docs/doxygen/html` via Pages; added root `README.md` link to the published Pages documentation URL; updated `VT100/Doxyfile` input/mainpage from `README.md` to `../README.md` after moving the project README to repository root.
+- Implemented features: stabilized GitHub Pages docs deployment by ensuring CI checks out required project submodules.
+- Codebase changes: updated `.github/workflows/docs-pages.yml` checkout step to `submodules: recursive` so `third_party/circle/Rules.mk` is available during `make docs` in CI.
