@@ -1,0 +1,65 @@
+//------------------------------------------------------------------------------
+// Module:        CTaskName
+// Description:   TODO: Provide a short summary of the module responsibilities.
+// Author:        R. Zuehlsdorff, ralf.zuehlsdorff@t-online.de
+// Created:       YYYY-MM-DD
+// License:       MIT License (https://opensource.org/license/mit/)
+//------------------------------------------------------------------------------
+// Change Log:
+// YYYY-MM-DD     R. Zuehlsdorff        Initial creation
+//------------------------------------------------------------------------------
+
+// Include class header
+#include "TaskName.h"
+
+// Include Circle core components
+#include <circle/logger.h>
+#include <circle/sched/scheduler.h>
+
+LOGMODULE("TaskName");
+
+// Singleton instance creation and access.
+// Teardown is handled by the runtime.
+// CAUTION: This is only possible if the constructor does not need parameters.
+static CTaskName *s_pThis = 0;
+CTaskName *CTaskName::Get(void)
+{
+    if (s_pThis == 0)
+    {
+        s_pThis = new CTaskName();
+    }
+    return s_pThis;
+}
+
+CTaskName::CTaskName()
+    : CTask()
+{
+    SetName("TaskName");
+    Suspend();
+}
+
+CTaskName::~CTaskName()
+{
+}
+
+bool CTaskName::Initialize()
+{
+    if (!m_Initialized)
+    {
+        // TODO: Add one-time initialization here.
+        m_Initialized = true;
+    }
+
+    LOGNOTE("TaskName initialized");
+    Start();
+    return true;
+}
+
+void CTaskName::Run()
+{
+    while (!IsSuspended())
+    {
+        // TODO: Add task loop workload here.
+        CScheduler::Get()->MsSleep(100);
+    }
+}

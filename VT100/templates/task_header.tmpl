@@ -1,0 +1,48 @@
+//------------------------------------------------------------------------------
+// Module:        CTaskName
+// Description:   TODO: Provide a short summary of the module responsibilities.
+// Author:        R. Zuehlsdorff, ralf.zuehlsdorff@t-online.de
+// Created:       YYYY-MM-DD
+// License:       MIT License (https://opensource.org/license/mit/)
+//------------------------------------------------------------------------------
+// Change Log:
+// YYYY-MM-DD     R. Zuehlsdorff        Initial creation
+//------------------------------------------------------------------------------
+
+#pragma once
+
+// Include Circle core components
+#include <circle/sched/task.h>
+
+/**
+ * @file TaskName.h
+ * @brief Declares the CTaskName task class.
+ * @details TODO: Add module details.
+ */
+
+/**
+ * @class CTaskName
+ * @brief TODO: Add a class summary.
+ */
+class CTaskName : public CTask
+{
+public:
+    /// \brief Access the singleton task instance.
+    /// \return Pointer to task instance.
+    static CTaskName *Get(void);
+
+    /// \brief Construct the task.
+    CTaskName();
+    /// \brief Destroy the task.
+    ~CTaskName();
+
+    /// \brief Initialize task resources.
+    /// \return TRUE on success, FALSE otherwise.
+    bool Initialize();
+
+    /// \brief Scheduler entry point.
+    void Run() override;
+
+private:
+    bool m_Initialized{false};
+};

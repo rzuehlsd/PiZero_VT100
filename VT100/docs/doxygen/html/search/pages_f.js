@@ -1,0 +1,25 @@
+var searchData=
+[
+  ['f10_0',['F10',['../md_docs_2_v_t100___architecture.html#autotoc_md74-local-mode-f10',1,'7.4 Local mode (F10)'],['../index.html#dec-local-mode-f10',1,'DEC Local Mode (F10)']]],
+  ['f11_1',['F11',['../md_docs_2_v_t100___architecture.html#autotoc_md72-modern-setup-f11',1,'7.2 Modern setup (F11)'],['../index.html#vt100-extended-setup-dialog-f11',1,'VT100 Extended Setup Dialog (F11)']]],
+  ['f12_2',['7.1 Legacy setup (F12)',['../md_docs_2_v_t100___architecture.html#autotoc_md71-legacy-setup-f12',1,'']]],
+  ['fails_20with_20fatal_20error_3a_20stdint_20h_3a_20no_20such_20file_20or_20directory_3',['Build fails with &lt;span class=&quot;tt&quot;&gt;fatal error: stdint.h: No such file or directory&lt;/span&gt;',['../index.html#build-fails-with-fatal-error-stdinth-no-such-file-or-directory',1,'']]],
+  ['fatal_20error_3a_20stdint_20h_3a_20no_20such_20file_20or_20directory_4',['Build fails with &lt;span class=&quot;tt&quot;&gt;fatal error: stdint.h: No such file or directory&lt;/span&gt;',['../index.html#build-fails-with-fatal-error-stdinth-no-such-file-or-directory',1,'']]],
+  ['features_5',['Main Features',['../index.html#main-features',1,'']]],
+  ['fields_20sanity_6',['B3) Setup B Additional Mapped Fields Sanity',['../md_docs_2_manual___testplan__2026-02-12__to__2026-02-14.html#b3-setup-b-additional-mapped-fields-sanity',1,'']]],
+  ['file_20or_20directory_7',['Build fails with &lt;span class=&quot;tt&quot;&gt;fatal error: stdint.h: No such file or directory&lt;/span&gt;',['../index.html#build-fails-with-fatal-error-stdinth-no-such-file-or-directory',1,'']]],
+  ['file_20sink_8',['8.2 File sink',['../md_docs_2_v_t100___architecture.html#autotoc_md82-file-sink',1,'']]],
+  ['file_3a_20vt100_20txt_9',['Configuration File: VT100.txt',['../index.html#configuration-file-vt100txt',1,'']]],
+  ['files_10',['Circle Boot Files',['../index.html#circle-boot-files',1,'']]],
+  ['files_20you_20normally_20edit_11',['A1) Files you normally edit',['../md_docs_2_configuration___guide.html#a1-files-you-normally-edit',1,'']]],
+  ['firmware_20interaction_20notes_202026_2002_2018_12',['Firmware interaction notes (2026-02-18)',['../md_docs_2_hardware.html#firmware-interaction-notes-2026-02-18',1,'']]],
+  ['flow_13',['flow',['../md_docs_2_v_t100___architecture.html#autotoc_md61-keyboard-to-host-flow',1,'6.1 Keyboard to host flow'],['../md_docs_2_v_t100___architecture.html#autotoc_md62-host-to-display-flow',1,'6.2 Host to display flow']]],
+  ['flows_14',['6. Runtime data flows',['../md_docs_2_v_t100___architecture.html#autotoc_md6-runtime-data-flows',1,'']]],
+  ['follows_20uart_20host_15',['Host mode enabled but VT100 still follows UART host',['../index.html#host-mode-enabled-but-vt100-still-follows-uart-host',1,'']]],
+  ['font_20and_20rendering_20details_16',['9. Font and rendering details',['../md_docs_2_v_t100___architecture.html#autotoc_md9-font-and-rendering-details',1,'']]],
+  ['for_20pi_20zero_20vt100_20terminal_17',['Carrier Board for Pi Zero VT100 Terminal',['../md_docs_2_hardware.html',1,'']]],
+  ['for_20vt100_20app_18',['Use Unix &lt;span class=&quot;tt&quot;&gt;screen&lt;/span&gt; as remote host for VT100 app',['../index.html#use-unix-screen-as-remote-host-for-vt100-app',1,'']]],
+  ['for_20vt100_20case_20to_20mount_20board_19',['Backplate for VT100 case to mount board',['../md_docs_2_hardware.html#backplate-for-vt100-case-to-mount-board',1,'']]],
+  ['formulas_20',['Important Note about Homebrew formulas',['../index.html#important-note-about-homebrew-formulas',1,'']]],
+  ['framework_21',['VT100 Terminal Emulation on Raspberry Pi Zero W with Circle Bare Metal Framework',['../index.html',1,'']]]
+];

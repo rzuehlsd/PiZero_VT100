@@ -1,0 +1,24 @@
+var searchData=
+[
+  ['d1_20smooth_20scroll_20boot_20time_20apply_0',['D1) Smooth Scroll Boot-Time Apply',['../md_docs_2_manual___testplan__2026-02-12__to__2026-02-14.html#d1-smooth-scroll-boot-time-apply',1,'']]],
+  ['d2_20smooth_20scroll_20single_20line_20insert_20delete_20behavior_1',['D2) Smooth Scroll Single-Line Insert/Delete Behavior',['../md_docs_2_manual___testplan__2026-02-12__to__2026-02-14.html#d2-smooth-scroll-single-line-insertdelete-behavior',1,'']]],
+  ['data_20flows_2',['6. Runtime data flows',['../md_docs_2_v_t100___architecture.html#autotoc_md6-runtime-data-flows',1,'']]],
+  ['debug_20and_20logging_3',['Debug and Logging',['../index.html#debug-and-logging',1,'']]],
+  ['debugging_4',['Command/log mode (WLAN debugging)',['../index.html#commandlog-mode-wlan-debugging',1,'']]],
+  ['dec_20local_20mode_20f10_5',['DEC Local Mode (F10)',['../index.html#dec-local-mode-f10',1,'']]],
+  ['dec_20special_20graphics_20and_20charset_20switching_6',['9.1 DEC special graphics and charset switching',['../md_docs_2_v_t100___architecture.html#autotoc_md91-dec-special-graphics-and-charset-switching',1,'']]],
+  ['delete_20behavior_7',['D2) Smooth Scroll Single-Line Insert/Delete Behavior',['../md_docs_2_manual___testplan__2026-02-12__to__2026-02-14.html#d2-smooth-scroll-single-line-insertdelete-behavior',1,'']]],
+  ['dependency_20graph_20implementation_20aligned_8',['3. Dependency graph (implementation-aligned)',['../md_docs_2_v_t100___architecture.html#autotoc_md3-dependency-graph-implementation-aligned',1,'']]],
+  ['details_9',['details',['../md_docs_2_v_t100___architecture.html#autotoc_md10-hal-and-buzzer-details',1,'10. HAL and buzzer details'],['../md_docs_2_v_t100___architecture.html#autotoc_md7-setup-subsystem-details',1,'7. Setup subsystem details'],['../md_docs_2_v_t100___architecture.html#autotoc_md9-font-and-rendering-details',1,'9. Font and rendering details']]],
+  ['developer_10',['Part B — Admin / Developer',['../md_docs_2_configuration___guide.html#part-b--admin--developer',1,'']]],
+  ['development_20notes_11',['12. Development notes',['../md_docs_2_v_t100___architecture.html#autotoc_md12-development-notes',1,'']]],
+  ['dialog_20f11_12',['VT100 Extended Setup Dialog (F11)',['../index.html#vt100-extended-setup-dialog-f11',1,'']]],
+  ['dialogs_13',['A2) Setup dialogs',['../md_docs_2_configuration___guide.html#a2-setup-dialogs',1,'']]],
+  ['directly_20to_20tcp_14',['&lt;span class=&quot;tt&quot;&gt;screen&lt;/span&gt; does not connect directly to TCP',['../index.html#screen-does-not-connect-directly-to-tcp',1,'']]],
+  ['directory_15',['Build fails with &lt;span class=&quot;tt&quot;&gt;fatal error: stdint.h: No such file or directory&lt;/span&gt;',['../index.html#build-fails-with-fatal-error-stdinth-no-such-file-or-directory',1,'']]],
+  ['display_20flow_16',['6.2 Host to display flow',['../md_docs_2_v_t100___architecture.html#autotoc_md62-host-to-display-flow',1,'']]],
+  ['display_20orientation_17',['Display Orientation',['../index.html#display-orientation',1,'']]],
+  ['document_20role_18',['1. Document role',['../md_docs_2_v_t100___architecture.html#autotoc_md1-document-role',1,'']]],
+  ['documentation_20policy_19',['Documentation Policy',['../index.html#documentation-policy',1,'']]],
+  ['does_20not_20connect_20directly_20to_20tcp_20',['&lt;span class=&quot;tt&quot;&gt;screen&lt;/span&gt; does not connect directly to TCP',['../index.html#screen-does-not-connect-directly-to-tcp',1,'']]]
+];

@@ -1,0 +1,36 @@
+﻿pos_x,pos_y,rotation,side,designator,mpn,pack,footprint,value,mount_type
+88.15,35.2,0.0,top,BZ1,,,MagneticBuzzer_ProSignal_ABI-009-RC,Buzzer,tht
+26.9,42.6,-90.0,top,C1,,,CP_Elec_10x10,470u,smt
+26.9,58.2825,-90.0,top,C2,,,CP_Elec_10x10,470u / 25V,smt
+86.8,91.6,180.0,top,C5,,,C_Rect_L7.0mm_W4.5mm_P5.00mm,22n,tht
+93.8,89.85,-90.0,top,C6,,,C_Rect_L9.0mm_W2.6mm_P7.50mm_MKT,10u,tht
+10.75,26.03,0.0,top,D1,,,Diode_Bridge_Round_D9.8mm,W01G,tht
+93.8,9.83,90.0,top,D2,,,LED_D3.0mm,Power,tht
+60.4,20.55,180.0,top,D3,,,D_DO-15_P12.70mm_Horizontal,D_Schottky,tht
+76.34,47.33,90.0,top,D4,,,D_A-405_P10.16mm_Horizontal,1N4148,tht
+82.04,48.5,0.0,top,D5,,,D_A-405_P10.16mm_Horizontal,D,tht
+15.5,57.95,90.0,top,D6,,,D_SMC,MBRS340,smt
+3.3,24.7,90.0,top,F1,,,Fuse_Littelfuse-LVR200,Polyfuse 2A,tht
+25.57,73.2,90.0,top,J1,,,PinSocket_2x20_P2.54mm_Vertical,GPIO,tht
+31.76,27.15,90.0,top,J2,,,PinSocket_1x04_P2.54mm_Vertical,RS232,tht
+12.55,14.3,0.0,top,J3,,,BarrelJack_GCT_DCJ200-10-A_Horizontal,"Ext. Power max,. 9V DC/AC",tht
+78.775,40.35,90.0,top,J5,,,PinHeader_1x02_P2.54mm_Vertical,to Testpins 22(DM) and TP23(DP),tht
+77.75,12.94,0.0,top,J6,,,USB_A_Stewart_SS-52100-001_Horizontal,USB_A,tht
+43.6,38.85,180.0,top,J7,,,PinHeader_1x04_P2.54mm_Vertical,Z80-MBC2 direct,tht
+12.975,96.9,-90.0,top,J8,,,PinHeader_1x02_P2.54mm_Vertical,LCD Power,tht
+3.1,14.775,0.0,top,J9,,,PinHeader_1x02_P2.54mm_Vertical,On / Off,tht
+71.42,55.1,-90.0,top,K1,,,Relay_DPDT_Omron_G5V-2,G5V-2,tht
+5.36,59.83,-90.0,top,L1,,,L_Fastron_PISN,47u,smt
+84.8,59.68,-90.0,top,Q1,,,TO-92_Wide,BC546,tht
+96.3,62.6,180.0,top,Q2,,,TO-92_Wide,BC546,tht
+74.87,25.8,0.0,top,R1,,,R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal,470,tht
+96.3,56.6,-90.0,top,R10,,,R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal,10,tht
+46.72,62.1,0.0,top,R2,,,R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal,820,tht
+56.88,65.6,180.0,top,R3,,,R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal,1.5k,tht
+77.72,68.6,0.0,top,R4,,,R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal,1k,tht
+3.05,47.7,0.0,top,R5,,,R_1206_3216Metric_Pad1.30x1.75mm_HandSolder,12k,smt
+3.0,43.3,180.0,top,R6,,,R_1206_3216Metric_Pad1.30x1.75mm_HandSolder,"3,9k",smt
+78.22,74.1,0.0,top,R7,,,R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal,120,tht
+79.72,86.6,0.0,top,R8,,,R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal,150,tht
+93.8,78.1,180.0,top,R9,,,R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal,15k,tht
+13.775,38.425,-90.0,top,U1,,,TO-263-5_TabPin3,LM2576HVS-ADJ,smt

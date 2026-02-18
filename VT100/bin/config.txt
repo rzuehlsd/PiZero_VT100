@@ -1,0 +1,3 @@
+dtoverlay=miniuart-bt   
+enable_uart=1
+display_hdmi_rotate=2

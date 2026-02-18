@@ -1,0 +1,74 @@
+# VT100 Terminal Configuration File
+# Place this file as VT100.txt on the SD card boot partition.
+# Values below match firmware defaults.
+
+# --- Serial communication ---
+# Host serial speed in bits per second
+baud_rate=115200
+
+# UART framing:
+# serial_bits: 7 or 8
+# serial_parity: 0=None, 1=Even, 2=Odd
+serial_bits=8
+serial_parity=0
+
+# --- Keyboard / line handling ---
+# line_ending: 0=LF, 1=CRLF, 2=CR
+line_ending=0
+
+# key_auto_repeat: 0=off, 1=on
+key_auto_repeat=1
+
+# Delay before repeat starts (milliseconds: 250..1000)
+repeat_delay_ms=250
+
+# Repeat rate (characters per second: 2..20)
+repeat_rate_cps=10
+
+# key_click: 0=off, 1=on
+key_click=1
+
+# --- Terminal mode / display ---
+# vt52_mode: 0=ANSI (VT100), 1=VT52
+vt52_mode=0
+
+# cursor_type: 0=underline, 1=block
+cursor_type=0
+
+# cursor_blinking: 0=steady, 1=blinking
+cursor_blinking=0
+
+# vt_test: 0=off, 1=on
+vt_test=1
+
+# font_selection: 1=8x20, 2=10x20 CRT, 3=10x20 solid
+font_selection=2
+
+# Palette indices: 0=black, 1=white, 2=amber, 3=green
+text_color=1
+background_color=0
+
+# --- Sound / wiring ---
+# buzzer_volume: 0..80 (percent duty cycle)
+buzzer_volume=50
+
+# switch_txrx: 0=normal wiring, 1=swapped via GPIO16
+switch_txrx=0
+
+# --- Logging ---
+# log_output:
+# 0=off
+# 1=screen
+# 2=file
+# 3=wlan
+# 4=screen+file
+# 5=screen+wlan
+# 6=file+wlan
+# 7=screen+file+wlan
+log_output=1
+
+# wlan_host_autostart: 0=command/log mode after connect, 1=auto-enable host bridge mode
+wlan_host_autostart=0
+
+# Log file name (max 63 chars)
+log_filename=vt100.log
