@@ -161,6 +161,7 @@ private:
     bool m_bSerialTaskStarted;
     bool m_bTelnetReady;
     bool m_bWaitingMessageActive;
+    bool m_bWaitingMessageShowsIP;
     bool m_bScreenLoggerEnabled;
     bool m_bLocalModeEnabled;
 };

@@ -227,6 +227,7 @@ CKernel::CKernel(void)
             m_bSerialTaskStarted(false),
             m_bTelnetReady(false),
             m_bWaitingMessageActive(false),
+            m_bWaitingMessageShowsIP(false),
             m_bScreenLoggerEnabled(true),
             m_bLocalModeEnabled(false)
 {
@@ -476,6 +477,7 @@ boolean CKernel::Initialize(void)
 
         m_bTelnetReady = false;
         m_bWaitingMessageActive = false;
+        m_bWaitingMessageShowsIP = false;
 
     }
    
@@ -607,6 +609,11 @@ TShutdownMode CKernel::Run(void)
         {
             m_Net.Process();
 
+            if (m_pWlanLog != nullptr && !m_pWlanLog->IsClientConnected() && !IsTelnetReady())
+            {
+                MarkTelnetWaiting();
+            }
+
             if (!m_bMDNSAdvertised && m_Net.IsRunning())
             {
                 CmDNSDaemon *mdns = CmDNSDaemon::Get();
@@ -645,6 +652,7 @@ void CKernel::MarkTelnetReady()
 
     m_bTelnetReady = true;
     m_bWaitingMessageActive = false;
+    m_bWaitingMessageShowsIP = false;
 
     if (m_bWlanLoggerEnabled && m_pRenderer != nullptr)
     {
@@ -760,12 +768,16 @@ void CKernel::MarkTelnetWaiting()
     {
         m_bTelnetReady = true;
         m_bWaitingMessageActive = false;
+        m_bWaitingMessageShowsIP = false;
         return;
     }
 
-    if (m_bWaitingMessageActive && !m_bTelnetReady)
+    bool haveIPNow = false;
+    const CNetConfig *waitingConfig = m_Net.GetConfig();
+    if (waitingConfig != nullptr && waitingConfig->GetIPAddress() != nullptr)
     {
-        return;
+        const CIPAddress *ip = waitingConfig->GetIPAddress();
+        haveIPNow = ip->IsSet() && !ip->IsNull();
     }
 
     m_bTelnetReady = false;
@@ -777,9 +789,48 @@ void CKernel::MarkTelnetWaiting()
     }
     m_bSerialTaskStarted = false;
 
+    if (!haveIPNow)
+    {
+        return;
+    }
+
+    if (m_bWaitingMessageShowsIP)
+    {
+        return;
+    }
+
     if (m_pRenderer != nullptr)
     {
-        static const char WaitingMsg[] = "\r\nWaiting for telnet client connection...\r\n";
-        m_pRenderer->Write(WaitingMsg, sizeof WaitingMsg - 1);
+        CString waitingMsg("\r\nWaiting for telnet client connection...\r\n");
+
+        CString ipString;
+        bool haveIP = false;
+        const CNetConfig *config = m_Net.GetConfig();
+        if (config != nullptr && config->GetIPAddress() != nullptr)
+        {
+            const CIPAddress *ip = config->GetIPAddress();
+            haveIP = ip->IsSet() && !ip->IsNull();
+            if (haveIP)
+            {
+                ip->Format(&ipString);
+                haveIP = ipString.GetLength() > 0;
+            }
+        }
+
+        CString connectHint;
+        connectHint.Format("Connect via: telnet %s %u\r\n", (const char *)ipString, TerminalPort);
+
+        waitingMsg += connectHint;
+
+        CString hostName = m_Net.GetHostname();
+        if (hostName.GetLength() > 0)
+        {
+            CString hostHint;
+            hostHint.Format("Connect via: telnet %s.local %u\r\n", (const char *)hostName, TerminalPort);
+            waitingMsg += hostHint;
+        }
+
+        m_pRenderer->Write(waitingMsg.c_str(), waitingMsg.GetLength());
+        m_bWaitingMessageShowsIP = haveIP;
     }
 }

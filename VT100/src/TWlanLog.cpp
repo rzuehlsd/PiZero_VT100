@@ -27,6 +27,7 @@ static const unsigned RxChunkSize = 256;
 static const char FromTerminal[] = "wlan-log";
 static const unsigned NetworkWaitQuantumMs = 100;
 static const unsigned NetworkWaitTimeoutSec = 60;
+static const char HostEscapeSequence[] = "+++";
 
 static const u8 TelnetIAC  = 255;
 static const u8 TelnetDONT = 254;
@@ -91,6 +92,11 @@ CTWlanLog::CTWlanLog()
     , m_LoggerAttached(false)
     , m_RemoteLoggingActive(false)
     , m_HostModeActive(false)
+    , m_HostDataPrimed(false)
+    , m_HostEscapeMatch(0)
+    , m_CommandPromptVisible(false)
+    , m_LogLastWasCR(false)
+    , m_CloseRequested(false)
     , m_LastRxWasCR(false)
     , m_TelnetNegotiated(false)
     , m_TelnetRxState(TelnetStateData)
@@ -308,6 +314,14 @@ void CTWlanLog::SendLine(const char *line)
     CString payload(line);
     payload += "\r\n";
     Send(payload.c_str(), payload.GetLength());
+    m_CommandPromptVisible = false;
+}
+
+void CTWlanLog::SendCommandPrompt()
+{
+    static const char Prompt[] = ">: ";
+    Send(Prompt, sizeof Prompt - 1);
+    m_CommandPromptVisible = true;
 }
 
 int CTWlanLog::Write(const void *buffer, size_t count)
@@ -322,7 +336,72 @@ int CTWlanLog::Write(const void *buffer, size_t count)
         m_pFallback->Write(buffer, count);
     }
 
-    Send(static_cast<const char *>(buffer), count);
+    if (m_HostModeActive)
+    {
+        return static_cast<int>(count);
+    }
+
+    const char *text = static_cast<const char *>(buffer);
+
+    CString normalized;
+    bool endsWithLineBreak = false;
+    for (size_t index = 0; index < count; ++index)
+    {
+        const char ch = text[index];
+
+        if (ch == '\n')
+        {
+            if (!m_LogLastWasCR)
+            {
+                normalized += "\r";
+            }
+            normalized += "\n";
+            m_LogLastWasCR = false;
+            endsWithLineBreak = true;
+            continue;
+        }
+
+        if (ch == '\r')
+        {
+            normalized += "\r";
+            m_LogLastWasCR = true;
+            endsWithLineBreak = true;
+            continue;
+        }
+
+        normalized.Append(ch);
+        m_LogLastWasCR = false;
+        endsWithLineBreak = false;
+    }
+
+    if (!m_HostModeActive && IsClientConnected())
+    {
+        if (m_CommandPromptVisible)
+        {
+            static const char NewLine[] = "\r\n";
+            Send(NewLine, sizeof NewLine - 1);
+            m_CommandPromptVisible = false;
+        }
+
+        if (normalized.GetLength() > 0)
+        {
+            Send(normalized.c_str(), normalized.GetLength());
+        }
+
+        if (!endsWithLineBreak)
+        {
+            static const char NewLine[] = "\r\n";
+            Send(NewLine, sizeof NewLine - 1);
+        }
+
+        SendCommandPrompt();
+        return static_cast<int>(count);
+    }
+
+    if (normalized.GetLength() > 0)
+    {
+        Send(normalized.c_str(), normalized.GetLength());
+    }
     return static_cast<int>(count);
 }
 
@@ -519,8 +598,8 @@ void CTWlanLog::ProcessLine(const char *line)
         SendLine("  status - show WLAN status");
         SendLine("  echo <text> - repeat text back to you");
         SendLine("  host on  - bridge TCP session as terminal host");
-        SendLine("  host off - return to logging command mode");
         SendLine("  exit   - disconnect this session");
+        SendLine("In host mode: use Ctrl-C or type +++ to return.");
         SendLine("Other text is logged at notice level.");
         return;
     }
@@ -528,23 +607,13 @@ void CTWlanLog::ProcessLine(const char *line)
     if (strcmp(line, "host on") == 0)
     {
         m_HostModeActive = true;
+        m_HostDataPrimed = false;
         SendLine("Host bridge mode enabled.");
         SendLine("Keyboard TX and screen RX now use TCP.");
-        SendLine("Press Ctrl-] to return to command mode.");
+        SendLine("Press Ctrl-C or type +++ to return to command mode.");
         if (m_pLogger)
         {
             m_pLogger->Write(FromTerminal, LogNotice, "Host bridge mode enabled");
-        }
-        return;
-    }
-
-    if (strcmp(line, "host off") == 0)
-    {
-        m_HostModeActive = false;
-        SendLine("Host bridge mode disabled. Command/log mode active.");
-        if (m_pLogger)
-        {
-            m_pLogger->Write(FromTerminal, LogNotice, "Host bridge mode disabled");
         }
         return;
     }
@@ -571,7 +640,7 @@ void CTWlanLog::ProcessLine(const char *line)
     if (strcmp(line, "exit") == 0)
     {
         SendLine("Closing connection. Bye.");
-        CloseClient("requested by client");
+        m_CloseRequested = true;
         return;
     }
 
@@ -720,19 +789,51 @@ void CTWlanLog::AcceptClient()
     m_ConnectionLock.Release();
 
     ResetConnectionState();
-    SendTelnetNegotiation();
-    AnnounceConnection(remoteIP, remotePort);
-
     CTConfig *config = CTConfig::Get();
-    if (config != nullptr && config->GetWlanHostAutoStart() != 0U)
+    const bool autoHostMode = (config != nullptr && config->GetWlanHostAutoStart() != 0U);
+    if (autoHostMode)
     {
         m_HostModeActive = true;
-        SendLine("Host bridge mode auto-enabled by config.");
-        SendLine("Press Ctrl-] to return to command mode.");
+        m_HostDataPrimed = false;
+    }
+
+    if (!autoHostMode)
+    {
+        SendTelnetNegotiation();
+    }
+
+    if (!autoHostMode)
+    {
+        AnnounceConnection(remoteIP, remotePort);
+    }
+    else if (m_pLogger)
+    {
+        CString ipString;
+        bool haveIP = TryFormatIPAddress(&remoteIP, ipString);
+        if (haveIP)
+        {
+            m_pLogger->Write(FromTerminal, LogNotice,
+                             "Client connected from %s:%u (host auto-start active)",
+                             (const char *)ipString, remotePort);
+        }
+        else
+        {
+            m_pLogger->Write(FromTerminal, LogNotice,
+                             "Client connected (address pending): port %u (host auto-start active)",
+                             remotePort);
+        }
+    }
+
+    if (autoHostMode)
+    {
         if (m_pLogger)
         {
             m_pLogger->Write(FromTerminal, LogNotice, "Host bridge mode auto-enabled");
         }
+    }
+    else
+    {
+        SendCommandPrompt();
     }
 
     m_RemoteLoggingActive = true;
@@ -750,6 +851,8 @@ void CTWlanLog::AcceptClient()
 
 void CTWlanLog::CloseClient(const char *reason, bool sendLocked)
 {
+    bool disconnected = false;
+
     if (!sendLocked)
     {
         m_SendLock.Acquire();
@@ -763,13 +866,32 @@ void CTWlanLog::CloseClient(const char *reason, bool sendLocked)
 
     if (client)
     {
+        disconnected = true;
         delete client;
         ResetConnectionState();
         m_RemoteLoggingActive = false;
 
         if (CKernel *kernel = CKernel::Get())
         {
+            CString disconnectMsg;
+            bool resumeLocalAfterDisconnect = false;
+            if (reason != nullptr)
+            {
+                disconnectMsg.Format("\r\nTelnet client disconnected (%s)\r\n", reason);
+                resumeLocalAfterDisconnect = (strcmp(reason, "requested by client") == 0)
+                                           || (strcmp(reason, "receive failed") == 0)
+                                           || (strcmp(reason, "send failed") == 0);
+            }
+            else
+            {
+                disconnectMsg = "\r\nTelnet client disconnected\r\n";
+            }
+            kernel->HandleWlanHostRx(disconnectMsg.c_str(), disconnectMsg.GetLength());
             if (m_StopRequested)
+            {
+                kernel->MarkTelnetReady();
+            }
+            else if (resumeLocalAfterDisconnect)
             {
                 kernel->MarkTelnetReady();
             }
@@ -779,28 +901,29 @@ void CTWlanLog::CloseClient(const char *reason, bool sendLocked)
             }
         }
 
-        if (m_pLogger)
-        {
-            if (reason != nullptr)
-            {
-                m_pLogger->Write(FromTerminal, LogNotice, "Client disconnected (%s)", reason);
-            }
-            else
-            {
-                m_pLogger->Write(FromTerminal, LogNotice, "Client disconnected");
-            }
-
-            if (m_pFallback != nullptr)
-            {
-                m_pLogger->Write(FromTerminal, LogNotice,
-                                 "WLAN logging: remote console closed – falling back to local output only");
-            }
-        }
     }
 
     if (!sendLocked)
     {
         m_SendLock.Release();
+    }
+
+    if (disconnected && m_pLogger)
+    {
+        if (reason != nullptr)
+        {
+            m_pLogger->Write(FromTerminal, LogNotice, "Client disconnected (%s)", reason);
+        }
+        else
+        {
+            m_pLogger->Write(FromTerminal, LogNotice, "Client disconnected");
+        }
+
+        if (m_pFallback != nullptr)
+        {
+            m_pLogger->Write(FromTerminal, LogNotice,
+                             "WLAN logging: remote console closed – falling back to local output only");
+        }
     }
 }
 
@@ -843,6 +966,18 @@ void CTWlanLog::HandleIncomingData()
             chunkLog += token;
         }
         HandleIncomingByte(uch);
+
+        if (m_CloseRequested)
+        {
+            break;
+        }
+    }
+
+    if (m_CloseRequested)
+    {
+        m_CloseRequested = false;
+        CloseClient("requested by client");
+        return;
     }
 
     if (m_pLogger)
@@ -853,6 +988,11 @@ void CTWlanLog::HandleIncomingData()
 
 void CTWlanLog::HandleIncomingByte(u8 byte)
 {
+    if (m_CloseRequested)
+    {
+        return;
+    }
+
     if (HandleTelnetByte(byte))
     {
         return;
@@ -860,15 +1000,80 @@ void CTWlanLog::HandleIncomingByte(u8 byte)
 
     if (m_HostModeActive)
     {
-        if (byte == 0x1D)
+        if (byte == 0x03)
         {
             m_HostModeActive = false;
-            SendLine("Host bridge mode disabled (Ctrl-]). Command/log mode active.");
+            m_HostDataPrimed = false;
+            m_HostEscapeMatch = 0;
+            SendLine("Host bridge mode disabled (Ctrl-C). Command/log mode active.");
+            SendCommandPrompt();
             if (m_pLogger)
             {
-                m_pLogger->Write(FromTerminal, LogNotice, "Host bridge mode disabled by escape");
+                m_pLogger->Write(FromTerminal, LogNotice, "Host bridge mode disabled by Ctrl-C escape");
             }
             return;
+        }
+
+        const size_t escapeLength = sizeof(HostEscapeSequence) - 1;
+        if (m_HostEscapeMatch > 0)
+        {
+            if (byte == static_cast<u8>(HostEscapeSequence[m_HostEscapeMatch]))
+            {
+                ++m_HostEscapeMatch;
+                if (m_HostEscapeMatch >= escapeLength)
+                {
+                    m_HostModeActive = false;
+                    m_HostDataPrimed = false;
+                    m_HostEscapeMatch = 0;
+                    SendLine("Host bridge mode disabled (+++). Command/log mode active.");
+                    SendCommandPrompt();
+                    if (m_pLogger)
+                    {
+                        m_pLogger->Write(FromTerminal, LogNotice, "Host bridge mode disabled by +++ escape");
+                    }
+                }
+                return;
+            }
+
+            CKernel *kernel = CKernel::Get();
+            if (kernel != nullptr)
+            {
+                kernel->HandleWlanHostRx(HostEscapeSequence, m_HostEscapeMatch);
+            }
+
+            if (byte == static_cast<u8>(HostEscapeSequence[0]))
+            {
+                m_HostEscapeMatch = 1;
+                return;
+            }
+
+            m_HostEscapeMatch = 0;
+        }
+
+        if (byte == static_cast<u8>(HostEscapeSequence[0]))
+        {
+            m_HostEscapeMatch = 1;
+            return;
+        }
+
+        if (!m_HostDataPrimed)
+        {
+            if (byte == 0x1B)
+            {
+                m_HostDataPrimed = true;
+            }
+            else if (byte >= 32 && byte <= 126)
+            {
+                m_HostDataPrimed = true;
+            }
+            else if (byte == '\r' || byte == '\n' || byte == '\t')
+            {
+                return;
+            }
+            else
+            {
+                return;
+            }
         }
 
         CKernel *kernel = CKernel::Get();
@@ -903,6 +1108,10 @@ void CTWlanLog::HandleCommandChar(char ch)
 
         if (m_RxLineBuffer.GetLength() > 0)
         {
+            static const char NewLine[] = "\r\n";
+            Send(NewLine, sizeof NewLine - 1);
+            m_CommandPromptVisible = false;
+
             CString line = m_RxLineBuffer;
             m_RxLineBuffer = "";
             if (m_pLogger)
@@ -910,6 +1119,17 @@ void CTWlanLog::HandleCommandChar(char ch)
                 m_pLogger->Write(FromTerminal, LogDebug, "Received line: %s", line.c_str());
             }
             ProcessLine(line.c_str());
+        }
+        else
+        {
+            static const char NewLine[] = "\r\n";
+            Send(NewLine, sizeof NewLine - 1);
+            m_CommandPromptVisible = false;
+        }
+
+        if (!m_HostModeActive && IsClientConnected())
+        {
+            SendCommandPrompt();
         }
         return;
     }
@@ -979,7 +1199,7 @@ bool CTWlanLog::HandleTelnetByte(u8 byte)
     case TelnetStateCommand:
         if (m_TelnetCommand == TelnetDO)
         {
-            if (byte == TelnetOptSuppressGoAhead)
+            if (byte == TelnetOptSuppressGoAhead || byte == TelnetOptEcho)
             {
                 SendTelnetCommand(TelnetWILL, byte);
             }
@@ -1044,7 +1264,7 @@ void CTWlanLog::SendTelnetNegotiation()
 
     SendTelnetCommand(TelnetWILL, TelnetOptSuppressGoAhead);
     SendTelnetCommand(TelnetDO, TelnetOptSuppressGoAhead);
-    SendTelnetCommand(TelnetWONT, TelnetOptEcho);
+    SendTelnetCommand(TelnetWILL, TelnetOptEcho);
     SendTelnetCommand(TelnetDONT, TelnetOptLineMode);
 
     m_TelnetNegotiated = true;
@@ -1070,6 +1290,7 @@ void CTWlanLog::AnnounceConnection(const CIPAddress &remoteIP, u16 remotePort)
     }
 
     SendLine("Welcome to the Circle WLAN logging console");
+    SendLine("WLAN mode is active. Please wait while network connection is established.");
     SendLine("Log output is mirrored here once the system starts logging.");
     SendLine("Type 'help' for a list of commands.");
 }
@@ -1078,6 +1299,11 @@ void CTWlanLog::ResetConnectionState()
 {
     m_RxLineBuffer = "";
     m_HostModeActive = false;
+    m_HostDataPrimed = false;
+    m_HostEscapeMatch = 0;
+    m_CommandPromptVisible = false;
+    m_LogLastWasCR = false;
+    m_CloseRequested = false;
     m_LastRxWasCR = false;
     m_TelnetNegotiated = false;
     m_TelnetRxState = TelnetStateData;

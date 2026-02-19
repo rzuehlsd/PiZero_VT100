@@ -1,0 +1,102 @@
+#!/bin/bash
+# VT100_PTY - connect VT100 TCP host mode to a local PTY and open it with screen
+
+set -euo pipefail
+
+SERVER=${1:-"localhost"}
+PORT=${2:-2323}
+shift $(( $# >= 1 ? 1 : 0 )) || true
+shift $(( $# >= 1 ? 1 : 0 )) || true
+
+AUTORESPOND=0
+if [[ $# -gt 0 ]]; then
+  for arg in "$@"; do
+    case "$arg" in
+      --autorespond)
+        AUTORESPOND=1
+        ;;
+      -h|--help)
+        cat <<'EOF'
+Usage: VT100_PTY [server] [port] [--autorespond]
+
+Options:
+  --autorespond   Echo incoming VT100 lines back with prefix "AUTO:".
+EOF
+        exit 0
+        ;;
+      *)
+        echo "Unknown option: $arg" >&2
+        exit 1
+        ;;
+    esac
+  done
+fi
+
+PTY="/tmp/vt100-$$.pty"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ECHO_SCRIPT="$SCRIPT_DIR/VT100_SCREEN_ECHO.py"
+PYTHON_BIN=""
+SOCAT_PID=""
+
+resolve_python() {
+  if command -v python3 >/dev/null 2>&1; then
+    PYTHON_BIN="$(command -v python3)"
+    return 0
+  fi
+
+  if command -v python >/dev/null 2>&1; then
+    PYTHON_BIN="$(command -v python)"
+    return 0
+  fi
+
+  return 1
+}
+
+cleanup() {
+  if [[ -n "$SOCAT_PID" ]] && kill -0 "$SOCAT_PID" 2>/dev/null; then
+    kill "$SOCAT_PID" 2>/dev/null || true
+    wait "$SOCAT_PID" 2>/dev/null || true
+  fi
+  rm -f "$PTY"
+}
+
+trap cleanup EXIT INT TERM
+
+echo "VT100 TCP host bridge → $SERVER:$PORT"
+
+TERM=vt100 socat \
+  PTY,link="$PTY",raw,echo=0,waitslave,unlink-close=1 \
+  TCP:"$SERVER":"$PORT" &
+SOCAT_PID=$!
+
+for _ in $(seq 1 50); do
+  [[ -e "$PTY" ]] && break
+  sleep 0.1
+done
+
+if [[ ! -e "$PTY" ]]; then
+  echo "Failed to create PTY: $PTY" >&2
+  exit 1
+fi
+
+if [[ "$AUTORESPOND" -eq 1 ]]; then
+  if [[ ! -f "$ECHO_SCRIPT" ]]; then
+    echo "Missing helper script: $ECHO_SCRIPT" >&2
+    exit 1
+  fi
+  if ! resolve_python; then
+    echo "Missing Python interpreter (python3/python not found in PATH)." >&2
+    exit 1
+  fi
+  echo "Auto-respond mode enabled (screen runs stdin->stdout Python helper via PTY redirect)."
+fi
+
+echo "Opening screen on $PTY"
+echo "Use screen escape Ctrl-A then K to quit."
+
+if [[ "$AUTORESPOND" -eq 1 ]]; then
+  TERM=vt100 screen -S "vt100" bash -lc "'$PYTHON_BIN' '$ECHO_SCRIPT' < '$PTY' > '$PTY'"
+else
+  TERM=vt100 screen -S "vt100" "$PTY"
+fi
+

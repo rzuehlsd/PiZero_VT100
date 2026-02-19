@@ -181,3 +181,61 @@ Reconstructed from git commit history and intended as a concise daily summary of
 ## 2026-02-19
 - Implemented features: restored visible images in the hardware description markdown page.
 - Codebase changes: updated `VT100/docs/Hardware.md` image references from local-file names to `images/...` paths (`Schematic_V22.png`, `Layout_V22.png`, `Backplate_Front.png`, `Backplate_Back.png`) so Git Markdown and Doxygen resolve the assets from `VT100/docs/images` correctly.
+- Implemented features: improved telnet host-mode recoverability by adding a firmware-side fallback escape sequence for returning to command mode when client-side `Ctrl-]` handling is unavailable.
+- Codebase changes: extended `CTWlanLog` host-mode RX handling to recognize `+++` as a host-mode exit trigger, updated host-mode help/session prompts to advertise both `Ctrl-]` and `+++`, and synchronized operator/developer guidance in `docs/Configuration_Guide.md`.
+- Implemented features: added on-screen telnet connect guidance to the waiting state so users can see the target endpoint directly on VT100 while waiting for a remote session.
+- Codebase changes: updated `CKernel::MarkTelnetWaiting()` to render a dynamic waiting message with `telnet <ip> 2323` when IP is available, and a `<ip-address>` placeholder plus port fallback when IP is not yet assigned.
+- Implemented features: introduced a consistent command-mode telnet prompt (`>: `) and updated host-mode escape controls to use `Ctrl-C` with `+++` as fallback.
+- Codebase changes: added command-prompt emission in `CTWlanLog` for command mode (session start, after entered lines, and after host-mode exit), removed `host off` from command interface/help text, switched host escape handling from `Ctrl-]` to `Ctrl-C`, and synchronized `docs/Configuration_Guide.md` accordingly.
+- Implemented features: extended the VT100 telnet waiting screen to also show a hostname-based `.local` connect hint in addition to the IP/port hint.
+- Codebase changes: updated `CKernel::MarkTelnetWaiting()` to append `telnet <hostname>.local 2323` when hostname is available, and documented the dual waiting-screen connect hints in `docs/Configuration_Guide.md`.
+- Implemented features: improved command-mode telnet usability by making log output prompt-safe and normalizing empty-line Enter handling.
+- Codebase changes: updated `CTWlanLog` to track prompt visibility, force asynchronous log output onto a fresh line before restoring the `>: ` prompt in command mode, and emit `\r\n` plus prompt on empty Enter so Return no longer appears as `^M`; documentation was aligned in `docs/Configuration_Guide.md`.
+- Implemented features: waiting-screen telnet connect hint now upgrades from placeholder to real IP automatically once DHCP address assignment completes.
+- Codebase changes: added kernel-side waiting-message IP-state tracking and periodic waiting-screen refresh trigger while no telnet client is connected, so `MarkTelnetWaiting()` re-renders once concrete IP data becomes available instead of staying on `<ip-address>`.
+- Implemented features: fixed command-mode telnet output layout so command responses no longer appear inline with Enter as `^M` artifacts.
+- Codebase changes: adjusted `CTWlanLog::HandleCommandChar()` to emit a clean CRLF before processing non-empty command lines, ensuring `help`/`status` output starts on a new line while preserving existing `echo` behavior.
+- Implemented features: waiting/connect guidance on VT100 is now shown only once a real IP address is available, avoiding duplicate early/late waiting messages.
+- Codebase changes: updated `CKernel::MarkTelnetWaiting()` to defer rendering until DHCP yields a concrete IP and to skip placeholder rendering while still keeping telnet-wait state active.
+- Implemented features: improved telnet command-mode input rendering by enabling server-side echo negotiation and firmware echo of typed command characters/backspace handling.
+- Codebase changes: switched telnet negotiation to `WILL ECHO`, accepted `DO ECHO`, and added command-mode character/backspace echo sequences in `CTWlanLog::HandleCommandChar()` to reduce client-side `^M` artifacts.
+- Implemented features: normalized telnet logger line endings in both command and host mode so log messages render with proper CRLF boundaries.
+- Codebase changes: reworked `CTWlanLog::Write()` to normalize `\n` to `\r\n` (with split-write-safe CR tracking), preserve command-mode prompt behavior with line-safe prompt restoration, and reset CR-tracking state on connection reset.
+- Implemented features: restored reliable `exit` behavior in telnet command mode by preventing close-path lock recursion.
+- Codebase changes: refactored `CTWlanLog::CloseClient()` to defer disconnect logger writes until after send-lock release, removing a potential deadlock when logger output re-enters the telnet write path during disconnect.
+- Implemented features: improved telnet disconnect UX by restoring stable telnet input negotiation and adding an explicit VT100 on-screen disconnect notice.
+- Codebase changes: reverted command-side telnet echo negotiation/character-injection changes (`WILL ECHO` path) back to the prior negotiation mode, and added a renderer-side `Telnet client disconnected` message in `CTWlanLog::CloseClient()` before returning to waiting state.
+- Implemented features: stabilized `exit` disconnect handling by deferring socket close to a safe point after receive-chunk processing.
+- Codebase changes: changed `exit` command flow to set a deferred close flag processed in `HandleIncomingData()`, prevented further byte handling once close is requested, and replaced hardcoded disconnect text length with dynamically sized reason-aware VT100 disconnect messages.
+- Implemented features: reduced command-mode telnet `^M` artifacts by enabling server-side ECHO negotiation.
+- Codebase changes: updated telnet option negotiation in `CTWlanLog` to advertise `WILL ECHO` and accept `DO ECHO` alongside suppress-go-ahead handling, while keeping deferred-close disconnect logic unchanged.
+- Implemented features: added a post-greeting telnet notice indicating WLAN mode is active and network establishment may require waiting before connection-ready messages appear.
+- Codebase changes: extended `CTWlanLog::AnnounceConnection()` greeting text with an explicit wait hint for WLAN/network setup progress.
+- Implemented features: fixed the `VT100_TTY` helper script so `screen` is attached directly to the PTY bridge, enabling bidirectional host-mode loop testing.
+- Codebase changes: replaced one-way `tee` usage with direct `screen <pty>` attachment, changed default TCP port to `2323`, and added robust startup/cleanup handling (`set -euo pipefail`, trap-based process/file cleanup, PTY readiness wait loop).
+- Implemented features: extended `VT100_PTY` with optional automatic line reply mode for host-loop testing (`--autorespond`).
+- Codebase changes: added argument parsing/help output, screen logfile-based responder process with `AUTO:` loop-prevention tagging, and cleanup handling for responder/log artifacts while keeping default interactive behavior unchanged.
+- Implemented features: restored `VT100_PTY --autorespond` startup compatibility on macOS by removing unsupported `screen` logfile option usage.
+- Codebase changes: removed leftover `screen -Logfile` invocation, switched autorespond logging to a dedicated temp directory with `screen -L` (`screenlog.0`), and verified script startup no longer fails with `Unknown option Logfile`.
+- Implemented features: improved `VT100_PTY --autorespond` runtime stability for host-mode loop testing on macOS.
+- Codebase changes: removed `socat` PTY escape termination (`escape=0x03`) to avoid unintended bridge shutdown on control-byte traffic, normalized autoresponder log parsing for CR/LF streams, and fixed macOS locale-related `tr: Illegal byte sequence` failures via `LC_ALL=C` in the log-tail pipeline.
+- Implemented features: simplified autorespond flow by keeping `socat` + `screen` and running a dedicated Python echo helper inside the `screen` session.
+- Codebase changes: refactored `VT100_PTY --autorespond` to launch `screen` with `VT100_SCREEN_ECHO.py` (`--pty` bridge path, `AUTO:` prefix), removed logfile-tail based responder logic, and deleted obsolete standalone helper `VT100_TCP_ECHO.py`.
+- Implemented features: aligned host-mode loop testing with a minimal stdin/stdout responder path and reduced multi-echo artifacts in host mode.
+- Codebase changes: changed `VT100_PTY --autorespond` to execute `VT100_SCREEN_ECHO.py` as a pure stdin->stdout helper via PTY redirection (`< "$PTY" > "$PTY"`) inside `screen`, simplified `VT100_SCREEN_ECHO.py` to byte passthrough only, and updated `CTWlanLog::Write()` to suppress logger mirroring to the remote client while host mode is active so PTY loopback traffic is not amplified by log lines.
+- Implemented features: stabilized `--autorespond` startup when launched under `screen` on environments with reduced shell `PATH`.
+- Codebase changes: added Python interpreter resolution (`python3`/`python`) in `VT100_PTY` and switched screen command execution to use the resolved absolute interpreter path so autoresponder no longer exits with `python3: command not found`.
+- Implemented features: made simulated host responses visually identifiable in host-mode loop tests.
+- Codebase changes: updated `VT100_SCREEN_ECHO.py` to echo complete lines with `SIMHOST: ` prefix and added loop protection to skip lines already marked as simulated-host output.
+- Implemented features: improved simulated host interaction control by preventing startup-message re-echo, forwarding Ctrl-C escape to VT100 host mode, and performing graceful shutdown signaling.
+- Codebase changes: extended `VT100_SCREEN_ECHO.py` with filtered ignore prefixes for known WLAN/telnet greeting/log lines, `SIGINT` handling that forwards `0x03` (host-mode exit), and shutdown sequence forwarding (`Ctrl-C` + `exit`) on EOF/termination.
+- Implemented features: enforced silent remote-session startup when WLAN host auto-start is enabled so host mode begins without sending greeting/status text to the remote endpoint.
+- Codebase changes: updated `CTWlanLog::AcceptClient()` to detect auto-host mode before connection announcement, skip remote welcome/help/status `SendLine` traffic in that mode, enable host mode immediately on connect, and keep connection/auto-start notices local via logger fallback only.
+- Implemented features: improved host-mode exit robustness with deterministic Ctrl-C shutdown signaling and stable local VT100 recovery after telnet disconnects.
+- Codebase changes: updated `VT100_SCREEN_ECHO.py` to treat Ctrl-C as immediate graceful shutdown (`Ctrl-C` + `exit`), ignore non-printable/noisy lines before simulated-host echoing, changed `CTWlanLog::CloseClient()` to resume local-ready state for client-side close reasons (`requested by client`, `receive failed`, `send failed`), and adjusted kernel telnet-waiting transitions to avoid forcing immediate waiting-mode re-entry while local-ready mode is active.
+- Implemented features: removed residual startup control-character injection and improved first-line responder handling for CR-terminated input.
+- Codebase changes: changed `VT100_SCREEN_ECHO.py` shutdown sequence to `exit\r` (no injected `Ctrl-C`), stopped sending shutdown bytes on plain EOF, and replaced LF-only line splitting with CR/LF-aware delimiter parsing so early host input is processed as soon as `CR` or `LF` arrives.
+- Implemented features: suppressed stray startup control-character artifacts (`^C^CA`) at host-mode entry before first real remote payload.
+- Codebase changes: added host-data priming state in `CTWlanLog` and updated host-mode RX handling to drop early non-printable control bytes until first printable/escape payload arrives, while preserving normal host rendering once primed.
+- Implemented features: removed telnet-option byte leakage in auto-host raw sessions by disabling telnet negotiation for auto-start host mode.
+- Codebase changes: updated `CTWlanLog::AcceptClient()` to skip `SendTelnetNegotiation()` when `wlan_host_autostart` is enabled, keeping raw `socat/screen` host-loop sessions free of telnet control-sequence artifacts (`^C^CA`) while retaining telnet negotiation for non-auto-host command sessions.

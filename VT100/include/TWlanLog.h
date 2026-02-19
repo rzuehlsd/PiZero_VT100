@@ -80,6 +80,8 @@ public:
     bool SendHostData(const char *buffer, size_t length);
     /// \brief Send a newline-terminated string to the client.
     void SendLine(const char *line);
+    /// \brief Send the command-mode prompt to the active client.
+    void SendCommandPrompt();
 
     /// \brief Write intercepted log output to the remote client and fallback.
     int Write(const void *buffer, size_t count) override;
@@ -143,6 +145,11 @@ private:
     bool m_LoggerAttached;
     bool m_RemoteLoggingActive;
     bool m_HostModeActive;
+    bool m_HostDataPrimed;
+    unsigned m_HostEscapeMatch;
+    bool m_CommandPromptVisible;
+    bool m_LogLastWasCR;
+    bool m_CloseRequested;
     bool m_LastRxWasCR;
     bool m_TelnetNegotiated;
     ETelnetRxState m_TelnetRxState;

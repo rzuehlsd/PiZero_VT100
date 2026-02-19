@@ -86,16 +86,33 @@ Persisted by `CTConfig::SaveToFile()`:
 
 Endpoint: `telnet <ip-or-hostname> 2323`
 
+Waiting-screen connect hints on VT100 include:
+
+- `telnet <ip-address> 2323` once concrete IP has been assigned
+- `telnet <hostname>.local 2323` when hostname is available
+- The waiting/connect message is shown once after DHCP provides a usable IP address.
+
 Command mode commands:
 
 - `help`
 - `status`
 - `echo <text>`
 - `host on`
-- `host off`
 - `exit`
 
+Command mode prompt:
+
+- `>: ` is shown at the start of each command line in command mode.
+- No prompt is inserted while host mode is active.
+- Incoming log lines in command mode are rendered on a fresh line and the prompt is restored afterward.
+- Pressing Enter on an empty command line emits a clean newline and re-shows the prompt.
+
 When host mode is on, keyboard TX and TCP RX are used as terminal host traffic.
+
+Host-mode exit options:
+
+- `Ctrl-C`
+- `+++` (fallback escape sequence handled by firmware)
 
 ## Part B — Admin / Developer
 
@@ -132,7 +149,7 @@ When adding/changing a setting, update all of:
 
 - `CTWlanLog` command mode and host mode share one TCP endpoint.
 - Host mode can be entered by command parser action or automatically (`wlan_host_autostart=1`).
-- `Ctrl-]` in host mode exits back to command mode.
+- Host mode exits back to command mode via `Ctrl-C` or fallback sequence `+++`.
 
 ### B5) Validation workflow after config-related changes
 
