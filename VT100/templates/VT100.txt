@@ -12,12 +12,21 @@ baud_rate=115200
 serial_bits=8
 serial_parity=0
 
+# flow_control: 0=off, 1=software XON/XOFF
+flow_control=0
+
 # --- Keyboard / line handling ---
 # line_ending: 0=LF, 1=CRLF, 2=CR
 line_ending=0
 
 # key_auto_repeat: 0=off, 1=on
 key_auto_repeat=1
+
+# smooth_scroll: 0=off, 1=on
+smooth_scroll=1
+
+# wrap_around: 0=off, 1=on
+wrap_around=1
 
 # Delay before repeat starts (milliseconds: 250..1000)
 repeat_delay_ms=250
@@ -52,10 +61,13 @@ background_color=0
 # buzzer_volume: 0..100 (percent duty cycle)
 buzzer_volume=50
 
+# margin_bell: 0=off, 1=on (ring at right margin - 8)
+margin_bell=0
+
 # switch_txrx: 0=normal wiring, 1=swapped via GPIO16
 switch_txrx=0
 
-# wlan_host_autostart: 0=off, 1=on
+# wlan_host_autostart: 0=off, 1=log, 2=host
 wlan_host_autostart=0
 
 # --- Logging ---

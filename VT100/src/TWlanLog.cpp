@@ -374,9 +374,8 @@ int CTWlanLog::Write(const void *buffer, size_t count)
     {
         if (m_CommandPromptVisible)
         {
-            static const char NewLine[] = "\r\n";
-            Send(NewLine, sizeof NewLine - 1);
-            m_CommandPromptVisible = false;
+            static const char PromptSeparator[] = " ";
+            Send(PromptSeparator, sizeof PromptSeparator - 1);
         }
 
         if (normalized.GetLength() > 0)
@@ -594,7 +593,7 @@ void CTWlanLog::ProcessLine(const char *line)
         SendLine("  status - show WLAN status");
         SendLine("  echo <text> - repeat text back to you");
         SendLine("  exit   - disconnect this session");
-        SendLine("Host mode is a dedicated session type (set wlan_host_autostart=1).");
+        SendLine("Host mode is a dedicated session type (wlan_host_autostart: 0=off, 1=log, 2=host).");
         SendLine("Other text is logged at notice level.");
         return;
     }
@@ -771,7 +770,7 @@ void CTWlanLog::AcceptClient()
 
     ResetConnectionState();
     CTConfig *config = CTConfig::Get();
-    const bool autoHostMode = (config != nullptr && config->GetWlanHostAutoStart() != 0U);
+    const bool autoHostMode = (config != nullptr && config->GetWlanHostAutoStart() == 2U);
     if (autoHostMode)
     {
         m_HostModeActive = true;
@@ -793,13 +792,13 @@ void CTWlanLog::AcceptClient()
         if (haveIP)
         {
             m_pLogger->Write(FromTerminal, LogNotice,
-                             "Client connected from %s:%u (host auto-start active)",
+                             "Client connected from %s:%u for host operation",
                              (const char *)ipString, remotePort);
         }
         else
         {
             m_pLogger->Write(FromTerminal, LogNotice,
-                             "Client connected (address pending): port %u (host auto-start active)",
+                             "Client connected (address pending): port %u for host operation",
                              remotePort);
         }
     }
@@ -832,6 +831,7 @@ void CTWlanLog::AcceptClient()
 void CTWlanLog::CloseClient(const char *reason, bool sendLocked)
 {
     bool disconnected = false;
+    bool wasHostMode = m_HostModeActive;
 
     if (!sendLocked)
     {
@@ -855,7 +855,12 @@ void CTWlanLog::CloseClient(const char *reason, bool sendLocked)
         {
             CString disconnectMsg;
             bool resumeLocalAfterDisconnect = false;
-            if (reason != nullptr)
+            if (wasHostMode)
+            {
+                disconnectMsg = "\r\nHost disconnected - resume normal operation\r\n";
+                resumeLocalAfterDisconnect = true;
+            }
+            else if (reason != nullptr)
             {
                 disconnectMsg.Format("\r\nTelnet client disconnected (%s)\r\n", reason);
                 resumeLocalAfterDisconnect = (strcmp(reason, "requested by client") == 0)
@@ -1052,6 +1057,9 @@ void CTWlanLog::HandleCommandChar(char ch)
                 truncated.Append(text[i]);
             }
             m_RxLineBuffer = truncated;
+
+            static const char BackspaceSequence[] = "\b \b";
+            Send(BackspaceSequence, sizeof BackspaceSequence - 1);
         }
         return;
     }
@@ -1061,6 +1069,7 @@ void CTWlanLog::HandleCommandChar(char ch)
         if (m_RxLineBuffer.GetLength() < 200)
         {
             m_RxLineBuffer.Append(ch);
+            Send(&ch, 1);
         }
     }
 }
@@ -1184,12 +1193,12 @@ void CTWlanLog::AnnounceConnection(const CIPAddress &remoteIP, u16 remotePort)
         if (haveIP)
         {
             m_pLogger->Write(FromTerminal, LogNotice,
-                             "Client connected from %s:%u", (const char *)ipString, remotePort);
+                             "Client connected from %s:%u for WLAN logging", (const char *)ipString, remotePort);
         }
         else
         {
             m_pLogger->Write(FromTerminal, LogNotice,
-                             "Client connected (address pending): port %u", remotePort);
+                             "Client connected (address pending): port %u for WLAN logging", remotePort);
         }
     }
 

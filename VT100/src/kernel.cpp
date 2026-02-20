@@ -44,8 +44,22 @@ static const char FirmwarePath[] = "SD:/firmware/";
 static const char SupplicantConfig[] = "SD:/wpa_supplicant.conf";
 static const char DefaultHostname[] = "PiVT100";
 static const unsigned TerminalPort = 2323;
-static const char StartupBannerPrefix[] = "VT100 Terminal Emulation with Circle on Pi zero V0.2";
+static const char StartupBannerPrefix[] = "VT100 Terminal Emulation with Circle on Pi zero V0.9";
 static const unsigned StartupBannerDelayMs = 2000;
+
+static const char *GetWlanModeName(unsigned int mode)
+{
+    switch (mode)
+    {
+    case 1U:
+        return "WLAN log";
+    case 2U:
+        return "WLAN host";
+    case 0U:
+    default:
+        return "WLAN disabled";
+    }
+}
 }
 
 static volatile unsigned s_f12PressCount = 0;
@@ -354,8 +368,8 @@ boolean CKernel::Initialize(void)
 {
     boolean bOK = TRUE;
 
-    auto configureLogOutputs = [&](bool logToScreen, bool logToFile, bool logToWlan) {
-        m_bWlanLoggerEnabled = logToWlan ? TRUE : FALSE;
+    auto configureLogOutputs = [&](bool logToScreen, bool logToFile, bool wlanEnabled) {
+        m_bWlanLoggerEnabled = wlanEnabled ? TRUE : FALSE;
         m_bScreenLoggerEnabled = logToScreen;
 
         if (!logToScreen)
@@ -473,7 +487,9 @@ boolean CKernel::Initialize(void)
         bool logToFile = false;
         bool logToWlan = false;
         m_pConfig->ResolveLogOutputs(logToScreen, logToFile, logToWlan);
-        configureLogOutputs(logToScreen, logToFile, logToWlan);
+        const unsigned int wlanModePolicy = m_pConfig->GetWlanHostAutoStart();
+        const bool wlanEnabled = (wlanModePolicy != 0U);
+        configureLogOutputs(logToScreen, logToFile, wlanEnabled);
 
         m_bTelnetReady = false;
         m_bWaitingMessageActive = false;
@@ -562,6 +578,15 @@ boolean CKernel::Initialize(void)
 
         LOGNOTE("Startup: %s", (const char *)banner);
         m_Timer.MsDelay(StartupBannerDelayMs);
+
+        if (m_pConfig != nullptr && m_pRenderer != nullptr)
+        {
+            CString wlanStatus;
+            const unsigned int wlanModePolicy = m_pConfig->GetWlanHostAutoStart();
+            wlanStatus.Format("\r\nConfig loaded: %s mode active\r\n", GetWlanModeName(wlanModePolicy));
+            m_pRenderer->Write(wlanStatus.c_str(), wlanStatus.GetLength());
+            LOGNOTE("Config loaded: %s mode active", GetWlanModeName(wlanModePolicy));
+        }
     }
 
     if (!m_bWlanLoggerEnabled)
@@ -656,8 +681,17 @@ void CKernel::MarkTelnetReady()
 
     if (m_bWlanLoggerEnabled && m_pRenderer != nullptr)
     {
-        static const char ReadyMsg[] = "\r\nTelnet client connected - enabling local output\r\n";
-        m_pRenderer->Write(ReadyMsg, sizeof ReadyMsg - 1);
+        const bool hostMode = (m_pConfig != nullptr && m_pConfig->GetWlanHostAutoStart() == 2U);
+        if (hostMode)
+        {
+            static const char HostReadyMsg[] = "\r\nHost connected via tcp - CRTL-C in host session to close connection\r\n";
+            m_pRenderer->Write(HostReadyMsg, sizeof HostReadyMsg - 1);
+        }
+        else
+        {
+            static const char ReadyMsg[] = "\r\nTelnet client connected - enabling local output\r\n";
+            m_pRenderer->Write(ReadyMsg, sizeof ReadyMsg - 1);
+        }
     }
 
     EnsureSerialTaskStarted();
@@ -801,7 +835,16 @@ void CKernel::MarkTelnetWaiting()
 
     if (m_pRenderer != nullptr)
     {
-        CString waitingMsg("\r\nWaiting for telnet client connection...\r\n");
+        const bool hostMode = (m_pConfig != nullptr && m_pConfig->GetWlanHostAutoStart() == 2U);
+        CString waitingMsg;
+        if (hostMode)
+        {
+            waitingMsg = "\r\nWaiting for host to connect via tcp ...\r\n";
+        }
+        else
+        {
+            waitingMsg = "\r\nWaiting for telnet client connection...\r\n";
+        }
 
         CString ipString;
         bool haveIP = false;
@@ -818,17 +861,22 @@ void CKernel::MarkTelnetWaiting()
         }
 
         CString connectHint;
-        connectHint.Format("Connect via: telnet %s %u\r\n", (const char *)ipString, TerminalPort);
-
-        waitingMsg += connectHint;
 
         CString hostName = m_Net.GetHostname();
         if (hostName.GetLength() > 0)
         {
-            CString hostHint;
-            hostHint.Format("Connect via: telnet %s.local %u\r\n", (const char *)hostName, TerminalPort);
-            waitingMsg += hostHint;
+            connectHint.Format("Connect via: telnet %s %u or telnet %s.local %u\r\n",
+                               (const char *)ipString,
+                               TerminalPort,
+                               (const char *)hostName,
+                               TerminalPort);
         }
+        else
+        {
+            connectHint.Format("Connect via: telnet %s %u\r\n", (const char *)ipString, TerminalPort);
+        }
+
+        waitingMsg += connectHint;
 
         m_pRenderer->Write(waitingMsg.c_str(), waitingMsg.GetLength());
         m_bWaitingMessageShowsIP = haveIP;
