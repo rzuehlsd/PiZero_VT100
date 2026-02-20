@@ -35,6 +35,10 @@ static const char *kLogOutputNames[] = {
     "Screen+WLAN",
     "File+WLAN",
     "Screen+File+WLAN"};
+static const char *kWlanModeNames[] = {
+    "Off",
+    "Log",
+    "Host"};
 static const char *kPresetLogFiles[] = {"vt100.log", "session.log", "terminal.log", "serial.log"};
 static const unsigned kPresetLogFileCount = sizeof(kPresetLogFiles) / sizeof(kPresetLogFiles[0]);
 constexpr unsigned int kRepeatDelayMinMs = 250U;
@@ -86,7 +90,7 @@ static const char *kModernFieldDescriptions[kModernFieldCount] = {
     "Repeat delay 250-1000 ms",
     "Repeat rate 2-20 cps",
     "Swap UART TX/RX",
-    "Auto-start WLAN bridge",
+    "WLAN mode: Off/Log/Host",
     "Log outputs bitmask: bit1=screen, bit2=file, bit3=wlan",
     "Log file name"};
 
@@ -1199,7 +1203,7 @@ void CTSetup::InitializeModernFromConfig()
     m_ModernConfig.repeatDelayMs = m_pConfig->GetKeyRepeatDelayMs();
     m_ModernConfig.repeatRateCps = m_pConfig->GetKeyRepeatRateCps();
     m_ModernConfig.switchTxRx = m_pConfig->GetSwitchTxRx() != 0U;
-    m_ModernConfig.wlanHostAutoStart = m_pConfig->GetWlanHostAutoStart() != 0U;
+    m_ModernConfig.wlanModePolicy = m_pConfig->GetWlanHostAutoStart();
     m_ModernConfig.logOutput = m_pConfig->GetLogOutput() & 0x7U;
     strncpy(m_ModernConfig.logFileName, m_pConfig->GetLogFileName(), sizeof(m_ModernConfig.logFileName) - 1);
     m_ModernConfig.logFileName[sizeof(m_ModernConfig.logFileName) - 1] = '\0';
@@ -1229,7 +1233,7 @@ void CTSetup::ApplyModernToConfig()
     m_pConfig->SetKeyRepeatDelayMs(m_ModernConfig.repeatDelayMs);
     m_pConfig->SetKeyRepeatRateCps(m_ModernConfig.repeatRateCps);
     m_pConfig->SetSwitchTxRx(m_ModernConfig.switchTxRx ? TRUE : FALSE);
-    m_pConfig->SetWlanHostAutoStart(m_ModernConfig.wlanHostAutoStart ? TRUE : FALSE);
+    m_pConfig->SetWlanHostAutoStart(m_ModernConfig.wlanModePolicy);
     m_pConfig->SetLogOutput(m_ModernConfig.logOutput);
     m_pConfig->SetLogFileName(m_ModernConfig.logFileName);
 }
@@ -1735,7 +1739,7 @@ void CTSetup::ChangeModernValue(int delta)
         m_ModernConfig.switchTxRx = !m_ModernConfig.switchTxRx;
         break;
     case ModernFieldWlanHostAutoStart:
-        m_ModernConfig.wlanHostAutoStart = !m_ModernConfig.wlanHostAutoStart;
+        m_ModernConfig.wlanModePolicy = CycleUnsigned(m_ModernConfig.wlanModePolicy, 0U, 2U, delta);
         break;
     case ModernFieldLogOutput:
     {
@@ -1857,7 +1861,7 @@ void CTSetup::FormatModernValue(TModernField field, char *pBuffer, size_t buffer
         text = BoolName(m_ModernConfig.switchTxRx);
         break;
     case ModernFieldWlanHostAutoStart:
-        text = BoolName(m_ModernConfig.wlanHostAutoStart);
+        text = kWlanModeNames[m_ModernConfig.wlanModePolicy <= 2U ? m_ModernConfig.wlanModePolicy : 0U];
         break;
     case ModernFieldLogOutput:
         text = kLogOutputNames[m_ModernConfig.logOutput <= 7U ? m_ModernConfig.logOutput : 0U];

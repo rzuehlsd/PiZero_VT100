@@ -79,7 +79,7 @@ Persisted by `CTConfig::SaveToFile()`:
 19. `repeat_rate_cps` (2..20)
 20. `switch_txrx` (0/1)
 21. `margin_bell` (0/1)
-22. `wlan_host_autostart` (0/1)
+22. `wlan_host_autostart` (0/1/2; 0=off, 1=log, 2=host)
 23. `log_output` (0..7; 0=none, 1=screen, 2=file, 3=wlan, 4=screen+file, 5=screen+wlan, 6=file+wlan, 7=screen+file+wlan)
 24. `log_filename` (string, max 63 chars)
 
@@ -104,7 +104,7 @@ Log mode prompt:
 
 - `>: ` is shown at the start of each command line in log mode.
 - No prompt is inserted while host mode is active.
-- Incoming log lines in log mode are rendered on a fresh line and the prompt is restored afterward.
+- Incoming log lines in log mode are separated from the prompt by spaces only (no extra CRLF inserted before a log message).
 - Pressing Enter on an empty command line emits a clean newline and re-shows the prompt.
 
 When host mode is on, keyboard TX and TCP RX are used as terminal host traffic.
@@ -148,8 +148,9 @@ When adding/changing a setting, update all of:
 ### B4) WLAN mode integration notes
 
 - `CTWlanLog` uses one TCP endpoint with strict per-session mode separation.
-- `wlan_host_autostart=0` starts a log-mode session.
-- `wlan_host_autostart=1` starts a raw host-mode session.
+- `wlan_host_autostart=0` disables WLAN remote mode.
+- `wlan_host_autostart=1` starts a log-mode session.
+- `wlan_host_autostart=2` starts a raw host-mode session.
 
 ### B5) Planned clean mode separation
 

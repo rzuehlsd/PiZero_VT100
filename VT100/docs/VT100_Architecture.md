@@ -259,7 +259,7 @@ Keyboard auto-repeat currently includes:
 
 - listens on port `2323`
 - uses strict per-session mode separation (log mode vs host mode) on the same endpoint
-- supports auto host mode via `wlan_host_autostart=1`
+- supports mode policy via `wlan_host_autostart` (`0` off, `1` log, `2` host)
 - in auto-host raw sessions, telnet option negotiation is bypassed to avoid control-byte leakage into host payload
 - operator workflow and strict model details are documented in `README.md` and `docs/WLAN_Mode_Separation_Plan.md`
 

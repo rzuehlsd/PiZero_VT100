@@ -177,12 +177,12 @@ public:
     /// \param enabled TRUE to swap the wiring.
     void SetSwitchTxRx(boolean enabled);
 
-    /// \brief Check whether WLAN host mode auto-start is enabled.
-    /// \return 1 if host mode auto-start is enabled, else 0.
+    /// \brief Retrieve WLAN session mode policy.
+    /// \return 0=WLAN disabled, 1=log mode, 2=host mode.
     unsigned int GetWlanHostAutoStart(void) const { return m_WlanHostAutoStart; }
-    /// \brief Enable or disable WLAN host mode auto-start on telnet connect.
-    /// \param enabled TRUE to auto-enable host mode for new sessions.
-    void SetWlanHostAutoStart(boolean enabled);
+    /// \brief Set WLAN session mode policy.
+    /// \param mode 0=WLAN disabled, 1=log mode, 2=host mode.
+    void SetWlanHostAutoStart(unsigned int mode);
 
     /// \brief Retrieve key repeat delay in milliseconds.
     /// \return Delay in milliseconds.
@@ -304,7 +304,7 @@ private:
     unsigned int m_BuzzerVolume;            // 0-100% duty cycle for buzzer
     unsigned int m_KeyClick;                // 0=disabled, 1=enabled key click feedback
     unsigned int m_SwitchTxRx;              // 0=normal wiring, 1=swap TX/RX via GPIO16
-    unsigned int m_WlanHostAutoStart;       // 0=command/log mode on connect, 1=host mode auto-start
+    unsigned int m_WlanHostAutoStart;       // 0=WLAN disabled, 1=log mode on connect, 2=host mode on connect
     unsigned int m_KeyAutoRepeat;           // 0=disabled, 1=enabled keyboard auto-repeat
     unsigned int m_KeyRepeatDelayMs;        // Key repeat delay in milliseconds
     unsigned int m_KeyRepeatRateCps;        // Repeat frequency in characters per second

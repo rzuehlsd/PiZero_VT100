@@ -103,7 +103,7 @@ private:
         unsigned int repeatDelayMs;
         unsigned int repeatRateCps;
         bool switchTxRx;
-        bool wlanHostAutoStart;
+        unsigned int wlanModePolicy;
         unsigned int logOutput;
         char logFileName[64];
     };

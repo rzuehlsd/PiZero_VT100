@@ -302,7 +302,16 @@ void CTConfig::logConfig(void) const
     LOGNOTE("Key click: %s", GetKeyClick() ? "enabled" : "disabled");
     LOGNOTE("Key auto-repeat: %s", GetKeyAutoRepeatEnabled() ? "enabled" : "disabled");
     LOGNOTE("TX/RX wiring: %s", GetSwitchTxRx() ? "swapped" : "normal");
-    LOGNOTE("WLAN host auto-start: %s", GetWlanHostAutoStart() ? "enabled" : "disabled");
+    const char *wlanMode = "off";
+    if (GetWlanHostAutoStart() == 1U)
+    {
+        wlanMode = "log";
+    }
+    else if (GetWlanHostAutoStart() == 2U)
+    {
+        wlanMode = "host";
+    }
+    LOGNOTE("WLAN mode policy: %s (wlan_host_autostart=%u)", wlanMode, GetWlanHostAutoStart());
     LOGNOTE("Screen mode: %s", GetScreenInverted() ? "inverse" : "normal");
     LOGNOTE("Smooth scroll: %s", GetSmoothScrollEnabled() ? "enabled" : "disabled");
     LOGNOTE("Wrap around: %s", GetWrapAroundEnabled() ? "enabled" : "disabled");
@@ -345,7 +354,7 @@ CTConfig::CTConfig(void) : CTask()
         {"switch_txrx", &m_SwitchTxRx, 0, "Swap TX/RX wiring using GPIO16 (0=normal, 1=swapped)"},
         {"flow_control", &m_SoftwareFlowControl, 0, "Software flow control (0=off, 1=on XON/XOFF)"},
         {"margin_bell", &m_MarginBellEnabled, 0, "Margin bell (0=off, 1=on; rings 8 columns before right margin)"},
-        {"wlan_host_autostart", &m_WlanHostAutoStart, 0, "Auto-start WLAN host bridge mode on telnet connect (0=off, 1=on)"},
+        {"wlan_host_autostart", &m_WlanHostAutoStart, 0, "WLAN mode policy (0=off, 1=log, 2=host)"},
         {"repeat_delay_ms", &m_KeyRepeatDelayMs, KeyRepeatDelayMinMs, "Key repeat delay in milliseconds (250-1000)"},
         {"repeat_rate_cps", &m_KeyRepeatRateCps, 10, "Key repeat rate in characters per second (2-20)"},
         // Note: log_filename is handled as special case in ParseConfigLine()
@@ -961,13 +970,14 @@ boolean CTConfig::ParseConfigLine(const char *pLine)
                     LOGWARN("Config: Negative wlan_host_autostart %s, using 0", value);
                     sanitizedValue = 0U;
                 }
-                else if (sanitizedValue > 1U)
+                else if (sanitizedValue > 2U)
                 {
-                    LOGWARN("Config: Invalid wlan_host_autostart %lu, clamping to 1", parsedValue);
-                    sanitizedValue = sanitizedValue ? 1U : 0U;
+                    LOGWARN("Config: Invalid wlan_host_autostart %lu, clamping to 2", parsedValue);
+                    sanitizedValue = 2U;
                 }
                 *(param->variable) = sanitizedValue;
-                LOGNOTE("Config: Parameter %s %s", keyword, sanitizedValue ? "enabled" : "disabled");
+                const char *modeName = (sanitizedValue == 0U) ? "off" : ((sanitizedValue == 1U) ? "log" : "host");
+                LOGNOTE("Config: Parameter %s set to %s (%u)", keyword, modeName, sanitizedValue);
             }
             else if (param->variable == &m_SoftwareFlowControl || param->variable == &m_MarginBellEnabled)
             {
@@ -1211,10 +1221,16 @@ void CTConfig::SetSwitchTxRx(boolean enabled)
     LOGNOTE("Config: switch_txrx %s", m_SwitchTxRx ? "enabled" : "disabled");
 }
 
-void CTConfig::SetWlanHostAutoStart(boolean enabled)
+void CTConfig::SetWlanHostAutoStart(unsigned int mode)
 {
-    m_WlanHostAutoStart = enabled ? 1U : 0U;
-    LOGNOTE("Config: wlan_host_autostart %s", m_WlanHostAutoStart ? "enabled" : "disabled");
+    unsigned int sanitized = mode;
+    if (sanitized > 2U)
+    {
+        sanitized = 2U;
+    }
+    m_WlanHostAutoStart = sanitized;
+    const char *modeName = (m_WlanHostAutoStart == 0U) ? "off" : ((m_WlanHostAutoStart == 1U) ? "log" : "host");
+    LOGNOTE("Config: wlan_host_autostart set to %s (%u)", modeName, m_WlanHostAutoStart);
 }
 
 void CTConfig::SetKeyAutoRepeatEnabled(boolean enabled)

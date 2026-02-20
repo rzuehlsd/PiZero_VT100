@@ -2,6 +2,14 @@
 
 This document defines a phased plan to enforce strict separation between WLAN **Log Mode** and WLAN **Host Mode**.
 
+## 0) Current status (2026-02-20)
+
+- **DONE** Strict session split implemented in firmware (`wlan_host_autostart=0` => WLAN off, `=1` => log session, `=2` => host session).
+- **DONE** Manual in-session host switching removed (`host on` command path removed).
+- **DONE** Host mode is raw per session and ends by TCP disconnect.
+- **DONE** Core docs aligned (`README.md`, `Configuration_Guide.md`, `VT100_Architecture.md`, `Manual_Testplan_2026-02-12_to_2026-02-14.md`).
+- **OPEN** Continue using validation checklist for future WLAN behavior changes.
+
 ## 1) Target behavior
 
 ### 1.1 Log Mode
@@ -23,8 +31,9 @@ This document defines a phased plan to enforce strict separation between WLAN **
 ## 2.1 Existing key retained
 
 - `wlan_host_autostart` remains supported:
-  - `0` => default connect into Log Mode
-  - `1` => default connect into Host Mode
+  - `0` => WLAN disabled
+  - `1` => default connect into Log Mode
+  - `2` => default connect into Host Mode
 
 No additional policy key is used.
 
@@ -60,26 +69,26 @@ Transitions:
 
 ## 4) Phased implementation plan
 
-### Phase 0 — Baseline stabilization (done)
+### Phase 0 — Baseline stabilization (**DONE**)
 
 - Auto-host startup is remote-silent.
 - Log mirror is suppressed in host mode.
 - Disconnect path recovers local VT100 responsiveness.
 - Auto-host raw sessions bypass telnet negotiation.
 
-### Phase 1 — Strict command surface in Log Mode
+### Phase 1 — Strict command surface in Log Mode (**DONE**)
 
 - Remove host-mode control commands from log-mode command parser.
 - Keep only diagnostic command set (`help/status/echo/exit`).
 - Update help text and docs accordingly.
 
-### Phase 2 — Dedicated Host Session Entry
+### Phase 2 — Dedicated Host Session Entry (**DONE**)
 
-- Rely on `wlan_host_autostart=1` for host sessions.
+- Rely on `wlan_host_autostart=2` for host sessions.
 - Keep host session semantics fully raw and deterministic.
 - Host sessions end by TCP client disconnect (no in-session command-mode switch path).
 
-### Phase 3 — Validation and documentation lock
+### Phase 3 — Validation and documentation lock (**OPEN / ongoing**)
 
 - Validate strict behavior for both session types.
 - Keep docs/test plans aligned with strict-only semantics.
