@@ -22,6 +22,10 @@ It combines architecture, dependency structure, runtime flow, and module-level i
   - 8.1 Sink selection model
   - 8.2 File sink
   - 8.3 WLAN/telnet sink
+    - 8.3.1 WLAN session model (strict separation)
+    - 8.3.2 Data-path gates by session
+    - 8.3.3 Telnet negotiation policy by session
+    - 8.3.4 Connect/close lifecycle and allowed command surface
   - 8.4 Kernel networking loop and lifecycle
 - 9. Font and rendering details
   - 9.1 DEC special graphics and charset switching
@@ -261,7 +265,51 @@ Keyboard auto-repeat currently includes:
 - uses strict per-session mode separation (log mode vs host mode) on the same endpoint
 - supports mode policy via `wlan_host_autostart` (`0` off, `1` log, `2` host)
 - in auto-host raw sessions, telnet option negotiation is bypassed to avoid control-byte leakage into host payload
-- operator workflow and strict model details are documented in `README.md` and `docs/WLAN_Mode_Separation_Plan.md`
+
+#### 8.3.1 WLAN session model (strict separation)
+
+Session selection is made at connect time from `wlan_host_autostart`:
+
+- `0` => WLAN remote mode disabled
+- `1` => log-mode session
+- `2` => host-mode session
+
+Operational intent by session:
+
+- Log mode: diagnostics/control (`help`, `status`, `echo`, `exit`) with remote log mirroring and command prompt.
+- Host mode: raw VT100 host bridge only (keyboard TX to host, host RX to renderer), no prompt/parser chatter in payload.
+
+Internal runtime state follows this strict split:
+
+- `SessionLogMode`
+- `SessionHostMode`
+- `SessionClosing`
+
+#### 8.3.2 Data-path gates by session
+
+Log mode gates:
+
+- logger->remote mirror enabled
+- host TX/RX bridge forwarding disabled
+- command parser and prompt emission enabled
+
+Host mode gates:
+
+- logger->remote mirror disabled
+- host TX/RX bridge forwarding enabled
+- command parser and prompt emission suppressed
+
+#### 8.3.3 Telnet negotiation policy by session
+
+- Log mode: telnet option negotiation enabled.
+- Host mode (raw client path): telnet option negotiation bypassed to prevent control-byte artifacts in host payload.
+
+#### 8.3.4 Connect/close lifecycle and allowed command surface
+
+- Connect transitions directly to log or host session according to `wlan_host_autostart`.
+- `exit` command is valid only in log mode.
+- Host mode remains raw for the entire TCP session and ends by TCP disconnect.
+- On host disconnect, firmware returns to stable local-ready/waiting behavior without in-session mode switching.
 
 ### 8.4 Kernel networking loop and lifecycle
 
@@ -275,6 +323,8 @@ Current kernel behavior aligned with implementation:
 Important correction vs older planning text:
 
 - there is no dedicated deferred-serial backlog queue with 4 KiB cap in current implementation; serial routing is controlled by readiness/host-mode guards in the run loop.
+
+This architecture section is now the canonical source for WLAN log/host separation design and lifecycle behavior.
 
 ## 9. Font and rendering details
 

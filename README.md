@@ -393,7 +393,7 @@ The terminal ships with a logging subsystem that mirrors messages to any combina
 
 Refer to `VT100/docs/VT100_Architecture.md` for technical architecture and implementation details, and `VT100/docs/Configuration_Guide.md` for runtime controls and configuration.
 
-For the planned clean split between WLAN log mode and WLAN host mode, see `VT100/docs/WLAN_Mode_Separation_Plan.md`.
+For the architecture and lifecycle model of WLAN log mode and host mode separation, see `VT100/docs/VT100_Architecture.md` (section 8.3).
 
 ## WLAN Telnet and Host Mode
 
@@ -446,25 +446,45 @@ Session end in host mode:
 - Host mode remains raw until the TCP client disconnects.
 - On reconnect, mode selection is applied again from `wlan_host_autostart`.
 
-### Use Unix `screen` as remote host for VT100 app
+### Use local host-loopback helper (`VT100_PTY`)
 
-`screen` cannot connect directly to TCP sockets, so bridge TCP to a pseudo-terminal with `socat`:
+The recommended host-mode test path is the wrapper helper script:
+
+```bash
+./VT100_PTY <ip> 2323 --autorespond
+```
+
+Current helper behavior (`--autorespond`):
+
+- Uses `socat` + PTY + `screen` internally.
+- Runs `VT100_SCREEN_ECHO.py` as stdin/stdout responder on the PTY.
+- Echoes printable lines back to VT100 with prefix `SIMHOST:`.
+- Filters known startup/log lines to avoid re-echo loops.
+- Sends `exit` during helper shutdown so host session closes cleanly.
+
+Manual equivalent (advanced):
 
 ```bash
 socat PTY,link=/tmp/vt100,raw,echo=0 TCP:<ip>:2323
-```
-
-In a second terminal, attach with `screen`:
-
-```bash
 screen /tmp/vt100 115200
 ```
 
 Recommended workflow:
 
 1. Set `wlan_host_autostart=2`.
-2. Start `socat` and attach `screen` to `/tmp/vt100`.
-3. Interact with the VT100 app as if `screen` were the host endpoint.
+2. Start `./VT100_PTY <ip> 2323 --autorespond`.
+3. Interact with the VT100 app and verify host bridge RX/TX plus `SIMHOST:` responses.
+
+### Helper tooling placement (recommended)
+
+To keep host-loopback tooling scoped with firmware docs/tools, place helper files under:
+
+- `VT100/tools/host_loopback/VT100_PTY`
+- `VT100/tools/host_loopback/VT100_SCREEN_ECHO.py`
+
+Optional compatibility path:
+
+- Keep a root-level launcher `./VT100_PTY` that forwards to `VT100/tools/host_loopback/VT100_PTY` so existing commands remain valid.
 
 ### Auto-start host mode on connect
 
@@ -483,7 +503,7 @@ WLAN modes are handled as strictly separated session types:
 - **Log mode**: remote logs, status, diagnostics, and orderly `exit` only.
 - **Host mode**: raw stdin/stdout host bridge only; no log/status chatter over the host payload channel.
 
-A phased implementation plan is maintained in `VT100/docs/WLAN_Mode_Separation_Plan.md`.
+Architecture-relevant mode-separation details are maintained in `VT100/docs/VT100_Architecture.md` (section 8.3).
 
 ## Internal VT100 Test Integration
 

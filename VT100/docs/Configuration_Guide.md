@@ -159,7 +159,7 @@ Target model:
 - **Log mode**: remote diagnostics only (`help`, `status`, `echo`, `exit`) with log mirroring and command prompt.
 - **Host mode**: raw stdin/stdout host bridge only, without log/status/welcome chatter in host payload path.
 
-Phased implementation details are documented in `docs/WLAN_Mode_Separation_Plan.md`.
+Architecture-level session model, data-path gates, and lifecycle behavior are documented in `docs/VT100_Architecture.md` (section 8.3).
 
 ### B6) Validation workflow after config-related changes
 

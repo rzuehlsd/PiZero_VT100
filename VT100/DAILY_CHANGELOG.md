@@ -259,3 +259,7 @@ Reconstructed from git commit history and intended as a concise daily summary of
 - Codebase changes: updated `CKernel::MarkTelnetWaiting()` to show `Waiting for host to connect via tcp ...` in host mode, and `CKernel::MarkTelnetReady()` to show `Host connected via tcp - CRTL-C in host session to close connection` on host connect.
 - Implemented features: documented successful local loopback verification for WLAN logging mode and WLAN host mode in the main project README.
 - Codebase changes: updated `README.md` networking/feature sections to explicitly state successful validation with `VT100_PTY --autorespond`.
+- Implemented features: aligned host-mode README workflow with the real `VT100_PTY --autorespond` helper behavior and documented the recommended host-loopback tooling placement.
+- Codebase changes: replaced manual-only host bridge instructions with helper-first workflow details (`SIMHOST:` responder semantics, filtering, clean shutdown), added placement guidance for `VT100/tools/host_loopback/`, and corrected `VT100_PTY` help text from `AUTO:` to `SIMHOST:`.
+- Implemented features: consolidated WLAN mode-separation architecture into the main architecture reference and retired the standalone separation-plan document.
+- Codebase changes: integrated strict session model, data-path gates, telnet negotiation policy, and connect/close lifecycle semantics into `docs/VT100_Architecture.md` section 8.3, updated references in `README.md` and `docs/Configuration_Guide.md`, and deleted `docs/WLAN_Mode_Separation_Plan.md`.
