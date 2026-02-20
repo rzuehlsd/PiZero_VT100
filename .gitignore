@@ -6,3 +6,11 @@ __pycache__/
 
 # Local generated Doxygen copy artifacts
 VT100/docs/doxygen/html/VT100/
+
+# Local build/docs artifacts (note: already tracked files remain visible in status)
+VT100/build/*.o
+VT100/build/*.elf
+VT100/build/*.img
+VT100/build/*.lst
+VT100/build/*.map
+VT100/docs/doxygen/html/md_docs_2_w_l_a_n___mode___separation___plan.html
