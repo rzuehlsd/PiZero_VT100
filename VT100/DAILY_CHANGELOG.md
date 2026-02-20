@@ -265,3 +265,5 @@ Reconstructed from git commit history and intended as a concise daily summary of
 - Codebase changes: integrated strict session model, data-path gates, telnet negotiation policy, and connect/close lifecycle semantics into `docs/VT100_Architecture.md` section 8.3, updated references in `README.md` and `docs/Configuration_Guide.md`, and deleted `docs/WLAN_Mode_Separation_Plan.md`.
 - Implemented features: relocated host-loopback helper tooling into the VT100 tools tree while preserving existing root command usage.
 - Codebase changes: moved `VT100_PTY` and `VT100_SCREEN_ECHO.py` to `VT100/tools/host_loopback/`, replaced root `VT100_PTY` with a compatibility launcher delegating to the new path, and removed the legacy root `VT100_SCREEN_ECHO.py` copy.
+- Implemented features: updated release handoff guidance with explicit SD deployment instructions and sanitized WLAN template credentials.
+- Codebase changes: edited release `v0.9.0` notes to require copying the complete `VT100/bin` directory to SD and adapting `wpa_supplicant.conf`, and anonymized `VT100/bin/wpa_supplicant.conf` placeholders for `ssid`/`psk`.
