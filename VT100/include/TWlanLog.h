@@ -145,8 +145,6 @@ private:
     bool m_LoggerAttached;
     bool m_RemoteLoggingActive;
     bool m_HostModeActive;
-    bool m_HostDataPrimed;
-    unsigned m_HostEscapeMatch;
     bool m_CommandPromptVisible;
     bool m_LogLastWasCR;
     bool m_CloseRequested;

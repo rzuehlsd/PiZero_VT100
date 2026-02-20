@@ -239,5 +239,9 @@ Reconstructed from git commit history and intended as a concise daily summary of
 - Codebase changes: added host-data priming state in `CTWlanLog` and updated host-mode RX handling to drop early non-printable control bytes until first printable/escape payload arrives, while preserving normal host rendering once primed.
 - Implemented features: removed telnet-option byte leakage in auto-host raw sessions by disabling telnet negotiation for auto-start host mode.
 - Codebase changes: updated `CTWlanLog::AcceptClient()` to skip `SendTelnetNegotiation()` when `wlan_host_autostart` is enabled, keeping raw `socat/screen` host-loop sessions free of telnet control-sequence artifacts (`^C^CA`) while retaining telnet negotiation for non-auto-host command sessions.
+
+## 2026-02-20
+- Implemented features: enforced strict WLAN log-mode vs host-mode session separation without transitional/manual in-session host switching.
+- Codebase changes: removed manual `host on` command path and host escape fallback switching from `CTWlanLog`, made host-mode input path raw per session, aligned README/configuration/architecture/test plan/separation-plan docs to strict-only semantics, and validated with `make -j4` plus `make docs`.
 - Implemented features: completed documentation harmonization for the transition from multiplexed WLAN operation toward clean log-mode vs host-mode separation, including a dedicated phased separation roadmap.
 - Codebase changes: added root `.gitignore` cleanup rules for local/generated artifacts, updated `README.md`, `docs/Configuration_Guide.md`, `docs/VT100_Architecture.md`, and `docs/Manual_Testplan_2026-02-12_to_2026-02-14.md` to align terminology and workflows (`log mode`, transitional `host on`, `Ctrl-C`/`+++` exit), and created `docs/WLAN_Mode_Separation_Plan.md` with phased implementation, config migration (`wlan_mode_policy` proposal), and validation strategy.

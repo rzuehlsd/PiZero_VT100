@@ -100,10 +100,6 @@ Log mode commands:
 - `echo <text>`
 - `exit`
 
-Transitional command currently available:
-
-- `host on` (planned to be deprecated in favor of dedicated host-session entry)
-
 Log mode prompt:
 
 - `>: ` is shown at the start of each command line in log mode.
@@ -113,10 +109,10 @@ Log mode prompt:
 
 When host mode is on, keyboard TX and TCP RX are used as terminal host traffic.
 
-Host-mode exit options:
+Host-mode session end:
 
-- `Ctrl-C`
-- `+++` (fallback escape sequence handled by firmware)
+- Host mode is a dedicated raw session type.
+- Session ends when the remote TCP client disconnects.
 
 ## Part B — Admin / Developer
 
@@ -151,9 +147,9 @@ When adding/changing a setting, update all of:
 
 ### B4) WLAN mode integration notes
 
-- `CTWlanLog` currently multiplexes log mode and host mode on one TCP endpoint.
-- For robust external host operation, prefer `wlan_host_autostart=1` and direct host-session connect.
-- Host mode exits via `Ctrl-C` (primary) or fallback `+++` sequence.
+- `CTWlanLog` uses one TCP endpoint with strict per-session mode separation.
+- `wlan_host_autostart=0` starts a log-mode session.
+- `wlan_host_autostart=1` starts a raw host-mode session.
 
 ### B5) Planned clean mode separation
 

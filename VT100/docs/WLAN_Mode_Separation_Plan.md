@@ -1,6 +1,6 @@
 # WLAN Log Mode / Host Mode Separation Plan
 
-This document defines a phased plan to separate WLAN **Log Mode** and WLAN **Host Mode** cleanly while preserving operational stability and backward compatibility.
+This document defines a phased plan to enforce strict separation between WLAN **Log Mode** and WLAN **Host Mode**.
 
 ## 1) Target behavior
 
@@ -26,16 +26,7 @@ This document defines a phased plan to separate WLAN **Log Mode** and WLAN **Hos
   - `0` => default connect into Log Mode
   - `1` => default connect into Host Mode
 
-## 2.2 New optional key (recommended)
-
-- `wlan_mode_policy` (proposed):
-  - `legacy-mux` (default during migration)
-  - `strict-separate`
-
-Rationale:
-
-- Allows staged rollout without breaking existing workflows.
-- Makes behavior explicit for operators and tests.
+No additional policy key is used.
 
 ## 3) Architecture split (implementation target)
 
@@ -50,7 +41,6 @@ Introduce explicit internal session state:
 Transitions:
 
 - Connect -> `SessionLogMode` or `SessionHostMode` according to config.
-- Host escape (`Ctrl-C` / fallback) only valid in `SessionHostMode`.
 - `exit` only valid in `SessionLogMode`.
 
 ## 3.2 Data-path gates
@@ -70,7 +60,7 @@ Transitions:
 
 ## 4) Phased implementation plan
 
-### Phase 0 — Baseline stabilization (done/ongoing)
+### Phase 0 — Baseline stabilization (done)
 
 - Auto-host startup is remote-silent.
 - Log mirror is suppressed in host mode.
@@ -79,39 +69,26 @@ Transitions:
 
 ### Phase 1 — Strict command surface in Log Mode
 
-- Remove host-mode control commands from log-mode command parser (`host on` transitional path).
+- Remove host-mode control commands from log-mode command parser.
 - Keep only diagnostic command set (`help/status/echo/exit`).
 - Update help text and docs accordingly.
 
 ### Phase 2 — Dedicated Host Session Entry
 
-- Rely on `wlan_host_autostart=1` (and later `wlan_mode_policy`) for host sessions.
+- Rely on `wlan_host_autostart=1` for host sessions.
 - Keep host session semantics fully raw and deterministic.
-- Ensure host exit always returns to local-ready + waiting-for-next-host lifecycle.
+- Host sessions end by TCP client disconnect (no in-session command-mode switch path).
 
-### Phase 3 — Config policy rollout
+### Phase 3 — Validation and documentation lock
 
-- Introduce `wlan_mode_policy` with default `legacy-mux`.
-- Provide migration guidance and examples.
-- After validation window, switch default to `strict-separate`.
-
-### Phase 4 — Legacy deprecation
-
-- Remove transitional behavior (manual `host on` command path).
-- Simplify codepaths in `CTWlanLog` and docs/test plans.
+- Validate strict behavior for both session types.
+- Keep docs/test plans aligned with strict-only semantics.
 
 ## 5) Validation strategy per phase
 
-1. Unit-level / targeted checks:
-   - command parser behavior in Log Mode
-   - host payload purity in Host Mode
-2. Integration checks:
-   - connect/disconnect lifecycle
-   - local responsiveness after host close
-3. Manual acceptance:
-   - no startup control-byte artifacts
-   - first host command processed immediately
-   - single-action host exit (`Ctrl-C`) path
+1. Unit-level / targeted checks: command parser behavior in Log Mode; host payload purity in Host Mode.
+2. Integration checks: connect/disconnect lifecycle; local responsiveness after host close.
+3. Manual acceptance: no startup control-byte artifacts; first host command processed immediately; host mode remains raw until client disconnect.
 
 ## 6) Documentation update checklist
 

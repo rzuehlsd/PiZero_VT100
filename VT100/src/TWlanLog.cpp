@@ -27,8 +27,6 @@ static const unsigned RxChunkSize = 256;
 static const char FromTerminal[] = "wlan-log";
 static const unsigned NetworkWaitQuantumMs = 100;
 static const unsigned NetworkWaitTimeoutSec = 60;
-static const char HostEscapeSequence[] = "+++";
-
 static const u8 TelnetIAC  = 255;
 static const u8 TelnetDONT = 254;
 static const u8 TelnetDO   = 253;
@@ -92,8 +90,6 @@ CTWlanLog::CTWlanLog()
     , m_LoggerAttached(false)
     , m_RemoteLoggingActive(false)
     , m_HostModeActive(false)
-    , m_HostDataPrimed(false)
-    , m_HostEscapeMatch(0)
     , m_CommandPromptVisible(false)
     , m_LogLastWasCR(false)
     , m_CloseRequested(false)
@@ -597,24 +593,9 @@ void CTWlanLog::ProcessLine(const char *line)
         SendLine("  help   - show this text");
         SendLine("  status - show WLAN status");
         SendLine("  echo <text> - repeat text back to you");
-        SendLine("  host on  - bridge TCP session as terminal host");
         SendLine("  exit   - disconnect this session");
-        SendLine("In host mode: use Ctrl-C or type +++ to return.");
+        SendLine("Host mode is a dedicated session type (set wlan_host_autostart=1).");
         SendLine("Other text is logged at notice level.");
-        return;
-    }
-
-    if (strcmp(line, "host on") == 0)
-    {
-        m_HostModeActive = true;
-        m_HostDataPrimed = false;
-        SendLine("Host bridge mode enabled.");
-        SendLine("Keyboard TX and screen RX now use TCP.");
-        SendLine("Press Ctrl-C or type +++ to return to command mode.");
-        if (m_pLogger)
-        {
-            m_pLogger->Write(FromTerminal, LogNotice, "Host bridge mode enabled");
-        }
         return;
     }
 
@@ -794,7 +775,6 @@ void CTWlanLog::AcceptClient()
     if (autoHostMode)
     {
         m_HostModeActive = true;
-        m_HostDataPrimed = false;
     }
 
     if (!autoHostMode)
@@ -993,95 +973,19 @@ void CTWlanLog::HandleIncomingByte(u8 byte)
         return;
     }
 
-    if (HandleTelnetByte(byte))
-    {
-        return;
-    }
-
     if (m_HostModeActive)
     {
-        if (byte == 0x03)
-        {
-            m_HostModeActive = false;
-            m_HostDataPrimed = false;
-            m_HostEscapeMatch = 0;
-            SendLine("Host bridge mode disabled (Ctrl-C). Command/log mode active.");
-            SendCommandPrompt();
-            if (m_pLogger)
-            {
-                m_pLogger->Write(FromTerminal, LogNotice, "Host bridge mode disabled by Ctrl-C escape");
-            }
-            return;
-        }
-
-        const size_t escapeLength = sizeof(HostEscapeSequence) - 1;
-        if (m_HostEscapeMatch > 0)
-        {
-            if (byte == static_cast<u8>(HostEscapeSequence[m_HostEscapeMatch]))
-            {
-                ++m_HostEscapeMatch;
-                if (m_HostEscapeMatch >= escapeLength)
-                {
-                    m_HostModeActive = false;
-                    m_HostDataPrimed = false;
-                    m_HostEscapeMatch = 0;
-                    SendLine("Host bridge mode disabled (+++). Command/log mode active.");
-                    SendCommandPrompt();
-                    if (m_pLogger)
-                    {
-                        m_pLogger->Write(FromTerminal, LogNotice, "Host bridge mode disabled by +++ escape");
-                    }
-                }
-                return;
-            }
-
-            CKernel *kernel = CKernel::Get();
-            if (kernel != nullptr)
-            {
-                kernel->HandleWlanHostRx(HostEscapeSequence, m_HostEscapeMatch);
-            }
-
-            if (byte == static_cast<u8>(HostEscapeSequence[0]))
-            {
-                m_HostEscapeMatch = 1;
-                return;
-            }
-
-            m_HostEscapeMatch = 0;
-        }
-
-        if (byte == static_cast<u8>(HostEscapeSequence[0]))
-        {
-            m_HostEscapeMatch = 1;
-            return;
-        }
-
-        if (!m_HostDataPrimed)
-        {
-            if (byte == 0x1B)
-            {
-                m_HostDataPrimed = true;
-            }
-            else if (byte >= 32 && byte <= 126)
-            {
-                m_HostDataPrimed = true;
-            }
-            else if (byte == '\r' || byte == '\n' || byte == '\t')
-            {
-                return;
-            }
-            else
-            {
-                return;
-            }
-        }
-
         CKernel *kernel = CKernel::Get();
         if (kernel != nullptr)
         {
             char ch = static_cast<char>(byte);
             kernel->HandleWlanHostRx(&ch, 1);
         }
+        return;
+    }
+
+    if (HandleTelnetByte(byte))
+    {
         return;
     }
 
@@ -1299,8 +1203,6 @@ void CTWlanLog::ResetConnectionState()
 {
     m_RxLineBuffer = "";
     m_HostModeActive = false;
-    m_HostDataPrimed = false;
-    m_HostEscapeMatch = 0;
     m_CommandPromptVisible = false;
     m_LogLastWasCR = false;
     m_CloseRequested = false;

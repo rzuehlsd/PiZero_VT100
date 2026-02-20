@@ -258,10 +258,10 @@ Keyboard auto-repeat currently includes:
 `CTWlanLog`:
 
 - listens on port `2323`
-- currently multiplexes log mode and host bridge mode on the same endpoint
+- uses strict per-session mode separation (log mode vs host mode) on the same endpoint
 - supports auto host mode via `wlan_host_autostart=1`
 - in auto-host raw sessions, telnet option negotiation is bypassed to avoid control-byte leakage into host payload
-- operator workflow is documented in `README.md`; target separation is documented in `docs/WLAN_Mode_Separation_Plan.md`
+- operator workflow and strict model details are documented in `README.md` and `docs/WLAN_Mode_Separation_Plan.md`
 
 ### 8.4 Kernel networking loop and lifecycle
 
@@ -356,7 +356,7 @@ For value semantics and user/admin guidance see `docs/Configuration_Guide.md`.
 ## 12. Development notes
 
 - QEMU-specific runtime/build fallback paths were intentionally removed from `VT100`.
-- Current implementation multiplexes log mode and host bridge mode on `:2323`; long-term direction is strict separation of responsibilities while preserving endpoint compatibility.
+- Current implementation enforces strict separation of log-mode command sessions and host-mode raw sessions on `:2323`, selected per connection via `wlan_host_autostart`.
 - For configuration changes, keep `CTConfig` defaults/parser/setters/save format and `Configuration_Guide.md` in sync.
 - `docs/Refactoring_Note.md` remains useful as historical refactoring context, but this file is the normative technical reference.
 

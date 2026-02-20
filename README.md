@@ -424,8 +424,6 @@ What you get in this mode (current):
 - Device/network status via `status`.
 - Session close via `exit`.
 
-Note: `host on` exists as a transitional command path, but for robust host operation the project currently recommends `wlan_host_autostart=1` and direct host sessions.
-
 ### Host mode (transparent host bridge)
 
 In host mode, VT100 keyboard TX is sent to the TCP peer and TCP RX is rendered directly on the VT100 screen. This effectively simulates a serial host over TCP.
@@ -440,10 +438,10 @@ Behavior in host mode:
   - TCP RX from the client is rendered directly to the VT100 screen.
   - UART host rendering is suspended while host mode is active to avoid mixed sources.
 
-Exit from host mode:
+Session end in host mode:
 
-- `Ctrl-C` (primary)
-- `+++` (fallback sequence)
+- Host mode remains raw until the TCP client disconnects.
+- On reconnect, mode selection is applied again from `wlan_host_autostart`.
 
 ### Use Unix `screen` as remote host for VT100 app
 
@@ -473,11 +471,11 @@ Set the config parameter in `VT100.txt`:
 wlan_host_autostart=1
 ```
 
-With this enabled, each new telnet client enters host bridge mode automatically. Set `wlan_host_autostart=0` to keep command/log mode as the default.
+With this enabled, each new telnet client starts directly in host bridge mode. Set `wlan_host_autostart=0` to start in command/log mode.
 
-### Planned mode separation (recommended direction)
+### Strict mode separation
 
-The project direction is to keep WLAN modes strictly separated:
+WLAN modes are handled as strictly separated session types:
 
 - **Log mode**: remote logs, status, diagnostics, and orderly `exit` only.
 - **Host mode**: raw stdin/stdout host bridge only; no log/status chatter over the host payload channel.
