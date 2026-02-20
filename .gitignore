@@ -14,3 +14,6 @@ VT100/build/*.img
 VT100/build/*.lst
 VT100/build/*.map
 VT100/docs/doxygen/html/md_docs_2_w_l_a_n___mode___separation___plan.html
+
+# Local outreach/PR drafting workspace (not for repository publishing)
+PR/

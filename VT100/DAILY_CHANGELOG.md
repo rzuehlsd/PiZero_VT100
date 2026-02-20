@@ -267,3 +267,5 @@ Reconstructed from git commit history and intended as a concise daily summary of
 - Codebase changes: moved `VT100_PTY` and `VT100_SCREEN_ECHO.py` to `VT100/tools/host_loopback/`, replaced root `VT100_PTY` with a compatibility launcher delegating to the new path, and removed the legacy root `VT100_SCREEN_ECHO.py` copy.
 - Implemented features: updated release handoff guidance with explicit SD deployment instructions and sanitized WLAN template credentials.
 - Codebase changes: edited release `v0.9.0` notes to require copying the complete `VT100/bin` directory to SD and adapting `wpa_supplicant.conf`, and anonymized `VT100/bin/wpa_supplicant.conf` placeholders for `ssid`/`psk`.
+- Implemented features: prepared English-language outreach text packages for retro-computing community channels.
+- Codebase changes: created local `PR/` text templates (Hackaday project, Reddit variants, tipline, short social) and added `PR/` to root `.gitignore` so drafting materials stay local and are not published to GitHub.
