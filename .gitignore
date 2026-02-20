@@ -1,0 +1,8 @@
+.DS_Store
+**/.DS_Store
+__pycache__/
+**/__pycache__/
+*.pyc
+
+# Local generated Doxygen copy artifacts
+VT100/docs/doxygen/html/VT100/

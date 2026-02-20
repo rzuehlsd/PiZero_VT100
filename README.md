@@ -386,21 +386,24 @@ The terminal ships with a logging subsystem that mirrors messages to any combina
 - Messages use familiar prefixes (`[NOTE]`, `[WARN]`, `[ERROR]`) with file/line metadata to simplify troubleshooting.
 - Screen logging integrates with the terminal view without breaking VT100 escape handling.
 - WLAN logging announces readiness with `WLAN ready: telnet <ip>:2323`; connect via telnet to monitor remotely.
-- Full telnet host-mode command workflow (`host on/off`, `socat`, `screen`, and auto-start behavior) is documented in section 9.
+- Host integration over TCP is available through a raw host session path (`socat` + `screen` + stdin/stdout host app).
 
 Refer to `VT100/docs/VT100_Architecture.md` for technical architecture and implementation details, and `VT100/docs/Configuration_Guide.md` for runtime controls and configuration.
 
+For the planned clean split between WLAN log mode and WLAN host mode, see `VT100/docs/WLAN_Mode_Separation_Plan.md`.
+
 ## WLAN Telnet and Host Mode
 
-This firmware supports two distinct WLAN session behaviors on the same telnet endpoint (`<ip>:2323`):
+This firmware currently supports two WLAN session behaviors on the same endpoint (`<ip>:2323`):
 
-1. **Command/log mode** (default) for remote diagnostics and control.
-2. **Host bridge mode** for transparent VT100 host traffic over TCP.
-3. **Unix `screen` as host mode** to connect any Unix host to the terminal via TCP.
+1. **Log mode** (command prompt mode) for remote diagnostics and control.
+2. **Host mode** (transparent VT100 host traffic over TCP).
 
-### Command/log mode (WLAN debugging)
+The long-term target is a stricter separation of both modes; see section “Planned mode separation” below.
 
-Use this mode when you want to inspect runtime logs and run control commands without replacing the UART host path.
+### Log mode (WLAN diagnostics)
+
+Use this mode when you want to inspect runtime logs and run maintenance commands without replacing the UART host path.
 
 ```bash
 telnet <ip-or-mDNS-name> 2323
@@ -412,33 +415,35 @@ Typical session:
 help
 status
 echo hello from remote debug
+exit
 ```
 
-What you get in this mode:
+What you get in this mode (current):
 
 - Mirrored log output (`[NOTE]`, `[WARN]`, `[ERROR]` etc.) over telnet.
 - Device/network status via `status`.
-- Runtime mode switching via `host on` and `host off`.
 - Session close via `exit`.
 
-### Switch to transparent host bridge mode
+Note: `host on` exists as a transitional command path, but for robust host operation the project currently recommends `wlan_host_autostart=1` and direct host sessions.
 
-In host bridge mode the terminal keyboard input is wired via tcp session to the connected client and response from client rendered on VT100 screen. So this mode effectively simulats a serial host connection over tcp. To enter this bridge mode proceed as follows:
+### Host mode (transparent host bridge)
 
-1. From an active telnet session in command/log mode:
+In host mode, VT100 keyboard TX is sent to the TCP peer and TCP RX is rendered directly on the VT100 screen. This effectively simulates a serial host over TCP.
 
-- Type `host on`
+Recommended entry:
 
-2. Behavior in host bridge mode:
+- Set `wlan_host_autostart=1` and connect a host client.
+
+Behavior in host mode:
 
   - Keyboard TX from the VT100 app is sent to the active TCP client.
   - TCP RX from the client is rendered directly to the VT100 screen.
   - UART host rendering is suspended while host mode is active to avoid mixed sources.
-  
 
-3. Return to command/log mode:
-  - Type `host off`, or
-  - Press `Ctrl-]` (escape back to command mode).
+Exit from host mode:
+
+- `Ctrl-C` (primary)
+- `+++` (fallback sequence)
 
 ### Use Unix `screen` as remote host for VT100 app
 
@@ -456,10 +461,9 @@ screen /tmp/vt100 115200
 
 Recommended workflow:
 
-1. Start `telnet <ip> 2323`.
-2. Run `host on`.
-3. Start `socat` and attach `screen` to `/tmp/vt100`.
-4. Interact with the VT100 app as if `screen` were the host endpoint.
+1. Set `wlan_host_autostart=1`.
+2. Start `socat` and attach `screen` to `/tmp/vt100`.
+3. Interact with the VT100 app as if `screen` were the host endpoint.
 
 ### Auto-start host mode on connect
 
@@ -470,6 +474,15 @@ wlan_host_autostart=1
 ```
 
 With this enabled, each new telnet client enters host bridge mode automatically. Set `wlan_host_autostart=0` to keep command/log mode as the default.
+
+### Planned mode separation (recommended direction)
+
+The project direction is to keep WLAN modes strictly separated:
+
+- **Log mode**: remote logs, status, diagnostics, and orderly `exit` only.
+- **Host mode**: raw stdin/stdout host bridge only; no log/status chatter over the host payload channel.
+
+A phased implementation plan is maintained in `VT100/docs/WLAN_Mode_Separation_Plan.md`.
 
 ## Internal VT100 Test Integration
 

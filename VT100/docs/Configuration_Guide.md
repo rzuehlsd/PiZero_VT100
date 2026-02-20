@@ -16,8 +16,9 @@ This document is the single configuration reference and is split into:
 	- B1) Source of truth and update checklist
 	- B2) Paths and ownership
 	- B3) Setup integration notes
-	- B4) WLAN host mode integration notes
-	- B5) Validation workflow after config-related changes
+	- B4) WLAN mode integration notes
+	- B5) Planned clean mode separation
+	- B6) Validation workflow after config-related changes
 
 ## Part A — User / Operator
 
@@ -92,19 +93,22 @@ Waiting-screen connect hints on VT100 include:
 - `telnet <hostname>.local 2323` when hostname is available
 - The waiting/connect message is shown once after DHCP provides a usable IP address.
 
-Command mode commands:
+Log mode commands:
 
 - `help`
 - `status`
 - `echo <text>`
-- `host on`
 - `exit`
 
-Command mode prompt:
+Transitional command currently available:
 
-- `>: ` is shown at the start of each command line in command mode.
+- `host on` (planned to be deprecated in favor of dedicated host-session entry)
+
+Log mode prompt:
+
+- `>: ` is shown at the start of each command line in log mode.
 - No prompt is inserted while host mode is active.
-- Incoming log lines in command mode are rendered on a fresh line and the prompt is restored afterward.
+- Incoming log lines in log mode are rendered on a fresh line and the prompt is restored afterward.
 - Pressing Enter on an empty command line emits a clean newline and re-shows the prompt.
 
 When host mode is on, keyboard TX and TCP RX are used as terminal host traffic.
@@ -145,13 +149,22 @@ When adding/changing a setting, update all of:
 - Legacy SET-UP B maps group 3 second bit from left (mask `0x4`, VT100 “Wraparound”) to `wrap_around`.
 - Modern setup save path now calls kernel runtime apply for safe non-disruptive updates (renderer and HAL) to preserve stable keyboard/dialog handler routing.
 
-### B4) WLAN host mode integration notes
+### B4) WLAN mode integration notes
 
-- `CTWlanLog` command mode and host mode share one TCP endpoint.
-- Host mode can be entered by command parser action or automatically (`wlan_host_autostart=1`).
-- Host mode exits back to command mode via `Ctrl-C` or fallback sequence `+++`.
+- `CTWlanLog` currently multiplexes log mode and host mode on one TCP endpoint.
+- For robust external host operation, prefer `wlan_host_autostart=1` and direct host-session connect.
+- Host mode exits via `Ctrl-C` (primary) or fallback `+++` sequence.
 
-### B5) Validation workflow after config-related changes
+### B5) Planned clean mode separation
+
+Target model:
+
+- **Log mode**: remote diagnostics only (`help`, `status`, `echo`, `exit`) with log mirroring and command prompt.
+- **Host mode**: raw stdin/stdout host bridge only, without log/status/welcome chatter in host payload path.
+
+Phased implementation details are documented in `docs/WLAN_Mode_Separation_Plan.md`.
+
+### B6) Validation workflow after config-related changes
 
 1. Build `VT100`.
 2. Boot with a known `VT100.txt`.
