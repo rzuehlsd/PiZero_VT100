@@ -257,3 +257,5 @@ Reconstructed from git commit history and intended as a concise daily summary of
 - Codebase changes: updated `CTWlanLog::CloseClient()` to show `Host disconnected - resume normal operation` after host-mode disconnect while keeping non-host disconnect messaging unchanged.
 - Implemented features: refined host-mode on-screen status texts for waiting and session connect states.
 - Codebase changes: updated `CKernel::MarkTelnetWaiting()` to show `Waiting for host to connect via tcp ...` in host mode, and `CKernel::MarkTelnetReady()` to show `Host connected via tcp - CRTL-C in host session to close connection` on host connect.
+- Implemented features: documented successful local loopback verification for WLAN logging mode and WLAN host mode in the main project README.
+- Codebase changes: updated `README.md` networking/feature sections to explicitly state successful validation with `VT100_PTY --autorespond`.

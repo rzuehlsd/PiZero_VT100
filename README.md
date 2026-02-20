@@ -87,6 +87,7 @@ The application initialises USB keyboard input, the framebuffer, GPIO, UART, and
   - [x] Real-time debug output with formatted log messages
   - [x] WLAN debug output via telnet session
   - [x] WLAN host mode to integrate remote hosts via tcp/ip
+  - [x] WLAN logging and WLAN host mode successfully validated with local loopback (`./VT100_PTY <ip> 2323 --autorespond`)
 - [x] GPIO16-controlled TX/RX swap to simulate Null Modem cables with straight DB9 cables
 - [x] Configuration of system via VT100 Setup Screens A and B for supported parameters
 - [x] Separate on-screen setup dialog covering all file-based configuration parameters (F11)
@@ -105,6 +106,8 @@ The following table gives an overview of implementation highlights:
 | **Logging** | Bitmask-controlled outputs (screen, file, WLAN), telnet console, timestamped files |
 | **Networking** | WLAN bring-up with WPA supplicant, telnet banner showing `ip:2323` |
 | **Deployment** | Makefile-driven build, SD card copy workflow, optional bootloader assets |
+
+WLAN remote operation test status: WLAN logging mode and WLAN host mode have been successfully tested with local loopback using `VT100_PTY --autorespond`.
 
 And here are the results of the internal tests which could be switched on in VT100.txt config file:
 
@@ -199,7 +202,7 @@ Create or edit `VT100.txt` on the boot partition. The firmware loads it on start
 | `repeat_rate_cps` | 2–20 | 10 | Characters per second once repeating |
 | `margin_bell` | 0/1 | 0 | Rings bell 8 columns before right margin when enabled |
 | `switch_txrx` | 0/1 | 0 | Drives GPIO16 high to swap wiring |
-| `wlan_host_autostart` | 0/1 | 0 | `1` auto-enables TCP host bridge mode when a client connects |
+| `wlan_host_autostart` | 0–2 | 0 | WLAN mode policy: 0=off, 1=log, 2=host |
 | `text_color` | 0–3 | 1 | Foreground palette: 0=black, 1=white, 2=amber, 3=green |
 
 On screen configuration can be done by using one of the VT100 Set Up Dialogs A and B which can be triggered by F12 key and in an additional extended configuration dialog that also covers parameter of VT100.txt configuration file. This Dialog is triggered by F11 key.
@@ -354,7 +357,7 @@ switch_txrx=0
 # 7=screen+file+wlan
 log_output=0
 
-# wlan_host_autostart: 0=command/log mode after connect, 1=auto-enable host bridge mode
+# wlan_host_autostart: 0=off, 1=command/log mode after connect, 2=auto-enable host bridge mode
 wlan_host_autostart=0
 
 # Log file name (max 63 chars)
@@ -430,7 +433,7 @@ In host mode, VT100 keyboard TX is sent to the TCP peer and TCP RX is rendered d
 
 Recommended entry:
 
-- Set `wlan_host_autostart=1` and connect a host client.
+- Set `wlan_host_autostart=2` and connect a host client.
 
 Behavior in host mode:
 
@@ -459,7 +462,7 @@ screen /tmp/vt100 115200
 
 Recommended workflow:
 
-1. Set `wlan_host_autostart=1`.
+1. Set `wlan_host_autostart=2`.
 2. Start `socat` and attach `screen` to `/tmp/vt100`.
 3. Interact with the VT100 app as if `screen` were the host endpoint.
 
@@ -468,10 +471,10 @@ Recommended workflow:
 Set the config parameter in `VT100.txt`:
 
 ```ini
-wlan_host_autostart=1
+wlan_host_autostart=2
 ```
 
-With this enabled, each new telnet client starts directly in host bridge mode. Set `wlan_host_autostart=0` to start in command/log mode.
+With this enabled, each new telnet client starts directly in host bridge mode. Set `wlan_host_autostart=1` to start in command/log mode.
 
 ### Strict mode separation
 
@@ -627,7 +630,7 @@ Checklist:
 Quick verification key for this feature set:
 
 ```ini
-wlan_host_autostart=0
+wlan_host_autostart=1
 ```
 
 ### Cannot connect to WLAN telnet console
@@ -652,7 +655,7 @@ Expected behavior in current firmware: UART rendering is paused while WLAN host 
 
 - Ensure only one active telnet client is connected.
 - Repeat the section 9.2 mode-switch sequence once.
-- Confirm section 9.4 configuration for `wlan_host_autostart` is set as intended (`0` or `1`).
+- Confirm section 9.4 configuration for `wlan_host_autostart` is set as intended (`0`, `1`, or `2`).
 
 ### `screen` does not connect directly to TCP
 
