@@ -258,6 +258,12 @@ Reconstructed from git commit history and intended as a concise daily summary of
 - Implemented features: refined host-mode on-screen status texts for waiting and session connect states.
 - Codebase changes: updated `CKernel::MarkTelnetWaiting()` to show `Waiting for host to connect via tcp ...` in host mode, and `CKernel::MarkTelnetReady()` to show `Host connected via tcp - CRTL-C in host session to close connection` on host connect.
 - Implemented features: documented successful local loopback verification for WLAN logging mode and WLAN host mode in the main project README.
+- Implemented features: enabled launching arbitrary interactive programs through the PTY bridge helper to support VT100 emulation tests with tools like `vttest` inside `screen`.
+- Codebase changes: extended `VT100/tools/host_loopback/VT100_PTY` with robust optional server/port parsing, new `--run command [args...]` mode, updated help text/examples, and argument validation to prevent invalid `--autorespond` + `--run` combinations.
+- Implemented features: fixed `--run` execution for TTY-dependent interactive tools (including `vttest`) so they can run correctly inside `screen` via the PTY bridge.
+- Codebase changes: changed `VT100/tools/host_loopback/VT100_PTY` `--run` path to launch commands via `script -q /dev/null -c ...` (controlling TTY), added explicit `script(1)` dependency check/error message, and updated help text with the TTY behavior note.
+- Implemented features: restored `--run` compatibility on macOS/BSD environments where `script` does not support `-c` and where `screen` subshell PATH may not include `script`.
+- Codebase changes: updated `VT100/tools/host_loopback/VT100_PTY` to detect `script` variant (`-c` support), use BSD-style invocation when required, resolve `script` to an absolute executable path (including `/usr/bin/script` fallback), and execute that resolved path inside `screen`.
 - Codebase changes: updated `README.md` networking/feature sections to explicitly state successful validation with `VT100_PTY --autorespond`.
 - Implemented features: aligned host-mode README workflow with the real `VT100_PTY --autorespond` helper behavior and documented the recommended host-loopback tooling placement.
 - Codebase changes: replaced manual-only host bridge instructions with helper-first workflow details (`SIMHOST:` responder semantics, filtering, clean shutdown), added placement guidance for `VT100/tools/host_loopback/`, and corrected `VT100_PTY` help text from `AUTO:` to `SIMHOST:`.
@@ -269,3 +275,38 @@ Reconstructed from git commit history and intended as a concise daily summary of
 - Codebase changes: edited release `v0.9.0` notes to require copying the complete `VT100/bin` directory to SD and adapting `wpa_supplicant.conf`, and anonymized `VT100/bin/wpa_supplicant.conf` placeholders for `ssid`/`psk`.
 - Implemented features: prepared English-language outreach text packages for retro-computing community channels.
 - Codebase changes: created local `PR/` text templates (Hackaday project, Reddit variants, tipline, short social) and added `PR/` to root `.gitignore` so drafting materials stay local and are not published to GitHub.
+
+## 2026-02-21
+- Implemented features: approved and documented the WLAN target operating model as exactly two modes (`Remote Logging/Status` and `Remote Shell Client`) with host-server legacy removed from the final target architecture.
+- Codebase changes: updated `docs/Configuration_Guide.md`, `docs/VT100_Architecture.md`, and `README.md` with target-mode definitions, migration mapping from `wlan_host_autostart`, phased implementation order, and aligned current-state vs target-state terminology.
+- Implemented features: aligned runtime/operator-visible WLAN mode behavior wording to the target model so mode `2` is communicated as `Shell Client` instead of legacy host naming in setup/config/logging paths.
+- Codebase changes: updated mode descriptions and status/help/waiting/connection messages across `include/TConfig.h`, `src/TConfig.cpp`, `src/TSetup.cpp`, `src/kernel.cpp`, `include/kernel.h`, `include/TWlanLog.h`, and `src/TWlanLog.cpp` while keeping existing APIs and numeric mode mapping intact.
+- Implemented features: changed mode `wlan_host_autostart=2` behavior from legacy inbound `:2323` wait path to interactive shell-client setup input on VT100 (host/user/password capture in RAM only).
+- Codebase changes: updated `src/kernel.cpp` keyboard routing and runtime mode activation to disable telnet listener startup in mode `2`, added interactive prompt state machine and masked password entry, and added explicit runtime notice that SSH client transport is not yet implemented.
+- Implemented features: added outbound shell-client TCP bridging path (keyboard uplink + renderer downlink) with interactive target input usage, plus automatic SSH endpoint detection and safe-close messaging.
+- Codebase changes: extended `CKernel` with shell-client connection lifecycle (`Connect/Send/Receive/Close`), IPv4 host parsing with optional `:port`, reconnect backoff to avoid busy-loop retries, and mode-2 exclusive routing that bypasses UART fallback while shell-client mode is active.
+- Implemented features: added a robust host-side RAW shell server launcher for `shell_client` operation, including parameterized port/shell selection and controlling-TTY-safe startup behavior.
+- Codebase changes: created `tools/start_raw_shell_server.sh` with argument/help validation, `script(1)` compatibility detection, optional existing-listener cleanup, and stable `socat` PTY options; expanded `tools/README.md` with dedicated usage and troubleshooting notes for RAW shell sessions.
+- Implemented features: improved RAW shell session reliability for control-key and single-character interactive applications by applying terminal-sane defaults on session startup and documenting client-mode requirements.
+- Codebase changes: updated `tools/start_raw_shell_server.sh` to run session-local `stty sane -ixon -ixoff` before launching the interactive shell, and expanded `tools/README.md` with explicit telnet line-mode caveat plus `nc`/`socat` character-mode troubleshooting commands.
+- Implemented features: fixed RAW shell interactive-control behavior so Ctrl keys and single-character input work reliably in tools like `nano` and `vttest`.
+- Codebase changes: removed forced `rawer,echo=0` PTY flags from `tools/start_raw_shell_server.sh`, strengthened session initialization to `stty sane isig icanon echo intr '^C' quit '^\\' -ixon -ixoff`, and updated `tools/README.md` with root-cause notes for `-isig -icanon -echo` symptom states.
+- Implemented features: restored reliable multi-host startup behavior for the RAW shell helper by eliminating fragile nested quoting in the `socat EXEC` path.
+- Codebase changes: refactored `tools/start_raw_shell_server.sh` to generate a temporary quote-safe launcher script used by `script(1)`/`socat EXEC`, updated startup stty baseline text to `stty sane isig icanon echo -ixon -ixoff`, and aligned `tools/README.md` notes with the new execution model.
+- Implemented features: added a dedicated RAW character-mode client helper to reliably test interactive single-key and control-key behavior.
+- Codebase changes: created `tools/raw_shell_client.sh` (socat `raw,echo=0` with Ctrl-] escape) and updated `tools/README.md` to recommend it over `nc`/`telnet` when validating full-screen interactive tools like `vttest`.
+- Implemented features: fixed boot reliability so startup does not halt when the USB keyboard is not yet enumerated at the first initialization poll.
+- Codebase changes: updated `src/TKeyboard.cpp` `CTKeyboard::Initialize()` to always start the keyboard task and allow delayed `ukbd1` enumeration instead of returning failure during early startup.
+- Implemented features: restored stable boot and keyboard responsiveness in `wlan_host_autostart=2` shell-client mode by properly initializing the WLAN/network stack and avoiding blocking network processing when uninitialized.
+- Codebase changes: updated `src/kernel.cpp` to initialize WLAN firmware + Circle network stack + WPA supplicant in shell-client mode (without enabling telnet), guarded `m_Net.Process()` behind a successful shell-client networking init flag, and added a small retry backoff while waiting for the network to become running.
+- Implemented features: eliminated kernel-loop lockups during outbound shell-client connect by moving the blocking TCP `Connect()` into a dedicated `CTWlanHost` task.
+- Codebase changes: added `include/TWlanHost.h` + `src/TWlanHost.cpp`, wired shell-client mode delegation into `src/kernel.cpp` and `Makefile`, and removed the legacy shell-client state machine and blocking connect path from `CKernel`.
+- Implemented features: fixed shell-client boot assertion by keeping prompt/input gated until a valid remote IP exists so the system no longer copies invalid `CIPAddress` values.
+- Codebase changes: `CTWlanHost::Run()` now only copies `m_RemoteIp` when a connection request is pending and `DisplayPromptIfReady()` only runs after networking is ready, preventing early `CIPAddress` assertions while the keyboard prompt waits for input.
+- Codebase changes: `CTWlanHost::Run()` now only copies `m_RemoteIp` when a connection request is pending and `DisplayPromptIfReady()` only runs after networking is ready, preventing early `CIPAddress` assertions while the keyboard prompt waits for input.
+
+## 2026-02-22
+- Implemented features: improved `start_raw_shell_server.sh` output so it now shows that it's waiting for connections and logs when each shell client attaches, making host-mode feedback obvious.
+- Codebase changes: always run `socat` with verbose logging flags when launching the RAW shell server to capture per-client connection events in the helper’s terminal output.
+- Implemented features: deferred the shell-client IP prompt until the WLAN stack is ready so keyboard input stays live while the system finishes booting.
+- Codebase changes: added a prompt-pending flag plus `DisplayPromptIfReady()` inside `CTWlanHost`, let the `Run()` loop show the prompt only when networking is ready (avoiding keyboard takeover), and ensured `ParseIPv4Address()` preserves the entered octet order so outbound mode targets the intended host.
