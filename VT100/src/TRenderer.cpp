@@ -1701,6 +1701,10 @@ void CTRenderer::Write(char chChar)
             {
                 SetCursorMode(TRUE);
             }
+            else if (m_nParam1 == 2004)
+            {
+                // Bracketed paste mode (xterm/zsh): ignore.
+            }
             m_State = StateStart;
             break;
 
@@ -1713,6 +1717,10 @@ void CTRenderer::Write(char chChar)
             {
                 m_bVT52Mode = TRUE;
             }
+            else if (m_nParam1 == 2004)
+            {
+                // Bracketed paste mode (xterm/zsh): ignore.
+            }
             m_State = StateStart;
             break;
 
@@ -1722,7 +1730,7 @@ void CTRenderer::Write(char chChar)
                 m_nParam1 *= 10;
                 m_nParam1 += chChar - '0';
 
-                if (m_nParam1 > 99)
+                if (m_nParam1 > 9999)
                 {
                     m_State = StateStart;
                 }

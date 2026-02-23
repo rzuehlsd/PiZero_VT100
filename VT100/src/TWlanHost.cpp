@@ -4,6 +4,7 @@
 #include "hal.h"
 
 #include <circle/logger.h>
+#include <circle/net/error.h>
 #include <circle/net/in.h>
 #include <circle/sched/scheduler.h>
 #include <stdlib.h>
@@ -327,31 +328,55 @@ void CTWlanHost::Tick()
     if (connected && sock != nullptr)
     {
         char rx[512];
-        const int received = sock->Receive(rx, sizeof(rx), MSG_DONTWAIT);
-        if (received > 0)
+        const unsigned int maxIterations = 4U;
+        unsigned int iteration = 0U;
+        while (iteration < maxIterations)
         {
-            if (!m_SshDetected && received >= 4 && memcmp(rx, "SSH-", 4) == 0)
+            const int received = sock->Receive(rx, sizeof(rx), MSG_DONTWAIT);
+            if (received > 0)
             {
-                m_SshDetected = true;
+                if (!m_SshDetected && received >= 4 && memcmp(rx, "SSH-", 4) == 0)
+                {
+                    m_SshDetected = true;
+                    if (m_pRenderer != nullptr)
+                    {
+                        static const char Msg[] =
+                            "\r\nSSH server detected. Full SSH transport/auth is not implemented in firmware yet.\r\n"
+                            "Connection is closed to avoid unusable encrypted session.\r\n";
+                        m_pRenderer->Write(Msg, sizeof Msg - 1);
+                    }
+                    CloseConnection("ssh-not-implemented");
+                    return;
+                }
+
                 if (m_pRenderer != nullptr)
                 {
-                    static const char Msg[] =
-                        "\r\nSSH server detected. Full SSH transport/auth is not implemented in firmware yet.\r\n"
-                        "Connection is closed to avoid unusable encrypted session.\r\n";
-                    m_pRenderer->Write(Msg, sizeof Msg - 1);
+                    m_pRenderer->Write(rx, static_cast<size_t>(received));
                 }
-                CloseConnection("ssh-not-implemented");
-                return;
+                ++iteration;
+                continue;
             }
 
-            if (m_pRenderer != nullptr)
+            if (received == 0)
             {
-                m_pRenderer->Write(rx, static_cast<size_t>(received));
+                // Circle TCP semantics: MSG_DONTWAIT returns 0 when no data is available.
+                break;
             }
-        }
-        else if (received < 0)
-        {
+
+            if (received == -NET_ERROR_WOULD_BLOCK)
+            {
+                break;
+            }
+
+            if (received == -NET_ERROR_CONNECTION_RESET)
+            {
+                CloseConnection("remote-closed");
+                break;
+            }
+
+            LOGNOTE("Shell-client receive failed rc=%d", received);
             CloseConnection("receive-error");
+            break;
         }
     }
 }
@@ -443,6 +468,9 @@ void CTWlanHost::CloseConnection(const char *reason)
     m_ConnectRequested = false;
     m_RetryBackoff = 200U;
     m_StateLock.Release();
+
+    const char *logReason = (reason != nullptr) ? reason : "unspecified";
+    LOGNOTE("Shell-client connection closing (%s)", logReason);
 
     if (wasConnected && m_pRenderer != nullptr)
     {

@@ -34,9 +34,9 @@ Reconstructed from git commit history and intended as a concise daily summary of
 - Implemented features: integrated `TFontConverter` and `TRenderer` into kernel runtime.
 - Codebase changes: reworked kernel integration paths for renderer/font modules.
 
-## 2026-01-23
-- Implemented features: integrated keyboard handling and SD-based configuration loading into kernel startup.
-- Codebase changes: mounted filesystem support, added `TConfig` kernel integration, and refined text-attribute rendering behavior limits under RGB565.
+## 2026-02-23
+- Implemented features: stabilized WLAN shell-client sessions by keeping non-blocking receives from triggering false disconnects while still draining bursty output in a bounded loop.
+- Codebase changes: updated `CTWlanHost::Tick()` to treat `Receive(..., MSG_DONTWAIT)==0` as idle/no-data (Circle TCP semantics) and only close on `NET_ERROR_CONNECTION_RESET` or real receive errors, added explicit close-reason logging, corrected `tools/start_raw_shell_server.sh` to exec the configured shell directly without an undefined `SCRIPT_BIN` path, and extended the renderer CSI `ESC[?…h/l` parsing to consume/ignore bracketed paste mode (`?2004h/l`) so prompts no longer show a stray "4h".
 
 ## 2026-01-29
 - Implemented features: integrated `TUART` task flow for host TX/RX and renderer display path.
@@ -310,3 +310,8 @@ Reconstructed from git commit history and intended as a concise daily summary of
 - Codebase changes: always run `socat` with verbose logging flags when launching the RAW shell server to capture per-client connection events in the helper’s terminal output.
 - Implemented features: deferred the shell-client IP prompt until the WLAN stack is ready so keyboard input stays live while the system finishes booting.
 - Codebase changes: added a prompt-pending flag plus `DisplayPromptIfReady()` inside `CTWlanHost`, let the `Run()` loop show the prompt only when networking is ready (avoiding keyboard takeover), and ensured `ParseIPv4Address()` preserves the entered octet order so outbound mode targets the intended host.
+
+## 2026-02-23
+- Implemented features: kept the WLAN shell-client receiver busy until the socket would block so bursty host output is delivered without waiting for the next kernel tick.
+- Codebase changes: updated `CTWlanHost::Tick()` to loop over `MSG_DONTWAIT` receives, handle `NET_ERROR_WOULD_BLOCK` as the normal “no data yet” case, and only close the connection when a remote close or unexpected receive error occurs while logging the error code for diagnostics.
+	Also log the `CloseConnection` reason string via `LOGNOTE` so each disconnect is recorded with the triggering message.
