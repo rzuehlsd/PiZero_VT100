@@ -35,8 +35,14 @@ Reconstructed from git commit history and intended as a concise daily summary of
 - Codebase changes: reworked kernel integration paths for renderer/font modules.
 
 ## 2026-02-23
+
+- VT100 renderer: clamp `CUP` cursor moves to the visible grid so size-probing sequences like `ESC[999;999H` behave predictably (improves vttest layout on wide screens).
+- VT100 renderer: implement missing erase variants `CSI 1J`, `CSI 1K`, and `CSI 2K` used by vttest.
+- VT100 renderer: fix autowrap behavior to use a VT100-style wrap-pending state (prevents unintended extra newlines/scrolling when writing in the last column).
+- VT100 renderer: implement DECAWM wrap mode toggles (`ESC[?7h`/`ESC[?7l`) and use runtime wrap-mode state (needed by vttest).
+- Config: add `host_id` (IPv4[:port]) for shell-client mode; when set and `wlan_host_autostart=2`, the shell-client auto-connects without prompting for Host.
 - Implemented features: stabilized WLAN shell-client sessions by keeping non-blocking receives from triggering false disconnects while still draining bursty output in a bounded loop.
-- Codebase changes: updated `CTWlanHost::Tick()` to treat `Receive(..., MSG_DONTWAIT)==0` as idle/no-data (Circle TCP semantics) and only close on `NET_ERROR_CONNECTION_RESET` or real receive errors, added explicit close-reason logging, corrected `tools/start_raw_shell_server.sh` to exec the configured shell directly without an undefined `SCRIPT_BIN` path, and extended the renderer CSI `ESC[?…h/l` parsing to consume/ignore bracketed paste mode (`?2004h/l`) so prompts no longer show a stray "4h".
+- Codebase changes: updated `CTWlanHost::Tick()` to treat `Receive(..., MSG_DONTWAIT)==0` as idle/no-data (Circle TCP semantics) and only close on `NET_ERROR_CONNECTION_RESET` or real receive errors, added explicit close-reason logging, corrected `tools/start_raw_shell_server.sh` to exec the configured shell directly without an undefined `SCRIPT_BIN` path, extended the renderer CSI `ESC[?…h/l` parsing to consume/ignore bracketed paste mode (`?2004h/l`) so prompts no longer show a stray "4h", and added minimal vttest compatibility (C1 CSI 0x9B plus DA/DSR replies `ESC[c`, `ESC Z`, `ESC[5n`, `ESC[6n`) with non-blocking shell-client TX for responsive cursor keys plus cursor semantics fixes (DECOM origin mode `ESC[?6h/l`, CSI save/restore `ESC[s/u`, CUP `ESC[;colH`, and default scroll-region reset `ESC[r`); additionally, increased the shell-client TCP RX buffer to `FRAME_BUFFER_SIZE` to prevent Circle receive-chunk truncation from dropping bytes during burst output (e.g., vttest).
 
 ## 2026-01-29
 - Implemented features: integrated `TUART` task flow for host TX/RX and renderer display path.
@@ -212,6 +218,10 @@ Reconstructed from git commit history and intended as a concise daily summary of
 - Implemented features: added a post-greeting telnet notice indicating WLAN mode is active and network establishment may require waiting before connection-ready messages appear.
 - Codebase changes: extended `CTWlanLog::AnnounceConnection()` greeting text with an explicit wait hint for WLAN/network setup progress.
 - Implemented features: fixed the `VT100_TTY` helper script so `screen` is attached directly to the PTY bridge, enabling bidirectional host-mode loop testing.
+
+## 2026-02-24
+- Implemented features: improved VT100/vttest compatibility by adding a robust CSI parser (multi-parameter SGR), implementing RIS and DECALN, and making insert-mode semantics effective.
+- Codebase changes: replaced the legacy two-parameter CSI state machine with a parameter-list CSI parser, fixed DSR cursor-position reports under origin mode (DECOM) so cursor-movement tests behave correctly, added ICH (`CSI @`) and IRM shifting on printable output, and validated with `make -j4` in `VT100/`.
 - Codebase changes: replaced one-way `tee` usage with direct `screen <pty>` attachment, changed default TCP port to `2323`, and added robust startup/cleanup handling (`set -euo pipefail`, trap-based process/file cleanup, PTY readiness wait loop).
 - Implemented features: extended `VT100_PTY` with optional automatic line reply mode for host-loop testing (`--autorespond`).
 - Codebase changes: added argument parsing/help output, screen logfile-based responder process with `AUTO:` loop-prevention tagging, and cleanup handling for responder/log artifacts while keeping default interactive behavior unchanged.
@@ -239,6 +249,20 @@ Reconstructed from git commit history and intended as a concise daily summary of
 - Codebase changes: added host-data priming state in `CTWlanLog` and updated host-mode RX handling to drop early non-printable control bytes until first printable/escape payload arrives, while preserving normal host rendering once primed.
 - Implemented features: removed telnet-option byte leakage in auto-host raw sessions by disabling telnet negotiation for auto-start host mode.
 - Codebase changes: updated `CTWlanLog::AcceptClient()` to skip `SendTelnetNegotiation()` when `wlan_host_autostart` is enabled, keeping raw `socat/screen` host-loop sessions free of telnet control-sequence artifacts (`^C^CA`) while retaining telnet negotiation for non-auto-host command sessions.
+- Implemented features: restored sane line alignment for host full-screen tools (e.g. `top`) by supporting ANSI New Line Mode (LNM).
+- Codebase changes: added renderer-side LNM state and implemented `CSI 20h/20l` so incoming `LF` can be interpreted as either IND or CR+IND, defaulting to CR+IND for compatibility.
+- Implemented features: improved `top`/curses rendering under `TERM=xterm-256color` by supporting xterm alternate-screen mode.
+- Codebase changes: implemented `CSI ?47/?1047/?1049 h/l` alternate screen snapshot/restore in the renderer so full-screen apps can use a clean buffer without corrupting the normal screen.
+- Implemented features: added an internal VTTest geometry marker screen to diagnose top-row cropping/overlap.
+- Codebase changes: extended `VTTest` with a "VT100 Geometry Markers" step (row/col/corner labels) and a DECALN fill step (`ESC # 8`) for quick visual validation.
+- Implemented features: improved VTTest geometry-marker usability by showing centered expected-result instructions with explicit PASS/FAIL keys.
+- Codebase changes: updated the "VT100 Geometry Markers" VTTest step to render centered guidance text (`RETURN = OK` / `SPACE = NOT OK`) based on runtime rows/cols.
+- Implemented features: clarified geometry-marker diagnostics by isolating the top/bottom rows to corner-only markers and moving row labels to start at ROW03.
+- Codebase changes: adjusted the geometry-marker layout so row 1 and the last row contain only corner markers, row 2 contains only the column ruler, and left-edge row labels start at row 3.
+- Implemented features: added a VTTest check to validate DEC Origin Mode (DECOM) cursor positioning relative to a scroll region.
+- Codebase changes: added a "DECOM Origin + Scroll Region" VTTest step that places markers using CUP under `ESC[?6h/l` to verify absolute vs margin-relative addressing.
+- Implemented features: improved DECOM VTTest usability by animating the origin-mode phases and reusing the scroll-region line-stream demo.
+- Codebase changes: refactored the DECOM VTTest step into a timed multi-part sequence followed by the existing L1..L10 scroll animation, with automatic DECOM/scroll-region reset after completion.
 
 ## 2026-02-20
 - Implemented features: enforced strict WLAN log-mode vs host-mode session separation without transitional/manual in-session host switching.

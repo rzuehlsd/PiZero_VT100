@@ -81,6 +81,9 @@ public:
         boolean blinkAttribute;
         boolean insertOn;
         boolean autoPage;
+        boolean vt52Mode;
+        boolean originMode;
+        boolean wrapAroundMode;
         boolean delayedUpdate;
         unsigned lastUpdateTicks;
         unsigned parserState;
@@ -132,7 +135,6 @@ public:
     unsigned GetWidth(void) const;
 
     /// \brief Query the screen height in pixels.
-    /// \return Height in pixels.
     unsigned GetHeight(void) const;
 
     /// \brief Query the screen width in characters.
@@ -149,6 +151,7 @@ public:
 
     /// \brief Access the underlying framebuffer device.
     /// \return Pointer to the framebuffer.
+
     CBcmFrameBuffer *GetDisplay(void);
 
     /// \brief Clear entire display area and home the cursor.
@@ -217,6 +220,9 @@ public:
     /// \brief Enable or disable VT52 emulation mode.
     /// \param bEnable TRUE to enable VT52 mode, FALSE for ANSI mode.
     void SetVT52Mode(boolean bEnable);
+
+    /// \brief Enable or disable DECAWM automatic wrap mode (ESC[?7h/l).
+    void SetWrapAroundMode(boolean bEnable);
 
     /// \brief Enable or disable automatic page mode (cursor wrap to top).
     /// \param bEnable TRUE to enable auto page mode, FALSE for normal scrolling.
@@ -296,6 +302,12 @@ private:
 
     /// \brief Move cursor to column zero without changing row.
     void CarriageReturn(void);
+    /// \brief Clear the display from start of screen to cursor.
+    void ClearDisplayStart(void);
+    /// \brief Clear the active line from start of line to cursor.
+    void ClearLineStart(void);
+    /// \brief Clear the entire active line.
+    void ClearLine(void);
     /// \brief Clear the display from cursor to end of screen.
     void ClearDisplayEnd(void);
     /// \brief Clear the active line from cursor to end of line.
@@ -326,12 +338,26 @@ private:
     CDisplay::TRawColor GetTextColor(void);
     /// \brief Insert new blank lines starting at cursor row.
     void InsertLines(unsigned nCount);
+    /// \brief Insert blank character cells at the cursor position (ICH/IRM support).
+    void InsertChars(unsigned nCount);
     /// \brief Toggle insert mode state.
     void InsertMode(boolean bBegin);
     /// \brief Advance to next line applying scroll if necessary.
     void NewLine(void);
     /// \brief Scroll content downward for reverse index.
     void ReverseScroll(void);
+
+    /// \brief Initialize CSI parser state (ESC [ / C1 CSI).
+    void BeginCSI(void);
+    /// \brief Append one CSI parameter value to the internal list.
+    void CSIAddParam(unsigned value);
+    /// \brief Flush the current CSI parameter (and trailing empty parameter if needed).
+    void FinalizeCSIParams(void);
+
+    /// \brief Reset terminal modes/state similar to RIS (ESC c).
+    void ResetTerminalState(boolean clearScreen);
+    /// \brief Render DECALN alignment test pattern (ESC # 8).
+    void ScreenAlignmentTest(void);
 
     /// \brief Define the active scrolling region.
     void SetScrollRegion(unsigned nStartRow, unsigned nEndRow);
@@ -347,6 +373,12 @@ private:
 
     /// \brief Restore the saved cursor position and attributes.
     void RestoreCursor(void);
+
+    /// \brief Enter xterm-style alternate screen (smcup).
+    void EnterAlternateScreen(void);
+
+    /// \brief Leave xterm-style alternate screen (rmcup).
+    void LeaveAlternateScreen(void);
 
     /// \brief Scroll display buffer content upward one line.
     void Scroll(void);
@@ -385,6 +417,7 @@ private:
         StateVT52Row,
         StateVT52Col,
         StateBracket,
+        StateCSI,
         StateNumber1,
         StateQuestionMark,
         StateSemicolon,
@@ -396,6 +429,8 @@ private:
         StateG0,
         StateG1
     };
+
+    static constexpr unsigned CSIParamMax = 16;
 
     enum ECharacterSet
     {
@@ -435,6 +470,7 @@ private:
     unsigned m_nScrollEnd;
     unsigned m_nCursorX;
     unsigned m_nCursorY;
+    boolean m_bWrapPending;
     boolean m_bCursorOn;
     boolean m_bCursorBlock;
     boolean m_bBlinkingCursor;
@@ -456,9 +492,26 @@ private:
     boolean m_bBlinkAttribute;
     boolean m_bInsertOn;
     boolean m_bVT52Mode;
+    boolean m_bOriginMode;
+    boolean m_bWrapAroundMode;
+    boolean m_bNewLineMode;
+    boolean m_bAltScreenActive;
+    boolean m_bAltScreenSavedValid;
+    u8 *m_pAltScreenSnapshot;
+    size_t m_nAltScreenSnapshotSize;
+    TRendererState m_AltScreenSavedState;
     unsigned m_nParam1;
     unsigned m_nParam2;
     boolean m_bAutoPage;
+
+    // CSI parser state (ESC [ ... / C1 CSI)
+    boolean m_bCSIPrivate;
+    unsigned m_CSIParams[CSIParamMax];
+    unsigned m_nCSIParamCount;
+    unsigned m_nCSIParamValue;
+    boolean m_bCSIHaveValue;
+    boolean m_bCSILastWasSeparator;
+
     boolean m_bDelayedUpdate;
     unsigned m_nLastUpdateTicks;
     boolean m_bSmoothScrollEnabled;

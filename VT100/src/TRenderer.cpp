@@ -28,8 +28,35 @@
 #include "TFontConverter.h"
 #include "TConfig.h"
 #include "hal.h"
+#include "kernel.h"
 
 LOGMODULE("TRenderer");
+
+namespace
+{
+static void SendHostReply(const char *data, size_t length)
+{
+    if (data == nullptr || length == 0)
+    {
+        return;
+    }
+
+    CKernel *kernel = CKernel::Get();
+    if (kernel == nullptr)
+    {
+        return;
+    }
+
+    kernel->SendHostOutput(data, length);
+}
+
+static void SendPrimaryDA(void)
+{
+    // Identify as VT100 class (primary DA). Many apps (incl. vttest) expect this.
+    static const char Reply[] = "\x1B[?1;0c";
+    SendHostReply(Reply, sizeof Reply - 1);
+}
+}
 
 #define DEPTH 16
 
@@ -72,8 +99,9 @@ CTRenderer::CTRenderer(void)
       m_State(StateStart),
       m_nScrollStart(0),
       m_nScrollEnd(0),
-      m_nCursorX(0),
-      m_nCursorY(0),
+            m_nCursorX(0),
+            m_nCursorY(0),
+            m_bWrapPending(FALSE),
       m_bCursorOn(TRUE),
       m_bCursorBlock(FALSE),
       m_bBlinkingCursor(TRUE),
@@ -95,7 +123,19 @@ CTRenderer::CTRenderer(void)
       m_bBlinkAttribute(FALSE),
       m_bInsertOn(FALSE),
     m_bVT52Mode(FALSE),
+            m_bOriginMode(FALSE),
+            m_bWrapAroundMode(TRUE),
+                        m_bNewLineMode(TRUE), // New Line Mode (LNM): when enabled, LF is treated as CR+LF.
+    m_bAltScreenActive(FALSE),
+    m_bAltScreenSavedValid(FALSE),
+    m_pAltScreenSnapshot(nullptr),
+    m_nAltScreenSnapshotSize(0),
       m_bAutoPage(FALSE),
+            m_bCSIPrivate(FALSE),
+            m_nCSIParamCount(0),
+            m_nCSIParamValue(0),
+            m_bCSIHaveValue(FALSE),
+            m_bCSILastWasSeparator(FALSE),
       m_bDelayedUpdate(FALSE),
     m_bSmoothScrollEnabled(TRUE),
     m_bSmoothScrollActive(FALSE),
@@ -122,9 +162,27 @@ CTRenderer::CTRenderer(void)
 {
     // Initialize saved state with safe defaults
     memset(&m_SavedState, 0, sizeof(m_SavedState));
+    memset(&m_AltScreenSavedState, 0, sizeof(m_AltScreenSavedState));
+    memset(m_CSIParams, 0, sizeof(m_CSIParams));
 
     SetName("Renderer");
     Suspend();
+}
+
+namespace
+{
+inline unsigned CSIParamOrDefault(const unsigned *params, unsigned count, unsigned index, unsigned defaultValue)
+{
+    if (index >= count)
+    {
+        return defaultValue;
+    }
+    if (params[index] == 0)
+    {
+        return defaultValue;
+    }
+    return params[index];
+}
 }
 
 CTRenderer::~CTRenderer(void)
@@ -143,6 +201,10 @@ CTRenderer::~CTRenderer(void)
     delete[] m_pSmoothScrollCompose;
     m_pSmoothScrollCompose = nullptr;
 
+    delete[] m_pAltScreenSnapshot;
+    m_pAltScreenSnapshot = nullptr;
+    m_nAltScreenSnapshotSize = 0;
+
     delete m_pCharGen;
     m_pCharGen = nullptr;
 
@@ -151,6 +213,130 @@ CTRenderer::~CTRenderer(void)
 
     delete m_pFrameBuffer;
     m_pFrameBuffer = nullptr;
+}
+
+void CTRenderer::EnterAlternateScreen(void)
+{
+    if (m_pBuffer8 == nullptr)
+    {
+        return;
+    }
+
+    // Already in alt screen.
+    if (m_bAltScreenActive)
+    {
+        return;
+    }
+
+    // Ensure snapshot buffer exists and is sized for the current framebuffer.
+    if (m_pAltScreenSnapshot == nullptr || m_nAltScreenSnapshotSize < m_nSize)
+    {
+        delete[] m_pAltScreenSnapshot;
+        m_pAltScreenSnapshot = new u8[m_nSize];
+        m_nAltScreenSnapshotSize = m_pAltScreenSnapshot ? m_nSize : 0;
+    }
+
+    if (m_pAltScreenSnapshot == nullptr || m_nAltScreenSnapshotSize < m_nSize)
+    {
+        // Cannot enter alt screen without a snapshot.
+        return;
+    }
+
+    // Save the visible framebuffer.
+    memcpy(m_pAltScreenSnapshot, m_pBuffer8, m_nSize);
+
+    // Save key terminal state so we can restore a sane session on exit.
+    m_AltScreenSavedState.cursorX = m_nCursorX;
+    m_AltScreenSavedState.cursorY = m_nCursorY;
+    m_AltScreenSavedState.scrollStart = m_nScrollStart;
+    m_AltScreenSavedState.scrollEnd = m_nScrollEnd;
+    m_AltScreenSavedState.vt52Mode = m_bVT52Mode;
+    m_AltScreenSavedState.originMode = m_bOriginMode;
+    m_AltScreenSavedState.wrapAroundMode = m_bWrapAroundMode;
+    m_AltScreenSavedState.insertOn = m_bInsertOn;
+    m_AltScreenSavedState.autoPage = m_bAutoPage;
+    m_AltScreenSavedState.reverseAttribute = m_bReverseAttribute;
+    m_AltScreenSavedState.boldAttribute = m_bBoldAttribute;
+    m_AltScreenSavedState.underlineAttribute = m_bUnderlineAttribute;
+    m_AltScreenSavedState.blinkAttribute = m_bBlinkAttribute;
+    m_AltScreenSavedState.foreground = m_ForegroundColor;
+    m_AltScreenSavedState.background = m_BackgroundColor;
+    m_AltScreenSavedState.defaultForeground = m_DefaultForegroundColor;
+    m_AltScreenSavedState.defaultBackground = m_DefaultBackgroundColor;
+    m_AltScreenSavedState.g0CharSet = static_cast<unsigned>(m_G0CharSet);
+    m_AltScreenSavedState.g1CharSet = static_cast<unsigned>(m_G1CharSet);
+    m_AltScreenSavedState.useG1 = m_bUseG1;
+    m_bAltScreenSavedValid = TRUE;
+
+    // Switch to a clean screen for full-screen apps.
+    m_bAltScreenActive = TRUE;
+    SetScrollRegion(1, 0);
+    CursorHome();
+    ClearDisplay();
+    SetUpdateArea(0, m_nHeight ? (m_nHeight - 1) : 0);
+}
+
+void CTRenderer::LeaveAlternateScreen(void)
+{
+    if (!m_bAltScreenActive)
+    {
+        return;
+    }
+
+    if (m_pBuffer8 != nullptr && m_pAltScreenSnapshot != nullptr && m_nAltScreenSnapshotSize >= m_nSize)
+    {
+        memcpy(m_pBuffer8, m_pAltScreenSnapshot, m_nSize);
+    }
+
+    // Restore saved state (best effort).
+    if (m_bAltScreenSavedValid && m_pCharGen != nullptr)
+    {
+        const unsigned charWidth = m_pCharGen->GetCharWidth();
+        const unsigned charHeight = m_pCharGen->GetCharHeight();
+
+        m_bVT52Mode = m_AltScreenSavedState.vt52Mode;
+        m_bOriginMode = m_AltScreenSavedState.originMode;
+        SetWrapAroundMode(m_AltScreenSavedState.wrapAroundMode);
+        m_bInsertOn = m_AltScreenSavedState.insertOn;
+        m_bAutoPage = m_AltScreenSavedState.autoPage;
+        m_G0CharSet = static_cast<ECharacterSet>(m_AltScreenSavedState.g0CharSet);
+        m_G1CharSet = static_cast<ECharacterSet>(m_AltScreenSavedState.g1CharSet);
+        m_bUseG1 = m_AltScreenSavedState.useG1;
+
+        m_bReverseAttribute = m_AltScreenSavedState.reverseAttribute;
+        m_bBoldAttribute = m_AltScreenSavedState.boldAttribute;
+        m_bUnderlineAttribute = m_AltScreenSavedState.underlineAttribute;
+        m_bBlinkAttribute = m_AltScreenSavedState.blinkAttribute;
+        m_ForegroundColor = m_AltScreenSavedState.foreground;
+        m_BackgroundColor = m_AltScreenSavedState.background;
+        m_DefaultForegroundColor = m_AltScreenSavedState.defaultForeground;
+        m_DefaultBackgroundColor = m_AltScreenSavedState.defaultBackground;
+
+        // Clamp scroll region and cursor to current cell grid.
+        if (m_nUsedHeight != 0)
+        {
+            const unsigned maxEnd = m_nUsedHeight;
+            const unsigned start = (m_AltScreenSavedState.scrollStart <= maxEnd) ? m_AltScreenSavedState.scrollStart : 0;
+            const unsigned end = (m_AltScreenSavedState.scrollEnd <= maxEnd) ? m_AltScreenSavedState.scrollEnd : maxEnd;
+            m_nScrollStart = (start <= end) ? start : 0;
+            m_nScrollEnd = (end > m_nScrollStart) ? end : maxEnd;
+        }
+
+        if (charWidth != 0 && charHeight != 0)
+        {
+            const unsigned lastColumnX = (m_nUsedWidth >= charWidth) ? (m_nUsedWidth - charWidth) : 0U;
+            const unsigned lastRowY = (m_nUsedHeight >= charHeight) ? (m_nUsedHeight - charHeight) : 0U;
+
+            m_nCursorX = (m_AltScreenSavedState.cursorX <= lastColumnX) ? m_AltScreenSavedState.cursorX : lastColumnX;
+            m_nCursorY = (m_AltScreenSavedState.cursorY <= lastRowY) ? m_AltScreenSavedState.cursorY : lastRowY;
+
+            m_nCursorX = (m_nCursorX / charWidth) * charWidth;
+            m_nCursorY = (m_nCursorY / charHeight) * charHeight;
+        }
+    }
+
+    m_bAltScreenActive = FALSE;
+    SetUpdateArea(0, m_nHeight ? (m_nHeight - 1) : 0);
 }
 
 boolean CTRenderer::Initialize(void)
@@ -455,22 +641,29 @@ void CTRenderer::Goto(unsigned nRow, unsigned nColumn)
         InvertCursor();
     }
 
-    if (nColumn < GetColumns())
+    const unsigned cols = GetColumns();
+    const unsigned rows = GetRows();
+    const unsigned charWidth = m_pCharGen->GetCharWidth();
+    const unsigned charHeight = m_pCharGen->GetCharHeight();
+
+    if (cols != 0 && charWidth != 0)
     {
-        m_nCursorX = nColumn * m_pCharGen->GetCharWidth();
+        const unsigned targetCol = (nColumn < cols) ? nColumn : (cols - 1);
+        m_nCursorX = targetCol * charWidth;
     }
     else
     {
-        m_nCursorX = (GetColumns() - 1) * m_pCharGen->GetCharWidth();
+        m_nCursorX = 0;
     }
 
-    if (nRow < GetRows())
+    if (rows != 0 && charHeight != 0)
     {
-        m_nCursorY = nRow * m_pCharGen->GetCharHeight();
+        const unsigned targetRow = (nRow < rows) ? nRow : (rows - 1);
+        m_nCursorY = targetRow * charHeight;
     }
     else
     {
-        m_nCursorY = (GetRows() - 1) * m_pCharGen->GetCharHeight();
+        m_nCursorY = 0;
     }
 
     if (cursorWasVisible && m_bCursorOn)
@@ -545,7 +738,14 @@ unsigned CTRenderer::GetColumns(void) const
         return 0;
     }
 
-    return m_nWidth / m_pCharGen->GetCharWidth();
+    const unsigned charWidth = m_pCharGen->GetCharWidth();
+    if (charWidth == 0)
+    {
+        return 0;
+    }
+
+    // Use cell-aligned width to avoid reporting a column that would be partially visible.
+    return m_nUsedWidth / charWidth;
 }
 
 unsigned CTRenderer::GetRows(void) const
@@ -555,7 +755,14 @@ unsigned CTRenderer::GetRows(void) const
         return 0;
     }
 
-    return m_nHeight / m_pCharGen->GetCharHeight();
+    const unsigned charHeight = m_pCharGen->GetCharHeight();
+    if (charHeight == 0)
+    {
+        return 0;
+    }
+
+    // Use cell-aligned height to avoid reporting a row that would be partially visible.
+    return m_nUsedHeight / charHeight;
 }
 
 unsigned CTRenderer::GetCursorColumn(void) const
@@ -678,7 +885,173 @@ void CTRenderer::ResetParserState(void)
     m_State = StateStart;
     m_nParam1 = 0;
     m_nParam2 = 0;
+    m_bCSIPrivate = FALSE;
+    m_nCSIParamCount = 0;
+    m_nCSIParamValue = 0;
+    m_bCSIHaveValue = FALSE;
+    m_bCSILastWasSeparator = FALSE;
     m_SpinLock.Release();
+}
+
+void CTRenderer::BeginCSI(void)
+{
+    m_State = StateCSI;
+    m_bCSIPrivate = FALSE;
+    m_nCSIParamCount = 0;
+    m_nCSIParamValue = 0;
+    m_bCSIHaveValue = FALSE;
+    m_bCSILastWasSeparator = FALSE;
+}
+
+void CTRenderer::CSIAddParam(unsigned value)
+{
+    if (m_nCSIParamCount >= CSIParamMax)
+    {
+        return;
+    }
+    m_CSIParams[m_nCSIParamCount++] = value;
+}
+
+void CTRenderer::FinalizeCSIParams(void)
+{
+    if (m_bCSIHaveValue)
+    {
+        CSIAddParam(m_nCSIParamValue);
+    }
+    else if (m_bCSILastWasSeparator)
+    {
+        CSIAddParam(0);
+    }
+    m_nCSIParamValue = 0;
+    m_bCSIHaveValue = FALSE;
+    m_bCSILastWasSeparator = FALSE;
+}
+
+void CTRenderer::InsertChars(unsigned nCount)
+{
+    if (nCount == 0 || m_pCharGen == nullptr)
+    {
+        return;
+    }
+
+    const unsigned charWidth = m_pCharGen->GetCharWidth();
+    const unsigned charHeight = m_pCharGen->GetCharHeight();
+    if (charWidth == 0 || charHeight == 0)
+    {
+        return;
+    }
+
+    if (m_nCursorX >= m_nUsedWidth)
+    {
+        return;
+    }
+
+    unsigned pixelWidth = nCount * charWidth;
+    const unsigned maxShift = m_nUsedWidth - m_nCursorX;
+    if (pixelWidth > maxShift)
+    {
+        pixelWidth = maxShift;
+    }
+    if (pixelWidth == 0)
+    {
+        return;
+    }
+
+    const CDisplay::TRawColor bgColor = GetTextBackgroundColor();
+    const unsigned startY = m_nCursorY;
+    const unsigned endY = m_nCursorY + charHeight;
+
+    for (unsigned y = startY; y < endY; ++y)
+    {
+        for (int x = static_cast<int>(m_nUsedWidth) - 1; x >= static_cast<int>(m_nCursorX + pixelWidth); --x)
+        {
+            SetRawPixel(static_cast<unsigned>(x), y, GetRawPixel(static_cast<unsigned>(x) - pixelWidth, y));
+        }
+
+        const unsigned clearEnd = m_nCursorX + pixelWidth;
+        for (unsigned x = m_nCursorX; x < clearEnd && x < m_nUsedWidth; ++x)
+        {
+            SetRawPixel(x, y, bgColor);
+        }
+    }
+
+    SetUpdateArea(startY, endY - 1);
+}
+
+void CTRenderer::ResetTerminalState(boolean clearScreen)
+{
+    // NOTE: This is called from the write path while the renderer spinlock is held.
+    // Do not call ResetParserState() here (it acquires the same spinlock).
+    m_State = StateStart;
+    m_nParam1 = 0;
+    m_nParam2 = 0;
+    m_bCSIPrivate = FALSE;
+    m_nCSIParamCount = 0;
+    m_nCSIParamValue = 0;
+    m_bCSIHaveValue = FALSE;
+    m_bCSILastWasSeparator = FALSE;
+
+    m_bVT52Mode = FALSE;
+    m_bOriginMode = FALSE;
+    m_bInsertOn = FALSE;
+    m_bAutoPage = FALSE;
+    SetWrapAroundMode(TRUE);
+
+    m_G0CharSet = CharSetUS;
+    m_G1CharSet = CharSetGraphics;
+    m_bUseG1 = FALSE;
+
+    SetStandoutMode(0);
+    SetScrollRegion(1, 0);
+    SetCursorMode(TRUE);
+
+    if (m_pCharGen != nullptr)
+    {
+        SetFont(m_CurrentFontSelection, CCharGenerator::FontFlagsNone);
+    }
+
+    CursorHome();
+    if (clearScreen)
+    {
+        ClearDisplay();
+    }
+}
+
+void CTRenderer::ScreenAlignmentTest(void)
+{
+    if (m_pCharGen == nullptr)
+    {
+        return;
+    }
+
+    const unsigned savedX = m_nCursorX;
+    const unsigned savedY = m_nCursorY;
+
+    const unsigned charWidth = m_pCharGen->GetCharWidth();
+    const unsigned charHeight = m_pCharGen->GetCharHeight();
+    if (charWidth == 0 || charHeight == 0)
+    {
+        return;
+    }
+
+    const unsigned cols = m_nUsedWidth / charWidth;
+    const unsigned rows = m_nUsedHeight / charHeight;
+    if (cols == 0 || rows == 0)
+    {
+        return;
+    }
+
+    const CDisplay::TRawColor color = GetTextColor();
+    for (unsigned row = 0; row < rows; ++row)
+    {
+        for (unsigned col = 0; col < cols; ++col)
+        {
+            DisplayChar('E', col * charWidth, row * charHeight, color);
+        }
+    }
+
+    m_nCursorX = savedX;
+    m_nCursorY = savedY;
 }
 
 inline void CTRenderer::SetRawPixel(unsigned nPosX, unsigned nPosY, CDisplay::TRawColor nColor)
@@ -1109,7 +1482,15 @@ void CTRenderer::Write(char chChar)
             break;
 
         case '\n':
-            NewLine();
+            // VT100: LF is IND (index) -> move down, keep column.
+            if (m_bNewLineMode)
+            {
+                NewLine();
+            }
+            else
+            {
+            CursorDown();
+            }
             break;
 
         case '\r':
@@ -1126,6 +1507,11 @@ void CTRenderer::Write(char chChar)
 
         case '\x1b':
             m_State = StateEscape;
+            break;
+
+        case '\x9B':
+            // 8-bit C1 CSI (equivalent to ESC '[')
+            BeginCSI();
             break;
 
         default:
@@ -1221,9 +1607,19 @@ void CTRenderer::Write(char chChar)
             switch (chChar)
             {
             case '[':
-                m_State = StateBracket;
-                m_nParam1 = 0;
-                m_nParam2 = 0;
+                BeginCSI();
+                break;
+
+            case 'Z':
+                // DECID (identify terminal)
+                SendPrimaryDA();
+                m_State = StateStart;
+                break;
+
+            case 'c':
+                // RIS (Reset to Initial State)
+                ResetTerminalState(TRUE);
+                m_State = StateStart;
                 break;
 
             case 'D':
@@ -1278,6 +1674,12 @@ void CTRenderer::Write(char chChar)
             case '#':
                 // implement DEC Terminal font size switch
                 m_State = StateFontChange;
+                break;
+
+            case '=':
+            case '>':
+                // DECKPAM/DECKPNM (application/numeric keypad) - ignore.
+                m_State = StateStart;
                 break;
 
             case '(':
@@ -1348,7 +1750,8 @@ void CTRenderer::Write(char chChar)
             m_State = StateStart;
             break;
         case '8':
-            // Screen test pattern -> ignore
+            // DECALN: Screen alignment test pattern
+            ScreenAlignmentTest();
             m_State = StateStart;
             break;
         default:
@@ -1376,6 +1779,357 @@ void CTRenderer::Write(char chChar)
             CursorMove(m_nParam1, m_nParam2);
         }
         m_State = StateStart;
+        break;
+
+    case StateCSI:
+        if (chChar == '?')
+        {
+            m_bCSIPrivate = TRUE;
+            break;
+        }
+
+        if ('0' <= chChar && chChar <= '9')
+        {
+            m_bCSIHaveValue = TRUE;
+            m_bCSILastWasSeparator = FALSE;
+            m_nCSIParamValue *= 10;
+            m_nCSIParamValue += static_cast<unsigned>(chChar - '0');
+            if (m_nCSIParamValue > 9999)
+            {
+                // avoid pathological input
+                m_State = StateStart;
+                m_bCSIPrivate = FALSE;
+                m_nCSIParamCount = 0;
+                m_nCSIParamValue = 0;
+                m_bCSIHaveValue = FALSE;
+                m_bCSILastWasSeparator = FALSE;
+            }
+            break;
+        }
+
+        if (chChar == ';')
+        {
+            if (m_bCSIHaveValue)
+            {
+                CSIAddParam(m_nCSIParamValue);
+            }
+            else
+            {
+                CSIAddParam(0);
+            }
+            m_nCSIParamValue = 0;
+            m_bCSIHaveValue = FALSE;
+            m_bCSILastWasSeparator = TRUE;
+            break;
+        }
+
+        FinalizeCSIParams();
+
+        switch (chChar)
+        {
+        case 'A':
+        {
+            const unsigned n = CSIParamOrDefault(m_CSIParams, m_nCSIParamCount, 0, 1);
+            for (unsigned i = 0; i < n; ++i)
+            {
+                CursorUp();
+            }
+            break;
+        }
+        case 'B':
+        {
+            const unsigned n = CSIParamOrDefault(m_CSIParams, m_nCSIParamCount, 0, 1);
+            for (unsigned i = 0; i < n; ++i)
+            {
+                CursorDown();
+            }
+            break;
+        }
+        case 'C':
+        {
+            const unsigned n = CSIParamOrDefault(m_CSIParams, m_nCSIParamCount, 0, 1);
+            for (unsigned i = 0; i < n; ++i)
+            {
+                CursorRight();
+            }
+            break;
+        }
+        case 'D':
+        {
+            const unsigned n = CSIParamOrDefault(m_CSIParams, m_nCSIParamCount, 0, 1);
+            for (unsigned i = 0; i < n; ++i)
+            {
+                CursorLeft();
+            }
+            break;
+        }
+        case 'H':
+        case 'f':
+        {
+            const unsigned row = CSIParamOrDefault(m_CSIParams, m_nCSIParamCount, 0, 1);
+            const unsigned col = CSIParamOrDefault(m_CSIParams, m_nCSIParamCount, 1, 1);
+            CursorMove(row, col);
+            break;
+        }
+        case 'J':
+        {
+            const unsigned mode = (m_nCSIParamCount > 0) ? m_CSIParams[0] : 0;
+            if (mode == 0)
+            {
+                ClearDisplayEnd();
+            }
+            else if (mode == 1)
+            {
+                ClearDisplayStart();
+            }
+            else if (mode == 2)
+            {
+                const unsigned savedX = m_nCursorX;
+                const unsigned savedY = m_nCursorY;
+                m_nCursorX = 0;
+                m_nCursorY = 0;
+                ClearDisplayEnd();
+                m_nCursorX = savedX;
+                m_nCursorY = savedY;
+            }
+            else
+            {
+                ClearDisplay();
+            }
+            break;
+        }
+        case 'K':
+        {
+            const unsigned mode = (m_nCSIParamCount > 0) ? m_CSIParams[0] : 0;
+            if (mode == 0)
+            {
+                ClearLineEnd();
+            }
+            else if (mode == 1)
+            {
+                ClearLineStart();
+            }
+            else if (mode == 2)
+            {
+                ClearLine();
+            }
+            else
+            {
+                ClearLineEnd();
+            }
+            break;
+        }
+        case 'L':
+            InsertLines(CSIParamOrDefault(m_CSIParams, m_nCSIParamCount, 0, 1));
+            break;
+
+        case 'M':
+            DeleteLines(CSIParamOrDefault(m_CSIParams, m_nCSIParamCount, 0, 1));
+            break;
+
+        case 'P':
+            DeleteChars(CSIParamOrDefault(m_CSIParams, m_nCSIParamCount, 0, 1));
+            break;
+
+        case 'X':
+            EraseChars(CSIParamOrDefault(m_CSIParams, m_nCSIParamCount, 0, 1));
+            break;
+
+        case '@':
+            // ICH: insert blank chars
+            InsertChars(CSIParamOrDefault(m_CSIParams, m_nCSIParamCount, 0, 1));
+            break;
+
+        case 'r':
+        {
+            const unsigned top = (m_nCSIParamCount > 0) ? m_CSIParams[0] : 1;
+            const unsigned bottom = (m_nCSIParamCount > 1) ? m_CSIParams[1] : 0;
+            SetScrollRegion(top, bottom);
+            break;
+        }
+        case 's':
+            SaveCursor();
+            break;
+
+        case 'u':
+            RestoreCursor();
+            break;
+
+        case 'c':
+            SendPrimaryDA();
+            break;
+
+        case 'n':
+        {
+            const unsigned code = (m_nCSIParamCount > 0) ? m_CSIParams[0] : 0;
+            if (code == 5)
+            {
+                static const char Reply[] = "\x1B[0n";
+                SendHostReply(Reply, sizeof Reply - 1);
+            }
+            else if (code == 6)
+            {
+                unsigned row = 1;
+                unsigned col = 1;
+
+                if (m_pCharGen != nullptr)
+                {
+                    const unsigned charWidth = m_pCharGen->GetCharWidth();
+                    const unsigned charHeight = m_pCharGen->GetCharHeight();
+                    if (charWidth != 0)
+                    {
+                        col = (m_nCursorX / charWidth) + 1U;
+                    }
+                    if (charHeight != 0)
+                    {
+                        const unsigned baseY = (m_bOriginMode != FALSE) ? m_nScrollStart : 0U;
+                        const unsigned effectiveY = (m_nCursorY >= baseY) ? (m_nCursorY - baseY) : m_nCursorY;
+                        row = (effectiveY / charHeight) + 1U;
+                    }
+                }
+
+                CString reply;
+                reply.Format("\x1B[%u;%uR", row, col);
+                SendHostReply(reply.c_str(), reply.GetLength());
+            }
+            break;
+        }
+
+        case 'g':
+        {
+            const unsigned mode = (m_nCSIParamCount > 0) ? m_CSIParams[0] : 0;
+            CTConfig *config = CTConfig::Get();
+            if (config != nullptr)
+            {
+                if (mode == 0)
+                {
+                    if (m_pCharGen != nullptr)
+                    {
+                        const unsigned charWidth = m_pCharGen->GetCharWidth();
+                        if (charWidth != 0)
+                        {
+                            const unsigned currentCol = m_nCursorX / charWidth;
+                            config->SetTabStop(currentCol, false);
+                        }
+                    }
+                }
+                else if (mode == 3)
+                {
+                    for (unsigned col = 0; col < CTConfig::TabStopsMax; ++col)
+                    {
+                        config->SetTabStop(col, false);
+                    }
+                }
+            }
+            break;
+        }
+
+        case 'Z':
+            BackTabulator();
+            break;
+
+        case 'm':
+        {
+            if (m_nCSIParamCount == 0)
+            {
+                SetStandoutMode(0);
+            }
+            else
+            {
+                for (unsigned i = 0; i < m_nCSIParamCount; ++i)
+                {
+                    SetStandoutMode(m_CSIParams[i]);
+                }
+            }
+            break;
+        }
+
+        case 'h':
+        case 'l':
+        {
+            const bool enable = (chChar == 'h');
+
+            const unsigned count = (m_nCSIParamCount != 0) ? m_nCSIParamCount : 1U;
+            for (unsigned i = 0; i < count; ++i)
+            {
+                const unsigned mode = (m_nCSIParamCount != 0) ? m_CSIParams[i] : 0U;
+
+                if (m_bCSIPrivate)
+                {
+                    if (mode == 25)
+                    {
+                        SetCursorMode(enable ? TRUE : FALSE);
+                    }
+                    else if (mode == 2)
+                    {
+                        // VT52 mode toggle is historically mapped here in this project.
+                        // Only `?2l` is used to enter VT52; `ESC <` exits.
+                        if (!enable)
+                        {
+                            m_bVT52Mode = TRUE;
+                        }
+                    }
+                    else if (mode == 6)
+                    {
+                        m_bOriginMode = enable ? TRUE : FALSE;
+                        CursorHome();
+                    }
+                    else if (mode == 7)
+                    {
+                        SetWrapAroundMode(enable ? TRUE : FALSE);
+                    }
+                    else if (mode == 3)
+                    {
+                        // DECCOLM 80/132 columns: ignore (fixed framebuffer).
+                    }
+                    else if (mode == 1)
+                    {
+                        // DECCKM cursor key mode: ignore (keyboard handles sequences).
+                    }
+                    else if (mode == 2004)
+                    {
+                        // Bracketed paste mode: ignore.
+                    }
+                    else if (mode == 47 || mode == 1047 || mode == 1049)
+                    {
+                        // xterm alternate screen buffer.
+                        if (enable)
+                        {
+                            EnterAlternateScreen();
+                        }
+                        else
+                        {
+                            LeaveAlternateScreen();
+                        }
+                    }
+                }
+                else
+                {
+                    if (mode == 4)
+                    {
+                        InsertMode(enable ? TRUE : FALSE);
+                    }
+                    else if (mode == 20)
+                    {
+                        // ANSI New Line Mode (LNM): LF == CR+LF when enabled.
+                        m_bNewLineMode = enable ? TRUE : FALSE;
+                    }
+                }
+            }
+            break;
+        }
+
+        default:
+            break;
+        }
+
+        // Reset CSI parser
+        m_State = StateStart;
+        m_bCSIPrivate = FALSE;
+        m_nCSIParamCount = 0;
+        m_nCSIParamValue = 0;
+        m_bCSIHaveValue = FALSE;
+        m_bCSILastWasSeparator = FALSE;
         break;
 
     case StateBracket:
@@ -1407,6 +2161,18 @@ void CTRenderer::Write(char chChar)
             m_State = StateQuestionMark;
             break;
 
+        case ';':
+            // CUP with missing first parameter (e.g. ESC[;10H).
+            m_nParam1 = 1;
+            m_State = StateSemicolon;
+            break;
+
+        case 'c':
+            // Primary device attributes
+            SendPrimaryDA();
+            m_State = StateStart;
+            break;
+
         case 'A':
             CursorUp();
             m_State = StateStart;
@@ -1430,6 +2196,22 @@ void CTRenderer::Write(char chChar)
         case 'H':
         case 'f':
             CursorHome();
+            m_State = StateStart;
+            break;
+
+        case 's':
+            SaveCursor();
+            m_State = StateStart;
+            break;
+
+        case 'u':
+            RestoreCursor();
+            m_State = StateStart;
+            break;
+
+        case 'r':
+            // Reset scroll region (ESC[r defaults to full screen).
+            SetScrollRegion(1, 0);
             m_State = StateStart;
             break;
 
@@ -1551,6 +2333,10 @@ void CTRenderer::Write(char chChar)
             {
                 ClearDisplayEnd();
             }
+            else if (m_nParam1 == 1)
+            {
+                ClearDisplayStart();
+            }
             else if (m_nParam1 == 2)
             {
                 const unsigned savedX = m_nCursorX;
@@ -1569,11 +2355,36 @@ void CTRenderer::Write(char chChar)
             m_State = StateStart;
             break;
 
+        case 'K':
+            if (m_nParam1 == 0)
+            {
+                ClearLineEnd();
+            }
+            else if (m_nParam1 == 1)
+            {
+                ClearLineStart();
+            }
+            else if (m_nParam1 == 2)
+            {
+                ClearLine();
+            }
+            else
+            {
+                ClearLineEnd();
+            }
+            m_State = StateStart;
+            break;
+
         case 'h':
         case 'l':
             if (m_nParam1 == 4)
             {
                 InsertMode(chChar == 'h');
+            }
+            else if (m_nParam1 == 20)
+            {
+                // ANSI New Line Mode (LNM): LF == CR+LF when enabled.
+                m_bNewLineMode = (chChar == 'h') ? TRUE : FALSE;
             }
             m_State = StateStart;
             break;
@@ -1582,6 +2393,49 @@ void CTRenderer::Write(char chChar)
             SetStandoutMode(m_nParam1);
             m_State = StateStart;
             break;
+
+        case 'c':
+            // Primary device attributes
+            SendPrimaryDA();
+            m_State = StateStart;
+            break;
+
+        case 'n':
+        {
+            // Device status report (DSR)
+            // 5 -> "OK", 6 -> cursor position report
+            if (m_nParam1 == 5)
+            {
+                static const char Reply[] = "\x1B[0n";
+                SendHostReply(Reply, sizeof Reply - 1);
+            }
+            else if (m_nParam1 == 6)
+            {
+                unsigned row = 1;
+                unsigned col = 1;
+
+                if (m_pCharGen != nullptr)
+                {
+                    const unsigned charWidth = m_pCharGen->GetCharWidth();
+                    const unsigned charHeight = m_pCharGen->GetCharHeight();
+                    if (charWidth != 0)
+                    {
+                        col = (m_nCursorX / charWidth) + 1U;
+                    }
+                    if (charHeight != 0)
+                    {
+                        row = (m_nCursorY / charHeight) + 1U;
+                    }
+                }
+
+                CString reply;
+                reply.Format("\x1B[%u;%uR", row, col);
+                SendHostReply(reply.c_str(), reply.GetLength());
+            }
+
+            m_State = StateStart;
+            break;
+        }
 
         case 'g':
         {
@@ -1701,9 +2555,23 @@ void CTRenderer::Write(char chChar)
             {
                 SetCursorMode(TRUE);
             }
+            else if (m_nParam1 == 6)
+            {
+                m_bOriginMode = TRUE;
+                CursorHome();
+            }
+            else if (m_nParam1 == 7)
+            {
+                // DECAWM: auto wrap mode
+                SetWrapAroundMode(TRUE);
+            }
             else if (m_nParam1 == 2004)
             {
                 // Bracketed paste mode (xterm/zsh): ignore.
+            }
+            else if (m_nParam1 == 47 || m_nParam1 == 1047 || m_nParam1 == 1049)
+            {
+                EnterAlternateScreen();
             }
             m_State = StateStart;
             break;
@@ -1717,9 +2585,23 @@ void CTRenderer::Write(char chChar)
             {
                 m_bVT52Mode = TRUE;
             }
+            else if (m_nParam1 == 6)
+            {
+                m_bOriginMode = FALSE;
+                CursorHome();
+            }
+            else if (m_nParam1 == 7)
+            {
+                // DECAWM: auto wrap mode
+                SetWrapAroundMode(FALSE);
+            }
             else if (m_nParam1 == 2004)
             {
                 // Bracketed paste mode (xterm/zsh): ignore.
+            }
+            else if (m_nParam1 == 47 || m_nParam1 == 1047 || m_nParam1 == 1049)
+            {
+                LeaveAlternateScreen();
             }
             m_State = StateStart;
             break;
@@ -1771,6 +2653,7 @@ void CTRenderer::Write(char chChar)
 void CTRenderer::CarriageReturn(void)
 {
     m_nCursorX = 0;
+    m_bWrapPending = FALSE;
 }
 
 void CTRenderer::ClearDisplay(void)
@@ -1778,6 +2661,78 @@ void CTRenderer::ClearDisplay(void)
     m_nCursorX = 0;
     m_nCursorY = 0;
     ClearDisplayEnd();
+}
+
+void CTRenderer::ClearDisplayStart(void)
+{
+    if (m_pCharGen == nullptr)
+    {
+        return;
+    }
+
+    const unsigned savedX = m_nCursorX;
+    const unsigned savedY = m_nCursorY;
+
+    const unsigned charHeight = m_pCharGen->GetCharHeight();
+    if (charHeight == 0)
+    {
+        return;
+    }
+
+    // Clear full lines above the cursor.
+    for (unsigned y = 0; y < savedY; y += charHeight)
+    {
+        m_nCursorX = 0;
+        m_nCursorY = y;
+        ClearLineEnd();
+    }
+
+    // Clear from start of line to cursor on the cursor line.
+    m_nCursorY = savedY;
+    m_nCursorX = savedX;
+    ClearLineStart();
+
+    m_nCursorX = savedX;
+    m_nCursorY = savedY;
+}
+
+void CTRenderer::ClearLineStart(void)
+{
+    if (m_pCharGen == nullptr)
+    {
+        return;
+    }
+
+    const unsigned charWidth = m_pCharGen->GetCharWidth();
+    if (charWidth == 0)
+    {
+        return;
+    }
+
+    if (m_nUsedWidth < charWidth)
+    {
+        return;
+    }
+
+    unsigned endX = m_nCursorX;
+    const unsigned maxX = m_nUsedWidth - charWidth;
+    if (endX > maxX)
+    {
+        endX = maxX;
+    }
+
+    for (unsigned nPosX = 0; nPosX <= endX; nPosX += charWidth)
+    {
+        EraseChar(nPosX, m_nCursorY);
+    }
+}
+
+void CTRenderer::ClearLine(void)
+{
+    const unsigned savedX = m_nCursorX;
+    m_nCursorX = 0;
+    ClearLineEnd();
+    m_nCursorX = savedX;
 }
 
 void CTRenderer::ClearDisplayEnd(void)
@@ -1853,6 +2808,7 @@ void CTRenderer::ClearLineEnd(void)
 
 void CTRenderer::CursorDown(void)
 {
+    m_bWrapPending = FALSE;
     m_nCursorY += m_pCharGen->GetCharHeight();
     if (m_nCursorY >= m_nScrollEnd)
     {
@@ -1872,11 +2828,13 @@ void CTRenderer::CursorDown(void)
 void CTRenderer::CursorHome(void)
 {
     m_nCursorX = 0;
-    m_nCursorY = m_nScrollStart;
+    m_nCursorY = m_bOriginMode ? m_nScrollStart : 0;
+    m_bWrapPending = FALSE;
 }
 
 void CTRenderer::CursorLeft(void)
 {
+    m_bWrapPending = FALSE;
     if (m_nCursorX > 0)
     {
         m_nCursorX -= m_pCharGen->GetCharWidth();
@@ -1893,27 +2851,91 @@ void CTRenderer::CursorLeft(void)
 
 void CTRenderer::CursorMove(unsigned nRow, unsigned nColumn)
 {
-    unsigned nPosX = (nColumn - 1) * m_pCharGen->GetCharWidth();
-    unsigned nPosY = (nRow - 1) * m_pCharGen->GetCharHeight();
-
-    if (nPosX < m_nUsedWidth && nPosY < m_nUsedHeight)
+    if (m_pCharGen == nullptr)
     {
-        m_nCursorX = nPosX;
-        m_nCursorY = nPosY;
+        return;
     }
+
+    m_bWrapPending = FALSE;
+
+    if (nRow == 0)
+    {
+        nRow = 1;
+    }
+    if (nColumn == 0)
+    {
+        nColumn = 1;
+    }
+
+    const unsigned charWidth = m_pCharGen->GetCharWidth();
+    const unsigned charHeight = m_pCharGen->GetCharHeight();
+    if (charWidth == 0 || charHeight == 0)
+    {
+        return;
+    }
+
+    const unsigned maxColumns = m_nUsedWidth / charWidth;
+    if (maxColumns == 0)
+    {
+        return;
+    }
+    if (nColumn > maxColumns)
+    {
+        nColumn = maxColumns;
+    }
+
+    const unsigned baseY = m_bOriginMode ? m_nScrollStart : 0;
+    unsigned row = nRow;
+    if (m_bOriginMode)
+    {
+        const unsigned scrollHeight = (m_nScrollEnd > m_nScrollStart) ? (m_nScrollEnd - m_nScrollStart) : 0;
+        const unsigned maxRows = (scrollHeight / charHeight);
+        if (maxRows != 0 && row > maxRows)
+        {
+            row = maxRows;
+        }
+    }
+    else
+    {
+        const unsigned maxRows = m_nUsedHeight / charHeight;
+        if (maxRows != 0 && row > maxRows)
+        {
+            row = maxRows;
+        }
+    }
+
+    const unsigned nPosX = (nColumn - 1) * charWidth;
+    const unsigned nPosY = baseY + ((row - 1) * charHeight);
+
+    // Cursor positions are clamped to the visible grid and remain cell-aligned.
+    m_nCursorX = nPosX;
+    m_nCursorY = nPosY;
 }
 
 void CTRenderer::CursorRight(void)
 {
-    m_nCursorX += m_pCharGen->GetCharWidth();
-    if (m_nCursorX >= m_nUsedWidth)
+    m_bWrapPending = FALSE;
+
+    const unsigned charWidth = m_pCharGen->GetCharWidth();
+    if (charWidth == 0 || m_nUsedWidth < charWidth)
     {
-        NewLine();
+        return;
+    }
+
+    const unsigned lastColumnX = m_nUsedWidth - charWidth;
+    if (m_nCursorX < lastColumnX)
+    {
+        m_nCursorX += charWidth;
+    }
+    else
+    {
+        m_nCursorX = lastColumnX;
     }
 }
 
 void CTRenderer::CursorUp(void)
 {
+    m_bWrapPending = FALSE;
     if (m_nCursorY > m_nScrollStart)
     {
         m_nCursorY -= m_pCharGen->GetCharHeight();
@@ -2084,6 +3106,26 @@ void CTRenderer::DisplayChar(char chChar)
 
     if (' ' <= (unsigned char)chChar)
     {
+        if (m_bInsertOn)
+        {
+            InsertChars(1);
+        }
+
+        const bool wrapAroundEnabled = (m_bWrapAroundMode != FALSE);
+
+        // VT100 DECAWM semantics: when a char is printed in the last column,
+        // the terminal sets a pending wrap state, but does not move to the next
+        // line until the *next* printable character arrives.
+        if (wrapAroundEnabled && m_bWrapPending)
+        {
+            m_bWrapPending = FALSE;
+            NewLine();
+        }
+        else if (!wrapAroundEnabled)
+        {
+            m_bWrapPending = FALSE;
+        }
+
         ECharacterSet activeSet = m_bUseG1 ? m_G1CharSet : m_G0CharSet;
         bool bUseGraphics = (activeSet == CharSetGraphics) &&
                             (unsigned char)chChar >= 0x60 && (unsigned char)chChar <= 0x7E;
@@ -2102,23 +3144,24 @@ void CTRenderer::DisplayChar(char chChar)
             m_pCharGen = pOriginalGen;
         }
 
-        bool wrapAroundEnabled = true;
-        CTConfig *config = CTConfig::Get();
-        if (config != nullptr)
+        const unsigned charWidth = m_pCharGen->GetCharWidth();
+        if (charWidth != 0 && m_nUsedWidth >= charWidth)
         {
-            wrapAroundEnabled = config->GetWrapAroundEnabled();
-        }
-
-        if (wrapAroundEnabled)
-        {
-            CursorRight();
-        }
-        else
-        {
-            const unsigned charWidth = m_pCharGen->GetCharWidth();
-            if (charWidth != 0 && m_nUsedWidth >= charWidth)
+            const unsigned lastColumnX = m_nUsedWidth - charWidth;
+            if (wrapAroundEnabled)
             {
-                const unsigned lastColumnX = m_nUsedWidth - charWidth;
+                if (m_nCursorX < lastColumnX)
+                {
+                    m_nCursorX += charWidth;
+                }
+                else
+                {
+                    m_nCursorX = lastColumnX;
+                    m_bWrapPending = TRUE;
+                }
+            }
+            else
+            {
                 if (m_nCursorX < lastColumnX)
                 {
                     m_nCursorX += charWidth;
@@ -2339,6 +3382,12 @@ void CTRenderer::SetVT52Mode(boolean bEnable)
     m_bVT52Mode = bEnable;
 }
 
+void CTRenderer::SetWrapAroundMode(boolean bEnable)
+{
+    m_bWrapAroundMode = bEnable;
+    m_bWrapPending = FALSE;
+}
+
 void CTRenderer::ForceHideCursor(void)
 {
     m_SpinLock.Acquire();
@@ -2355,8 +3404,52 @@ void CTRenderer::ForceHideCursor(void)
 
 void CTRenderer::SetScrollRegion(unsigned nStartRow, unsigned nEndRow)
 {
-    unsigned nScrollStart = (nStartRow - 1) * m_pCharGen->GetCharHeight();
-    unsigned nScrollEnd = nEndRow * m_pCharGen->GetCharHeight();
+    if (m_pCharGen == nullptr)
+    {
+        return;
+    }
+
+    m_bWrapPending = FALSE;
+
+    const unsigned charHeight = m_pCharGen->GetCharHeight();
+    if (charHeight == 0)
+    {
+        return;
+    }
+
+    const unsigned totalRows = m_nUsedHeight / charHeight;
+    if (nStartRow == 0)
+    {
+        nStartRow = 1;
+    }
+    if (nEndRow == 0)
+    {
+        nEndRow = totalRows;
+    }
+
+    // VT100-style clamping: callers may send large values (e.g. 999) to mean
+    // "bottom of screen". Do not reject such sequences.
+    if (totalRows != 0)
+    {
+        if (nStartRow > totalRows)
+        {
+            nStartRow = totalRows;
+        }
+        if (nEndRow > totalRows)
+        {
+            nEndRow = totalRows;
+        }
+    }
+
+    // If the region becomes invalid, reset to full screen.
+    if (nStartRow >= nEndRow)
+    {
+        nStartRow = 1;
+        nEndRow = totalRows;
+    }
+
+    unsigned nScrollStart = (nStartRow - 1) * charHeight;
+    unsigned nScrollEnd = nEndRow * charHeight;
 
     if (nScrollStart < m_nUsedHeight && nScrollEnd > 0 && nScrollEnd <= m_nUsedHeight && nScrollStart < nScrollEnd)
     {
@@ -2493,9 +3586,18 @@ void CTRenderer::BackTabulator(void)
 
 void CTRenderer::SaveCursor(void)
 {
-    m_SpinLock.Acquire();
+    // NOTE: Called from the write path while the renderer spinlock is held.
+    // Do not acquire m_SpinLock here.
     m_SavedState.cursorX = m_nCursorX;
     m_SavedState.cursorY = m_nCursorY;
+    m_SavedState.vt52Mode = m_bVT52Mode;
+    m_SavedState.originMode = m_bOriginMode;
+    m_SavedState.wrapAroundMode = m_bWrapAroundMode;
+    m_SavedState.g0CharSet = static_cast<unsigned>(m_G0CharSet);
+    m_SavedState.g1CharSet = static_cast<unsigned>(m_G1CharSet);
+    m_SavedState.useG1 = m_bUseG1;
+    m_SavedState.insertOn = m_bInsertOn;
+    m_SavedState.autoPage = m_bAutoPage;
     m_SavedState.reverseAttribute = m_bReverseAttribute;
     m_SavedState.boldAttribute = m_bBoldAttribute;
     m_SavedState.underlineAttribute = m_bUnderlineAttribute;
@@ -2505,35 +3607,46 @@ void CTRenderer::SaveCursor(void)
     m_SavedState.defaultForeground = m_DefaultForegroundColor;
     m_SavedState.defaultBackground = m_DefaultBackgroundColor;
     m_SavedState.fontFlags = m_FontFlags;
-    
-    // Some terminals save Origin Mode, Wrap Mode, and Character Set here too.
-    // For now we just stick to visual attributes and position.
-    m_SpinLock.Release();
+
+    // Clear transient wrap state so restore behaves deterministically.
+    m_bWrapPending = FALSE;
 }
 
 void CTRenderer::RestoreCursor(void)
 {
-    m_SpinLock.Acquire();
-    
-    // Restore position, clamped to current screen dimensions
-    if (m_SavedState.cursorX < m_nWidth)
+    // NOTE: Called from the write path while the renderer spinlock is held.
+    // Do not acquire m_SpinLock here.
+    if (m_pCharGen == nullptr)
     {
-        m_nCursorX = m_SavedState.cursorX;
-    }
-    else
-    {
-        m_nCursorX = m_nWidth - (m_nWidth % m_pCharGen->GetCharWidth());
-        if (m_nCursorX > 0) m_nCursorX -= m_pCharGen->GetCharWidth();
+        return;
     }
 
-    if (m_SavedState.cursorY < m_nHeight)
+    const unsigned charWidth = m_pCharGen->GetCharWidth();
+    const unsigned charHeight = m_pCharGen->GetCharHeight();
+    if (charWidth == 0 || charHeight == 0)
     {
-        m_nCursorY = m_SavedState.cursorY;
+        return;
     }
-    else
-    {
-        m_nCursorY = m_nHeight - m_pCharGen->GetCharHeight();
-    }
+
+    // Restore modes (DECSC/DECRC compatibility for vttest)
+    m_bVT52Mode = m_SavedState.vt52Mode;
+    m_bOriginMode = m_SavedState.originMode;
+    SetWrapAroundMode(m_SavedState.wrapAroundMode);
+    m_bInsertOn = m_SavedState.insertOn;
+    m_bAutoPage = m_SavedState.autoPage;
+    m_G0CharSet = static_cast<ECharacterSet>(m_SavedState.g0CharSet);
+    m_G1CharSet = static_cast<ECharacterSet>(m_SavedState.g1CharSet);
+    m_bUseG1 = m_SavedState.useG1;
+    
+    // Restore position, clamped to current screen dimensions
+    const unsigned lastColumnX = (m_nUsedWidth >= charWidth) ? (m_nUsedWidth - charWidth) : 0U;
+    const unsigned lastRowY = (m_nUsedHeight >= charHeight) ? (m_nUsedHeight - charHeight) : 0U;
+    m_nCursorX = (m_SavedState.cursorX <= lastColumnX) ? m_SavedState.cursorX : lastColumnX;
+    m_nCursorY = (m_SavedState.cursorY <= lastRowY) ? m_SavedState.cursorY : lastRowY;
+
+    // Ensure cell alignment
+    m_nCursorX = (charWidth != 0) ? ((m_nCursorX / charWidth) * charWidth) : m_nCursorX;
+    m_nCursorY = (charHeight != 0) ? ((m_nCursorY / charHeight) * charHeight) : m_nCursorY;
 
     // Restore attributes
     m_bReverseAttribute = m_SavedState.reverseAttribute;
@@ -2550,7 +3663,7 @@ void CTRenderer::RestoreCursor(void)
     // but we can restore flags if matched. To be safe, we usually only restore
     // attributes that don't change resource allocation.
     
-    m_SpinLock.Release();
+    m_bWrapPending = FALSE;
 }
 
 void CTRenderer::Scroll(void)
@@ -2930,6 +4043,9 @@ void CTRenderer::SaveState(TRendererState &state)
     state.blinkAttribute = m_bBlinkAttribute;
     state.insertOn = m_bInsertOn;
     state.autoPage = m_bAutoPage;
+    state.vt52Mode = m_bVT52Mode;
+    state.originMode = m_bOriginMode;
+    state.wrapAroundMode = m_bWrapAroundMode;
     state.delayedUpdate = m_bDelayedUpdate;
     state.lastUpdateTicks = m_nLastUpdateTicks;
     state.parserState = static_cast<unsigned>(m_State);
@@ -2979,6 +4095,9 @@ void CTRenderer::RestoreState(const TRendererState &state)
     m_bBlinkAttribute = state.blinkAttribute;
     m_bInsertOn = state.insertOn;
     m_bAutoPage = state.autoPage;
+    m_bVT52Mode = state.vt52Mode;
+    m_bOriginMode = state.originMode;
+    m_bWrapAroundMode = state.wrapAroundMode;
     m_bDelayedUpdate = state.delayedUpdate;
     m_nLastUpdateTicks = state.lastUpdateTicks;
     m_State = static_cast<TState>(state.parserState);

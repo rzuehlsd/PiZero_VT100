@@ -134,6 +134,18 @@ static const CVTTest::TVTTestStep kDecSteps[] = {
     "",
     "Line 4: double width+height. Line 8: double width. Line 12: normal. Line 16: bold/underline/reverse.",
      -1, -1},
+    {"DECOM Origin + Scroll Region",
+    "",
+    "Animated demo: ABS must appear at screen row 1; ORI at row 6 (scroll top); ROW4 at row 9. Then rows 6-9 scroll L1..L10 while TOP/BOT stay fixed.",
+     -1, -1},
+    {"VT100 Geometry Markers",
+     "",
+     "Shows row/col markers and corner labels. Use this to check if row 1 is cropped/overlapping.",
+     -1, -1},
+    {"DECALN Alignment Fill (ESC # 8)",
+     "\x1B#8",
+     "Screen should be filled with 'E' characters in a perfect grid. Any missing/overlapping top rows indicates display cropping.",
+     -1, -1},
     {"ANSI SGR Dim + Reverse",
         "\x1B[5;1H\x1B[K\x1B[2mDIM\x1B[0m \x1B[7mREV\x1B[27mNORM\x1B[0m",
      "DIM should appear dimmer; REV should be reversed; NORM should return to normal video.",
@@ -211,6 +223,30 @@ static const char *kAutoPageParts[] = {
     "\x1B" "d*\x1B[r"                      // 4. Disable and Reset
 };
 static const unsigned kAutoPagePartCount = sizeof(kAutoPageParts) / sizeof(kAutoPageParts[0]);
+
+static const char *kDecomOriginParts[] = {
+    // Layout similar to DEC Scroll Region tests
+    "\x1B[2J\x1B[H\x1B[0m\x1B[?6l\x1B[r"      // reset DECOM + scroll region
+    "\x1B[6;9r"                              // set scroll region rows 6-9
+    "\x1B[5;1HTOP"                           // marker above region
+    "\x1B[10;1HBOT"                          // marker below region
+    "\x1B[6;1H\x1B[K\x1B[7;1H\x1B[K\x1B[8;1H\x1B[K\x1B[9;1H\x1B[K" // clear region lines
+    "\x1B[12;1HEXPECT: ABS row1; ORI row6 (scroll-top); ROW4 row9.\x1B[K"
+    "\x1B[13;1HRETURN=OK  SPACE=NOT OK\x1B[K",
+
+    // Phase 1: DECOM off -> absolute CUP
+    "\x1B[?6l\x1B[1;10HABS\x1B[K",
+
+    // Phase 2: DECOM on -> origin relative to scroll region
+    "\x1B[?6h\x1B[1;10HORI\x1B[K",
+
+    // Phase 3: another origin-relative position check
+    "\x1B[?6h\x1B[4;10HROW4\x1B[K",
+
+    // Prepare for scrolling demo inside region (with DECOM still enabled)
+    "\x1B[?6h\x1B[1;1H\x1B[K"
+};
+static const unsigned kDecomOriginPartCount = sizeof(kDecomOriginParts) / sizeof(kDecomOriginParts[0]);
 
 struct TVTSuite
 {
@@ -299,6 +335,7 @@ void CVTTest::StartSuite(unsigned index)
     m_bScrollTestActive = false;
     m_scrollLineIndex = 0;
     m_scrollNextTick = 0;
+    m_bDecomDemoActive = false;
     m_BoundaryTestMode = BoundaryTestNone;
     m_BoundaryCharIndex = 0;
     m_BoundaryNextTick = 0;
@@ -357,6 +394,7 @@ void CVTTest::Stop(void)
     m_sequenceNextTick = 0;
     m_bScrollTestActive = false;
     m_bSequencePartsActive = false;
+    m_bDecomDemoActive = false;
     m_BoundaryTestMode = BoundaryTestNone;
     m_sequenceParts = nullptr;
     m_sequencePartCount = 0;
@@ -487,6 +525,15 @@ void CVTTest::Tick(void)
         }
 
         m_bScrollTestActive = false;
+
+        if (m_bDecomDemoActive)
+        {
+            // Restore defaults so subsequent tests aren't affected.
+            m_pRenderer->ResetParserState();
+            m_pRenderer->Write("\x1B[?6l\x1B[r", len("\x1B[?6l\x1B[r"));
+            m_bDecomDemoActive = false;
+        }
+
         m_bWaitForKey = true;
         return;
     }
@@ -525,6 +572,16 @@ void CVTTest::Tick(void)
             m_bHoldClearScreen = true;
             // Add 3s to the 2s sequence delay for total 5s
             m_nNextTick = now + MSEC2HZ(3000);
+            m_bWaitForKey = false;
+            return;
+        }
+
+        if (finishedParts == kDecomOriginParts)
+        {
+            // Continue with the existing scroll-line demo inside the scroll region.
+            m_bScrollTestActive = true;
+            m_scrollLineIndex = 0;
+            m_scrollNextTick = CTimer::Get()->GetTicks() + MSEC2HZ(kScrollLineDelayMs);
             m_bWaitForKey = false;
             return;
         }
@@ -757,6 +814,7 @@ void CVTTest::RunStep(const TVTTestStep &step)
     const bool isMarginBellTest = (step.name != nullptr && strcmp(step.name, "Margin Bell Right-8") == 0);
     const bool isDecLineAttr = (step.name != nullptr && strcmp(step.name, "DEC Line/Char Attributes") == 0);
     const bool isDecGraphics = (step.name != nullptr && strcmp(step.name, "DEC Special Graphics Set") == 0);
+    const bool isDecomOriginTest = (step.name != nullptr && strcmp(step.name, "DECOM Origin + Scroll Region") == 0);
     if (isTabTest)
     {
         m_bShowRulers = true;
@@ -770,6 +828,20 @@ void CVTTest::RunStep(const TVTTestStep &step)
         m_bShowRulers = false;
     }
     m_bTabLayout = isTabTest;
+
+    if (isDecomOriginTest)
+    {
+        m_pRenderer->ResetParserState();
+        m_bSequencePartsActive = true;
+        m_sequenceParts = kDecomOriginParts;
+        m_sequencePartCount = kDecomOriginPartCount;
+        m_sequencePartIndex = 0;
+        m_sequenceNextTick = CTimer::Get()->GetTicks() + MSEC2HZ(kSequencePartDelayMs);
+        m_bShowPromptAfterSequence = false;
+        m_bWaitForKey = false;
+        m_bDecomDemoActive = true;
+        return;
+    }
 
     DrawTestFrame(step);
     const bool isClearScreen = (step.name != nullptr && strcmp(step.name, "ANSI Clear Screen") == 0);
@@ -869,6 +941,123 @@ void CVTTest::RunStep(const TVTTestStep &step)
         m_bShowPromptAfterSequence = true;
         m_bWaitForKey = false;
         // Hint implies waiting for completion
+        return;
+    }
+    else if (step.name != nullptr && strcmp(step.name, "VT100 Geometry Markers") == 0)
+    {
+        if (m_pRenderer == nullptr)
+        {
+            return;
+        }
+
+        m_pRenderer->ResetParserState();
+        m_pRenderer->Write("\x1B[2J\x1B[H", 7);
+
+        const unsigned rows = m_pRenderer->GetRows();
+        const unsigned cols = m_pRenderer->GetColumns();
+        if (rows == 0 || cols == 0)
+        {
+            m_pRenderer->Write("No geometry available (rows/cols=0).\r\n", len("No geometry available (rows/cols=0).\r\n"));
+            m_bWaitForKey = true;
+            return;
+        }
+
+        CString header;
+        header.Format("Rows=%u Cols=%u (expect 24x80). Check if ROW01 is fully visible.\r\n", rows, cols);
+        m_pRenderer->Write(header.c_str(), header.GetLength());
+
+        // Row 1 and last row: ONLY corner markers (single-char to avoid wrap confusion)
+        m_pRenderer->Write("\x1B[1;1H+", len("\x1B[1;1H+"));
+        {
+            CString s;
+            s.Format("\x1B[1;%uH+", cols);
+            m_pRenderer->Write(s.c_str(), s.GetLength());
+        }
+        {
+            CString s;
+            s.Format("\x1B[%u;1H+", rows);
+            m_pRenderer->Write(s.c_str(), s.GetLength());
+        }
+        {
+            CString s;
+            s.Format("\x1B[%u;%uH+", rows, cols);
+            m_pRenderer->Write(s.c_str(), s.GetLength());
+        }
+
+        // Row 2: column ruler only (as long as it exists)
+        if (rows >= 2)
+        {
+            m_pRenderer->Write("\x1B[2;1H1234567890", len("\x1B[2;1H1234567890"));
+            for (unsigned c = 11; c <= cols; c += 10)
+            {
+                CString s;
+                s.Format("\x1B[2;%uH%u", c, c);
+                m_pRenderer->Write(s.c_str(), s.GetLength());
+            }
+        }
+
+        // Row labels on left edge starting at row 3 with ROW3 (avoid rows 1/2 and last row)
+        if (rows >= 3)
+        {
+            const unsigned lastRowForLabels = (rows >= 4) ? (rows - 1) : rows;
+            const unsigned maxRowsToLabel = (lastRowForLabels < 99) ? lastRowForLabels : 99;
+            for (unsigned r = 3; r <= maxRowsToLabel; ++r)
+            {
+                CString s;
+                s.Format("\x1B[%u;1HROW%02u", r, r);
+                m_pRenderer->Write(s.c_str(), s.GetLength());
+            }
+        }
+
+        // Centered instructions (RETURN=OK / SPACE=NOT OK)
+        {
+            unsigned centerRow = (rows >= 6) ? (rows / 2) : rows;
+            if (centerRow < 3)
+            {
+                centerRow = 3;
+            }
+            if (centerRow >= rows)
+            {
+                centerRow = rows;
+            }
+
+            const char *line1 = "EXPECT: top line + ROW03.. visible; no cropped/hidden lines.";
+            const char *line2 = "RETURN = OK      SPACE = NOT OK";
+
+            const unsigned line1Len = static_cast<unsigned>(strlen(line1));
+            const unsigned line2Len = static_cast<unsigned>(strlen(line2));
+
+            const unsigned col1 = (cols > line1Len) ? ((cols - line1Len) / 2 + 1) : 1;
+            const unsigned col2 = (cols > line2Len) ? ((cols - line2Len) / 2 + 1) : 1;
+
+            CString s;
+            s.Format("\x1B[%u;%uH%s", centerRow, col1, line1);
+            m_pRenderer->Write(s.c_str(), s.GetLength());
+
+            unsigned row2 = centerRow + 1;
+            if (row2 > rows)
+            {
+                row2 = rows;
+            }
+            if (row2 == 2)
+            {
+                row2 = 3;
+            }
+            s.Format("\x1B[%u;%uH%s", row2, col2, line2);
+            m_pRenderer->Write(s.c_str(), s.GetLength());
+        }
+
+        // Place cursor somewhere safe
+        {
+            unsigned safeRow = (rows >= 4) ? 4 : rows;
+            if (safeRow == 0)
+            {
+                safeRow = 1;
+            }
+            m_pRenderer->Goto(safeRow, 0);
+        }
+
+        m_bWaitForKey = true;
         return;
     }
     else if (isMarginBellTest)
