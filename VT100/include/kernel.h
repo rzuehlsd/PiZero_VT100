@@ -42,6 +42,8 @@ class CTUART;
 class CTFileLog;
 class CTSetup;
 class CVTTest;
+class CSocket;
+class CTWlanHost;
 
 #include "hal.h"
 
@@ -110,10 +112,12 @@ public:
     /// \brief Run periodic VT test tick (if enabled).
     void RunVTTestTick();
 
-    /// \brief Forward keyboard-generated host output to TCP host mode or UART fallback.
+    /// \brief Forward keyboard-generated output to TCP shell client mode or UART fallback.
     void SendHostOutput(const char *pData, size_t nLength);
-    /// \brief Consume bytes received from WLAN host bridge and render them.
+    /// \brief Consume bytes received from WLAN shell client bridge and render them.
     void HandleWlanHostRx(const char *pData, size_t nLength);
+    /// \brief Consume keyboard input for interactive outbound RAW TCP bridge setup (wlan_host_autostart=2).
+    bool HandleShellClientKey(const char *pString);
 
 protected:
     /// \brief Mount the filesystem and prepare SD card access.
@@ -151,6 +155,7 @@ private:
     CTUART *m_pUART;
     CTFileLog *m_pFileLog;
     CTWlanLog *m_pWlanLog;
+    CTWlanHost *m_pWlanHost;
     CTSetup *m_pSetup;
     CVTTest *m_pVTTest;
     CDevice *m_pLogTarget;

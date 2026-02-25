@@ -309,7 +309,7 @@ void CTConfig::logConfig(void) const
     }
     else if (GetWlanHostAutoStart() == 2U)
     {
-        wlanMode = "host";
+        wlanMode = "shell_client";
     }
     LOGNOTE("WLAN mode policy: %s (wlan_host_autostart=%u)", wlanMode, GetWlanHostAutoStart());
     LOGNOTE("Screen mode: %s", GetScreenInverted() ? "inverse" : "normal");
@@ -331,6 +331,7 @@ void CTConfig::logConfig(void) const
 CTConfig::CTConfig(void) : CTask()
 {
     strcpy(m_LogFileName, "vt100.log");
+    m_HostId[0] = '\0';
 
     // Initialize configuration parameter table with direct references
     static const TConfigParam configParams[] = {
@@ -354,7 +355,7 @@ CTConfig::CTConfig(void) : CTask()
         {"switch_txrx", &m_SwitchTxRx, 0, "Swap TX/RX wiring using GPIO16 (0=normal, 1=swapped)"},
         {"flow_control", &m_SoftwareFlowControl, 0, "Software flow control (0=off, 1=on XON/XOFF)"},
         {"margin_bell", &m_MarginBellEnabled, 0, "Margin bell (0=off, 1=on; rings 8 columns before right margin)"},
-        {"wlan_host_autostart", &m_WlanHostAutoStart, 0, "WLAN mode policy (0=off, 1=log, 2=host)"},
+        {"wlan_host_autostart", &m_WlanHostAutoStart, 0, "WLAN mode policy (0=off, 1=remote_log, 2=shell_client)"},
         {"repeat_delay_ms", &m_KeyRepeatDelayMs, KeyRepeatDelayMinMs, "Key repeat delay in milliseconds (250-1000)"},
         {"repeat_rate_cps", &m_KeyRepeatRateCps, 10, "Key repeat rate in characters per second (2-20)"},
         // Note: log_filename is handled as special case in ParseConfigLine()
@@ -406,12 +407,27 @@ void CTConfig::LoadDefaults(void)
     // Handle special case: log filename
     strcpy(m_LogFileName, "vt100.log");
 
+    // Special case: host_id (string)
+    m_HostId[0] = '\0';
+
     // Runtime-only setting (intentionally not persisted in VT100.txt)
     m_ScreenInverted = 0U;
 
     InitDefaultTabStops(TabStopsMax);
 
     LOGNOTE("Config: Defaults loaded");
+}
+
+void CTConfig::SetHostId(const char *pHostId)
+{
+    if (pHostId == nullptr)
+    {
+        m_HostId[0] = '\0';
+        return;
+    }
+
+    strncpy(m_HostId, pHostId, sizeof(m_HostId) - 1);
+    m_HostId[sizeof(m_HostId) - 1] = '\0';
 }
 
 bool CTConfig::IsTabStop(unsigned int column) const
@@ -500,6 +516,7 @@ boolean CTConfig::SaveToFile(void)
         {"switch_txrx", CString(), false},
         {"margin_bell", CString(), false},
         {"wlan_host_autostart", CString(), false},
+        {"host_id", CString(), false},
         {"log_output", CString(), false},
         {"log_filename", CString(), false},
     };
@@ -527,7 +544,8 @@ boolean CTConfig::SaveToFile(void)
     kv[20].value.Format("%u", m_MarginBellEnabled);
     kv[21].value.Format("%u", m_WlanHostAutoStart);
     kv[22].value.Format("%u", m_LogOutput);
-    kv[23].value.Format("%s", m_LogFileName);
+    kv[23].value.Format("%s", m_HostId);
+    kv[24].value.Format("%s", m_LogFileName);
 
     // Attempt to load existing content to preserve comments/order
     CString existing;
@@ -778,6 +796,14 @@ boolean CTConfig::ParseConfigLine(const char *pLine)
         return TRUE;
     }
 
+    // Special case: host_id (string)
+    if (strcmp(keyword, "host_id") == 0)
+    {
+        SetHostId(value);
+        LOGNOTE("Config: host_id set to %s", m_HostId);
+        return TRUE;
+    }
+
     // Use table to find and set parameter
     for (int i = 0; s_ConfigParams[i].keyword != nullptr; i++)
     {
@@ -976,7 +1002,7 @@ boolean CTConfig::ParseConfigLine(const char *pLine)
                     sanitizedValue = 2U;
                 }
                 *(param->variable) = sanitizedValue;
-                const char *modeName = (sanitizedValue == 0U) ? "off" : ((sanitizedValue == 1U) ? "log" : "host");
+                const char *modeName = (sanitizedValue == 0U) ? "off" : ((sanitizedValue == 1U) ? "remote_log" : "shell_client");
                 LOGNOTE("Config: Parameter %s set to %s (%u)", keyword, modeName, sanitizedValue);
             }
             else if (param->variable == &m_SoftwareFlowControl || param->variable == &m_MarginBellEnabled)
@@ -1229,7 +1255,7 @@ void CTConfig::SetWlanHostAutoStart(unsigned int mode)
         sanitized = 2U;
     }
     m_WlanHostAutoStart = sanitized;
-    const char *modeName = (m_WlanHostAutoStart == 0U) ? "off" : ((m_WlanHostAutoStart == 1U) ? "log" : "host");
+    const char *modeName = (m_WlanHostAutoStart == 0U) ? "off" : ((m_WlanHostAutoStart == 1U) ? "remote_log" : "shell_client");
     LOGNOTE("Config: wlan_host_autostart set to %s (%u)", modeName, m_WlanHostAutoStart);
 }
 

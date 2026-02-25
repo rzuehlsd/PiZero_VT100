@@ -17,6 +17,8 @@ Below you see the original VT100 terminal (the color has turned to yellow over t
   </tr>
 </table>
 
+The follwing link gives a very good view of the original VT100 from 1079:
+- [Pictures of a VT100 from 1979](https://www.artstation.com/artwork/d05JgW)
 
 The current VT100 terminal firmware turns a Raspberry Pi Zero W into a self-contained ANSI/VT100-compatible console. It boots straight into the terminal without Linux, using the Circle bare-metal framework for deterministic hardware access. The design targets headless benches and retro workstations that need a physical keyboard and display front-end for serial hosts.
 
@@ -86,7 +88,8 @@ The application initialises USB keyboard input, the framebuffer, GPIO, UART, and
 - [x] Logging infrastructure with screen, file, and WLAN sinks
   - [x] Real-time debug output with formatted log messages
   - [x] WLAN debug output via telnet session
-  - [x] WLAN host mode to integrate remote hosts via tcp/ip
+  - [x] WLAN per-session split between log mode and host bridge mode (current implementation)
+  - [ ] Target model: dedicated remote shell client mode (VT100-initiated) replacing host-server legacy path
   - [x] WLAN logging and WLAN host mode successfully validated with local loopback (`./VT100_PTY <ip> 2323 --autorespond`)
 - [x] GPIO16-controlled TX/RX swap to simulate Null Modem cables with straight DB9 cables
 - [x] Configuration of system via VT100 Setup Screens A and B for supported parameters
@@ -202,7 +205,7 @@ Create or edit `VT100.txt` on the boot partition. The firmware loads it on start
 | `repeat_rate_cps` | 2–20 | 10 | Characters per second once repeating |
 | `margin_bell` | 0/1 | 0 | Rings bell 8 columns before right margin when enabled |
 | `switch_txrx` | 0/1 | 0 | Drives GPIO16 high to swap wiring |
-| `wlan_host_autostart` | 0–2 | 0 | WLAN mode policy: 0=off, 1=log, 2=host |
+| `wlan_host_autostart` | 0–2 | 0 | Current implementation policy: 0=off, 1=log, 2=host (planned migration to explicit log/shell-client model) |
 | `text_color` | 0–3 | 1 | Foreground palette: 0=black, 1=white, 2=amber, 3=green |
 
 On screen configuration can be done by using one of the VT100 Set Up Dialogs A and B which can be triggered by F12 key and in an additional extended configuration dialog that also covers parameter of VT100.txt configuration file. This Dialog is triggered by F11 key.

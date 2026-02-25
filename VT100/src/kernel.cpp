@@ -21,8 +21,10 @@
 #include <circle/string.h>
 #include <circle/util.h>
 #include <circle/net/mdnsdaemon.h>
+#include <circle/net/in.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdlib.h>
 
 // Include application components
 #include "TRenderer.h"
@@ -32,6 +34,7 @@
 #include "TUART.h"
 #include "TFileLog.h"
 #include "TWlanLog.h"
+#include "TWlanHost.h"
 #include "TSetup.h"
 #include "VTTest.h"
 
@@ -52,14 +55,15 @@ static const char *GetWlanModeName(unsigned int mode)
     switch (mode)
     {
     case 1U:
-        return "WLAN log";
+        return "WLAN remote log";
     case 2U:
-        return "WLAN host";
+        return "WLAN shell client";
     case 0U:
     default:
         return "WLAN disabled";
     }
 }
+
 }
 
 static volatile unsigned s_f12PressCount = 0;
@@ -139,6 +143,11 @@ static void onKeyPressed(const char *pString)
     if (kernel != nullptr)
     {
         if (kernel->HandleVTTestKey(pString))
+        {
+            return;
+        }
+
+        if (kernel->HandleShellClientKey(pString))
         {
             return;
         }
@@ -232,6 +241,7 @@ CKernel::CKernel(void)
             m_pUART(nullptr),
             m_pFileLog(nullptr),
             m_pWlanLog(nullptr),
+            m_pWlanHost(nullptr),
             m_pSetup(nullptr),
             m_pVTTest(nullptr),
             m_pLogTarget(nullptr),
@@ -255,6 +265,7 @@ CKernel::CKernel(void)
     m_pUART = CTUART::Get();
     m_pFileLog = CTFileLog::Get();
     m_pWlanLog = CTWlanLog::Get();
+    m_pWlanHost = CTWlanHost::Get();
     m_pSetup = CTSetup::Get();
     m_pVTTest = new CVTTest();
     s_pPeriodicTask = new CPeriodicTask();
@@ -263,6 +274,20 @@ CKernel::CKernel(void)
 bool CKernel::IsLocalModeEnabled() const
 {
     return m_bLocalModeEnabled;
+}
+bool CKernel::HandleShellClientKey(const char *pString)
+{
+    if (m_pWlanHost == nullptr)
+    {
+        return false;
+    }
+
+    if (!m_pWlanHost->IsEnabled())
+    {
+        return false;
+    }
+
+    return m_pWlanHost->HandleKey(pString);
 }
 
 void CKernel::ToggleLocalMode()
@@ -488,12 +513,13 @@ boolean CKernel::Initialize(void)
         bool logToWlan = false;
         m_pConfig->ResolveLogOutputs(logToScreen, logToFile, logToWlan);
         const unsigned int wlanModePolicy = m_pConfig->GetWlanHostAutoStart();
-        const bool wlanEnabled = (wlanModePolicy != 0U);
+        const bool wlanEnabled = (wlanModePolicy == 1U);
         configureLogOutputs(logToScreen, logToFile, wlanEnabled);
 
         m_bTelnetReady = false;
         m_bWaitingMessageActive = false;
         m_bWaitingMessageShowsIP = false;
+
 
     }
    
@@ -507,6 +533,16 @@ boolean CKernel::Initialize(void)
     {
         LOGERR("Failed to initialize renderer module");
         bOK = FALSE;
+    }
+
+    if (m_pWlanHost != nullptr)
+    {
+        m_pWlanHost->Initialize(m_WLAN, m_Net, m_WpaSupplicant, m_Logger, m_pRenderer, &m_HAL);
+        if (m_pConfig != nullptr)
+        {
+            const bool shellClientModeSelected = (m_pConfig->GetWlanHostAutoStart() == 2U);
+            m_pWlanHost->SetEnabled(shellClientModeSelected);
+        }
     }
     else if (m_pConfig != nullptr)
     {
@@ -630,6 +666,11 @@ TShutdownMode CKernel::Run(void)
     {
         ProcessSerial();
 
+        if (m_pWlanHost != nullptr && m_pWlanHost->IsEnabled())
+        {
+            m_pWlanHost->Tick();
+        }
+
         if (m_bWlanLoggerEnabled)
         {
             m_Net.Process();
@@ -681,17 +722,8 @@ void CKernel::MarkTelnetReady()
 
     if (m_bWlanLoggerEnabled && m_pRenderer != nullptr)
     {
-        const bool hostMode = (m_pConfig != nullptr && m_pConfig->GetWlanHostAutoStart() == 2U);
-        if (hostMode)
-        {
-            static const char HostReadyMsg[] = "\r\nHost connected via tcp - CRTL-C in host session to close connection\r\n";
-            m_pRenderer->Write(HostReadyMsg, sizeof HostReadyMsg - 1);
-        }
-        else
-        {
-            static const char ReadyMsg[] = "\r\nTelnet client connected - enabling local output\r\n";
-            m_pRenderer->Write(ReadyMsg, sizeof ReadyMsg - 1);
-        }
+        static const char ReadyMsg[] = "\r\nTelnet client connected - enabling local output\r\n";
+        m_pRenderer->Write(ReadyMsg, sizeof ReadyMsg - 1);
     }
 
     EnsureSerialTaskStarted();
@@ -704,6 +736,12 @@ void CKernel::ApplyRuntimeConfig()
         return;
     }
 
+    if (m_pWlanHost != nullptr)
+    {
+        const bool shellClientModeSelected = (m_pConfig->GetWlanHostAutoStart() == 2U);
+        m_pWlanHost->SetEnabled(shellClientModeSelected);
+    }
+
     if (m_pRenderer != nullptr)
     {
         m_pRenderer->SetColors(m_pConfig->GetTextColor(), m_pConfig->GetBackgroundColor());
@@ -712,6 +750,7 @@ void CKernel::ApplyRuntimeConfig()
         m_pRenderer->SetBlinkingCursor(m_pConfig->GetCursorBlinking(), 500);
         m_pRenderer->SetVT52Mode(m_pConfig->GetVT52ModeEnabled() ? TRUE : FALSE);
         m_pRenderer->SetSmoothScrollEnabled(m_pConfig->GetSmoothScrollEnabled() ? TRUE : FALSE);
+        m_pRenderer->SetWrapAroundMode(m_pConfig->GetWrapAroundEnabled() ? TRUE : FALSE);
     }
 
     m_HAL.ConfigureBuzzerVolume(m_pConfig->GetBuzzerVolume());
@@ -722,6 +761,17 @@ void CKernel::SendHostOutput(const char *pData, size_t nLength)
 {
     if (pData == nullptr || nLength == 0)
     {
+        return;
+    }
+
+    const bool shellClientModeSelected = (m_pConfig != nullptr && m_pConfig->GetWlanHostAutoStart() == 2U);
+
+    if (shellClientModeSelected)
+    {
+        if (m_pWlanHost != nullptr)
+        {
+            (void)m_pWlanHost->SendHostData(pData, nLength);
+        }
         return;
     }
 
@@ -835,11 +885,11 @@ void CKernel::MarkTelnetWaiting()
 
     if (m_pRenderer != nullptr)
     {
-        const bool hostMode = (m_pConfig != nullptr && m_pConfig->GetWlanHostAutoStart() == 2U);
+        const bool shellClientMode = (m_pConfig != nullptr && m_pConfig->GetWlanHostAutoStart() == 2U);
         CString waitingMsg;
-        if (hostMode)
+        if (shellClientMode)
         {
-            waitingMsg = "\r\nWaiting for host to connect via tcp ...\r\n";
+            waitingMsg = "\r\nWaiting for shell-client TCP connection...\r\n";
         }
         else
         {
@@ -863,7 +913,22 @@ void CKernel::MarkTelnetWaiting()
         CString connectHint;
 
         CString hostName = m_Net.GetHostname();
-        if (hostName.GetLength() > 0)
+        if (shellClientMode)
+        {
+            if (hostName.GetLength() > 0)
+            {
+                connectHint.Format("Connect shell client via TCP: %s %u or %s.local %u\r\n",
+                                   (const char *)ipString,
+                                   TerminalPort,
+                                   (const char *)hostName,
+                                   TerminalPort);
+            }
+            else
+            {
+                connectHint.Format("Connect shell client via TCP: %s %u\r\n", (const char *)ipString, TerminalPort);
+            }
+        }
+        else if (hostName.GetLength() > 0)
         {
             connectHint.Format("Connect via: telnet %s %u or telnet %s.local %u\r\n",
                                (const char *)ipString,

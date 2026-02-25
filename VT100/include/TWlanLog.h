@@ -71,12 +71,12 @@ public:
     void Stop();
     /// \brief Check whether a remote client is currently connected.
     bool IsClientConnected() const;
-    /// \brief Check whether active session is in TCP host bridge mode.
+    /// \brief Check whether active session is in TCP shell client mode.
     bool IsHostModeActive() const;
 
     /// \brief Send raw data to the active client if present.
     void Send(const char *buffer, size_t length);
-    /// \brief Send host-bound data when host bridge mode is active.
+    /// \brief Send shell-client-bound data when shell client mode is active.
     bool SendHostData(const char *buffer, size_t length);
     /// \brief Send a newline-terminated string to the client.
     void SendLine(const char *line);

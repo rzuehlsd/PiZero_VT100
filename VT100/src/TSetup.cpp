@@ -37,8 +37,8 @@ static const char *kLogOutputNames[] = {
     "Screen+File+WLAN"};
 static const char *kWlanModeNames[] = {
     "Off",
-    "Log",
-    "Host"};
+    "RemoteLog",
+    "ShellClient"};
 static const char *kPresetLogFiles[] = {"vt100.log", "session.log", "terminal.log", "serial.log"};
 static const unsigned kPresetLogFileCount = sizeof(kPresetLogFiles) / sizeof(kPresetLogFiles[0]);
 constexpr unsigned int kRepeatDelayMinMs = 250U;
@@ -90,7 +90,7 @@ static const char *kModernFieldDescriptions[kModernFieldCount] = {
     "Repeat delay 250-1000 ms",
     "Repeat rate 2-20 cps",
     "Swap UART TX/RX",
-    "WLAN mode: Off/Log/Host",
+    "WLAN mode: Off/RemoteLog/ShellClient",
     "Log outputs bitmask: bit1=screen, bit2=file, bit3=wlan",
     "Log file name"};
 

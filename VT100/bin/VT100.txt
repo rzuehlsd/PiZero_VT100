@@ -48,7 +48,7 @@ cursor_type=0
 cursor_blinking=0
 
 # vt_test: 0=off, 1=on
-vt_test=0
+vt_test=1
 
 # font_selection: 1=8x20, 2=10x20 CRT, 3=10x20 solid
 font_selection=2

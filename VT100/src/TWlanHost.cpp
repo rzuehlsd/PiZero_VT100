@@ -1,5 +1,6 @@
 #include "TWlanHost.h"
 
+#include "TConfig.h"
 #include "TRenderer.h"
 #include "hal.h"
 
@@ -7,6 +8,7 @@
 #include <circle/net/error.h>
 #include <circle/net/in.h>
 #include <circle/sched/scheduler.h>
+#include <circle/netdevice.h>
 #include <stdlib.h>
 #include <string.h>
 #include <wlan/bcm4343.h>
@@ -189,6 +191,37 @@ void CTWlanHost::DisplayPromptIfReady()
     m_PromptSkipReported = false;
     m_StateLock.Release();
 
+    // If a default host_id is configured, auto-start the shell-client connection
+    // without prompting for an interactive host entry.
+    {
+        CTConfig *config = CTConfig::Get();
+        const char *hostId = (config != nullptr) ? config->GetHostId() : nullptr;
+        if (hostId != nullptr && hostId[0] != '\0')
+        {
+            m_StateLock.Acquire();
+            m_HostToken = hostId;
+            m_PromptField = ShellFieldDone;
+            m_InputActive = false;
+            m_ConnectInProgress = false;
+            m_ConnectRequested = false;
+            m_Connected = false;
+            m_SshDetected = false;
+            m_RetryBackoff = 0U;
+            m_StateLock.Release();
+
+            LOGNOTE("Shell target from host_id: %s", m_HostToken.c_str());
+
+            if (m_pRenderer != nullptr)
+            {
+                CString summary;
+                summary.Format("\r\nShell target from host_id: host=%s\r\n", (const char *)m_HostToken);
+                m_pRenderer->Write(summary.c_str(), summary.GetLength());
+                m_pRenderer->Write("Starting outbound shell-client connection...\r\n", 45);
+            }
+            return;
+        }
+    }
+
     if (m_pRenderer != nullptr)
     {
         static const char Msg[] =
@@ -327,7 +360,7 @@ void CTWlanHost::Tick()
 
     if (connected && sock != nullptr)
     {
-        char rx[512];
+        u8 rx[FRAME_BUFFER_SIZE];
         const unsigned int maxIterations = 4U;
         unsigned int iteration = 0U;
         while (iteration < maxIterations)
@@ -445,8 +478,8 @@ bool CTWlanHost::SendHostData(const char *pData, size_t nLength)
         return true; // swallow in shell-client mode
     }
 
-    const int sent = sock->Send(pData, static_cast<unsigned>(nLength), 0);
-    if (sent <= 0)
+    const int sent = sock->Send(pData, static_cast<unsigned>(nLength), MSG_DONTWAIT);
+    if (sent != static_cast<int>(nLength))
     {
         CloseConnection("send-error");
     }

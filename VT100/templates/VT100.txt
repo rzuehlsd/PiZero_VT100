@@ -70,6 +70,10 @@ switch_txrx=0
 # wlan_host_autostart: 0=off, 1=log, 2=host
 wlan_host_autostart=0
 
+# host_id: default shell-client target when wlan_host_autostart=2
+# Format: IPv4[:port] (e.g. 192.168.2.10 or 192.168.2.10:2323). Leave empty to prompt.
+host_id=192.168.2.151:2323
+
 # --- Logging ---
 # log_output:
 # 0=off

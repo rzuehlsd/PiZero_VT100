@@ -49,6 +49,7 @@ OBJS := \
 	$(BUILDDIR)/TUART.o \
 	$(BUILDDIR)/TFileLog.o \
 	$(BUILDDIR)/TWlanLog.o \
+	$(BUILDDIR)/TWlanHost.o \
 	$(BUILDDIR)/TSetup.o \
 	$(BUILDDIR)/VTTest.o
 	
