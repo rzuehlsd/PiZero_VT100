@@ -339,3 +339,7 @@ Reconstructed from git commit history and intended as a concise daily summary of
 - Implemented features: kept the WLAN shell-client receiver busy until the socket would block so bursty host output is delivered without waiting for the next kernel tick.
 - Codebase changes: updated `CTWlanHost::Tick()` to loop over `MSG_DONTWAIT` receives, handle `NET_ERROR_WOULD_BLOCK` as the normal “no data yet” case, and only close the connection when a remote close or unexpected receive error occurs while logging the error code for diagnostics.
 	Also log the `CloseConnection` reason string via `LOGNOTE` so each disconnect is recorded with the triggering message.
+
+## 2026-02-25
+- Implemented features: cleaned the local workspace state by removing transient build/metadata modifications from the active working tree without touching functional source changes.
+- Codebase changes: restored local generated artifacts (`build/*`, `bin/kernel.img`, `.DS_Store`) to HEAD state and extended `VT100/.gitignore` with local metadata/build artifact patterns to reduce future cleanup overhead.
