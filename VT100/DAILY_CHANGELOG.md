@@ -341,5 +341,5 @@ Reconstructed from git commit history and intended as a concise daily summary of
 	Also log the `CloseConnection` reason string via `LOGNOTE` so each disconnect is recorded with the triggering message.
 
 ## 2026-02-25
-- Implemented features: cleaned the local workspace state by removing transient build/metadata modifications from the active working tree without touching functional source changes.
-- Codebase changes: restored local generated artifacts (`build/*`, `bin/kernel.img`, `.DS_Store`) to HEAD state and extended `VT100/.gitignore` with local metadata/build artifact patterns to reduce future cleanup overhead.
+- Implemented features: finalized shell-client mode integration around a dedicated `CTWlanHost` runtime task path and aligned local repository hygiene to keep generated artifacts out of everyday commits.
+- Codebase changes: updated kernel/config/setup/WLAN host paths plus the new `include/TWlanHost.h` integration and synchronized config templates/bin defaults and README wording, then cleaned transient local artifacts (`build/*`, `bin/kernel.img`, `.DS_Store`) and extended `VT100/.gitignore` with local metadata/build artifact patterns.
