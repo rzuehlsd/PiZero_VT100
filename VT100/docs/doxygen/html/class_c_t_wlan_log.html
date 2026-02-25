@@ -147,16 +147,19 @@ bool&#160;</td><td class="memItemRight"><b>IsClientConnected</b> () const</td></
 <tr class="memdesc:ae09311362f5ccfe7b36967b399b0c7f5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Check whether a remote client is currently connected. <br /></td></tr>
 <tr class="memitem:a02f4e38b4020f16e51e13d6ac14213d5" id="r_a02f4e38b4020f16e51e13d6ac14213d5"><td class="memItemLeft"><a id="a02f4e38b4020f16e51e13d6ac14213d5" name="a02f4e38b4020f16e51e13d6ac14213d5"></a>
 bool&#160;</td><td class="memItemRight"><b>IsHostModeActive</b> () const</td></tr>
-<tr class="memdesc:a02f4e38b4020f16e51e13d6ac14213d5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Check whether active session is in TCP host bridge mode. <br /></td></tr>
+<tr class="memdesc:a02f4e38b4020f16e51e13d6ac14213d5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Check whether active session is in TCP shell client mode. <br /></td></tr>
 <tr class="memitem:aee2ae31661803847bb78bcad2c477892" id="r_aee2ae31661803847bb78bcad2c477892"><td class="memItemLeft"><a id="aee2ae31661803847bb78bcad2c477892" name="aee2ae31661803847bb78bcad2c477892"></a>
 void&#160;</td><td class="memItemRight"><b>Send</b> (const char *buffer, size_t length)</td></tr>
 <tr class="memdesc:aee2ae31661803847bb78bcad2c477892"><td class="mdescLeft">&#160;</td><td class="mdescRight">Send raw data to the active client if present. <br /></td></tr>
 <tr class="memitem:aa03c02daad64921bc94cd8571784f9d5" id="r_aa03c02daad64921bc94cd8571784f9d5"><td class="memItemLeft"><a id="aa03c02daad64921bc94cd8571784f9d5" name="aa03c02daad64921bc94cd8571784f9d5"></a>
 bool&#160;</td><td class="memItemRight"><b>SendHostData</b> (const char *buffer, size_t length)</td></tr>
-<tr class="memdesc:aa03c02daad64921bc94cd8571784f9d5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Send host-bound data when host bridge mode is active. <br /></td></tr>
+<tr class="memdesc:aa03c02daad64921bc94cd8571784f9d5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Send shell-client-bound data when shell client mode is active. <br /></td></tr>
 <tr class="memitem:ad2431479c7867e5cdcbfa2faa597eb7e" id="r_ad2431479c7867e5cdcbfa2faa597eb7e"><td class="memItemLeft"><a id="ad2431479c7867e5cdcbfa2faa597eb7e" name="ad2431479c7867e5cdcbfa2faa597eb7e"></a>
 void&#160;</td><td class="memItemRight"><b>SendLine</b> (const char *line)</td></tr>
 <tr class="memdesc:ad2431479c7867e5cdcbfa2faa597eb7e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Send a newline-terminated string to the client. <br /></td></tr>
+<tr class="memitem:ad12089826caaa09f72f3c16367eec532" id="r_ad12089826caaa09f72f3c16367eec532"><td class="memItemLeft"><a id="ad12089826caaa09f72f3c16367eec532" name="ad12089826caaa09f72f3c16367eec532"></a>
+void&#160;</td><td class="memItemRight"><b>SendCommandPrompt</b> ()</td></tr>
+<tr class="memdesc:ad12089826caaa09f72f3c16367eec532"><td class="mdescLeft">&#160;</td><td class="mdescRight">Send the command-mode prompt to the active client. <br /></td></tr>
 <tr class="memitem:ad2a88a5a943e0d83105580e613ec64a9" id="r_ad2a88a5a943e0d83105580e613ec64a9"><td class="memItemLeft"><a id="ad2a88a5a943e0d83105580e613ec64a9" name="ad2a88a5a943e0d83105580e613ec64a9"></a>
 int&#160;</td><td class="memItemRight"><b>Write</b> (const void *buffer, size_t count) override</td></tr>
 <tr class="memdesc:ad2a88a5a943e0d83105580e613ec64a9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Write intercepted log output to the remote client and fallback. <br /></td></tr>

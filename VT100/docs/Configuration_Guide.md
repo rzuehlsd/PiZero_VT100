@@ -16,9 +16,10 @@ This document is the single configuration reference and is split into:
 	- B1) Source of truth and update checklist
 	- B2) Paths and ownership
 	- B3) Setup integration notes
-	- B4) WLAN mode integration notes
-	- B5) Planned clean mode separation
-	- B6) Validation workflow after config-related changes
+	- B4) WLAN current-state integration notes
+	- B5) WLAN target model (approved)
+	- B6) WLAN migration and implementation plan
+	- B7) Validation workflow after config-related changes
 
 ## Part A — User / Operator
 
@@ -79,7 +80,7 @@ Persisted by `CTConfig::SaveToFile()`:
 19. `repeat_rate_cps` (2..20)
 20. `switch_txrx` (0/1)
 21. `margin_bell` (0/1)
-22. `wlan_host_autostart` (0/1/2; 0=off, 1=log, 2=host)
+22. `wlan_host_autostart` (0/1/2; 0=off, 1=log, 2=host; current implementation, planned to be replaced by target model keys)
 23. `log_output` (0..7; 0=none, 1=screen, 2=file, 3=wlan, 4=screen+file, 5=screen+wlan, 6=file+wlan, 7=screen+file+wlan)
 24. `log_filename` (string, max 63 chars)
 
@@ -145,23 +146,61 @@ When adding/changing a setting, update all of:
 - Legacy SET-UP B maps group 3 second bit from left (mask `0x4`, VT100 “Wraparound”) to `wrap_around`.
 - Modern setup save path now calls kernel runtime apply for safe non-disruptive updates (renderer and HAL) to preserve stable keyboard/dialog handler routing.
 
-### B4) WLAN mode integration notes
+### B4) WLAN current-state integration notes
 
 - `CTWlanLog` uses one TCP endpoint with strict per-session mode separation.
 - `wlan_host_autostart=0` disables WLAN remote mode.
 - `wlan_host_autostart=1` starts a log-mode session.
 - `wlan_host_autostart=2` starts a raw host-mode session.
 
-### B5) Planned clean mode separation
+### B5) WLAN target model (approved)
 
-Target model:
+Approved target model (without host-server legacy):
 
-- **Log mode**: remote diagnostics only (`help`, `status`, `echo`, `exit`) with log mirroring and command prompt.
-- **Host mode**: raw stdin/stdout host bridge only, without log/status/welcome chatter in host payload path.
+- **Remote Logging/Status mode**: remote diagnostics/log sink only (`help`, `status`, `echo`, `exit`) with command prompt; no interactive shell stream.
+- **Remote Shell Client mode**: VT100 acts as client and initiates a remote shell session to a configured host; keyboard uplink and renderer downlink belong exclusively to this mode.
 
-Architecture-level session model, data-path gates, and lifecycle behavior are documented in `docs/VT100_Architecture.md` (section 8.3).
+Explicit non-goal in target model:
 
-### B6) Validation workflow after config-related changes
+- No host-server legacy mode in final mode model.
+
+Mode separation constraints:
+
+- Logging stream and shell stream are strictly isolated.
+- No in-session mode switching between logging and shell-client traffic paths.
+- Shell-client authentication/login flow is handled on VT100 (IP/port/user/password input path).
+
+Architecture-level session model and lifecycle are documented in `docs/VT100_Architecture.md` (section 8.3).
+
+### B6) WLAN migration and implementation plan
+
+Planned migration from current implementation (`wlan_host_autostart`) to target model:
+
+1. Introduce explicit policy key `wlan_mode_policy` with values:
+	- `0=off`
+	- `1=remote_log`
+	- `2=shell_client`
+2. Keep `wlan_host_autostart` as compatibility input during transition only.
+3. Compatibility mapping during transition:
+	- old `0` -> new `0`
+	- old `1` -> new `1`
+	- old `2` -> new `2` (temporary mapping from former host-server value to shell-client target)
+4. Add shell-client profile keys (target, no runtime claim yet):
+	- `shell_client_host`
+	- `shell_client_port`
+	- `shell_client_user`
+	- password entry runtime-only by default (optional persisted storage only via explicit user opt-in).
+5. Remove host-server runtime path after shell-client mode is feature-complete and validated.
+
+Implementation order (approved):
+
+1. Config/state model split
+2. Shell-client state machine (`idle`, `connecting`, `auth`, `interactive`, `error`, `disconnect`)
+3. VT100 login/connect UI
+4. I/O routing gates and safety guards
+5. Legacy removal cleanup and docs finalization
+
+### B7) Validation workflow after config-related changes
 
 1. Build `VT100`.
 2. Boot with a known `VT100.txt`.

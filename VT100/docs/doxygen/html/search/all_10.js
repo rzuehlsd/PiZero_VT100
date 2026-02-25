@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['general_20pass_20criterion_0',['General Pass Criterion',['../md_docs_2_manual___testplan__2026-02-12__to__2026-02-14.html#general-pass-criterion',1,'']]],
+  ['gates_20in_20target_20model_0',['8.3.3 Data-path gates in target model',['../md_docs_2_v_t100___architecture.html#autotoc_md833-data-path-gates-in-target-model',1,'']]],
   ['get_1',['Get',['../class_c_h_a_l.html#afd7c5bf4ba1e940d42570444965a1b0b',1,'CHAL::Get()'],['../class_c_kernel.html#af020fc94f20d99ac191a9cdd95a076b8',1,'CKernel::Get()'],['../class_c_t_config.html#a2486e29f2a1ba5951d2a4a5e58c0ea6e',1,'CTConfig::Get()'],['../class_c_t_file_log.html#adbe4a7d790dd4b5d17873fe73e2ced05',1,'CTFileLog::Get()'],['../class_c_t_font_converter.html#a758c27e406d98571290a0fc4f5407a8e',1,'CTFontConverter::Get()'],['../class_c_t_keyboard.html#a891e730a7a6c089a45f30cd102b0c909',1,'CTKeyboard::Get()'],['../class_c_t_renderer.html#a5713c9d117464ad158c1b304d88ca607',1,'CTRenderer::Get()'],['../class_c_t_setup.html#a98c5ad1bc6376b65d61cf7551b0d5973',1,'CTSetup::Get()'],['../class_c_t_u_a_r_t.html#a8c5ba53e39a5b9e4ee6410317aa0f986',1,'CTUART::Get()'],['../class_c_t_wlan_log.html#a4f61de21fe3f9326d24fecc84545258a',1,'CTWlanLog::Get()']]],
   ['getbackgroundcolor_2',['GetBackgroundColor',['../class_c_t_config.html#a0bc9732226f11a356a3dda02ea530d2c',1,'CTConfig']]],
   ['getbaudrate_3',['GetBaudRate',['../class_c_t_config.html#ac648d176f1808b37b92265a4a43ba019',1,'CTConfig']]],

@@ -196,9 +196,9 @@ void&#160;</td><td class="memItemRight"><b>Run</b> () override</td></tr>
 <tr class="memitem:a13d72afa2db36e5e47500a29031f74cc" id="r_a13d72afa2db36e5e47500a29031f74cc"><td class="memItemLeft">void&#160;</td><td class="memItemRight"><a class="el" href="#a13d72afa2db36e5e47500a29031f74cc">SetSwitchTxRx</a> (boolean enabled)</td></tr>
 <tr class="memdesc:a13d72afa2db36e5e47500a29031f74cc"><td class="mdescLeft">&#160;</td><td class="mdescRight">Enable or disable TX/RX swap mode.  <br /></td></tr>
 <tr class="memitem:a8b8af17a7c744e68bd8667299faa93a8" id="r_a8b8af17a7c744e68bd8667299faa93a8"><td class="memItemLeft">unsigned int&#160;</td><td class="memItemRight"><a class="el" href="#a8b8af17a7c744e68bd8667299faa93a8">GetWlanHostAutoStart</a> (void) const</td></tr>
-<tr class="memdesc:a8b8af17a7c744e68bd8667299faa93a8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Check whether WLAN host mode auto-start is enabled.  <br /></td></tr>
-<tr class="memitem:added4e6be8c1d1d0c2d74c2e83bd8c38" id="r_added4e6be8c1d1d0c2d74c2e83bd8c38"><td class="memItemLeft">void&#160;</td><td class="memItemRight"><a class="el" href="#added4e6be8c1d1d0c2d74c2e83bd8c38">SetWlanHostAutoStart</a> (boolean enabled)</td></tr>
-<tr class="memdesc:added4e6be8c1d1d0c2d74c2e83bd8c38"><td class="mdescLeft">&#160;</td><td class="mdescRight">Enable or disable WLAN host mode auto-start on telnet connect.  <br /></td></tr>
+<tr class="memdesc:a8b8af17a7c744e68bd8667299faa93a8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Retrieve WLAN session mode policy.  <br /></td></tr>
+<tr class="memitem:a42e44f7245782d721d7bf19060657832" id="r_a42e44f7245782d721d7bf19060657832"><td class="memItemLeft">void&#160;</td><td class="memItemRight"><a class="el" href="#a42e44f7245782d721d7bf19060657832">SetWlanHostAutoStart</a> (unsigned int mode)</td></tr>
+<tr class="memdesc:a42e44f7245782d721d7bf19060657832"><td class="mdescLeft">&#160;</td><td class="mdescRight">Set WLAN session mode policy.  <br /></td></tr>
 <tr class="memitem:ae1b39497800323fa98ba4bd2431109f7" id="r_ae1b39497800323fa98ba4bd2431109f7"><td class="memItemLeft">unsigned int&#160;</td><td class="memItemRight"><a class="el" href="#ae1b39497800323fa98ba4bd2431109f7">GetKeyRepeatDelayMs</a> (void) const</td></tr>
 <tr class="memdesc:ae1b39497800323fa98ba4bd2431109f7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Retrieve key repeat delay in milliseconds.  <br /></td></tr>
 <tr class="memitem:a572df3095fe3f66d6e09029c54cee81d" id="r_a572df3095fe3f66d6e09029c54cee81d"><td class="memItemLeft">boolean&#160;</td><td class="memItemRight"><a class="el" href="#a572df3095fe3f66d6e09029c54cee81d">GetKeyAutoRepeatEnabled</a> (void) const</td></tr>
@@ -982,8 +982,8 @@ static constexpr unsigned int&#160;</td><td class="memItemRight"><b>TabStopsMax<
 </table>
 </div><div class="memdoc">
 
-<p>Check whether WLAN host mode auto-start is enabled. </p>
-<dl class="section return"><dt>Returns</dt><dd>1 if host mode auto-start is enabled, else 0. </dd></dl>
+<p>Retrieve WLAN session mode policy. </p>
+<dl class="section return"><dt>Returns</dt><dd>0=WLAN disabled, 1=remote log mode, 2=shell client mode. </dd></dl>
 
 </div>
 </div>
@@ -1750,8 +1750,8 @@ static constexpr unsigned int&#160;</td><td class="memItemRight"><b>TabStopsMax<
 
 </div>
 </div>
-<a id="added4e6be8c1d1d0c2d74c2e83bd8c38" name="added4e6be8c1d1d0c2d74c2e83bd8c38"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#added4e6be8c1d1d0c2d74c2e83bd8c38">&#9670;&#160;</a></span>SetWlanHostAutoStart()</h2>
+<a id="a42e44f7245782d721d7bf19060657832" name="a42e44f7245782d721d7bf19060657832"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a42e44f7245782d721d7bf19060657832">&#9670;&#160;</a></span>SetWlanHostAutoStart()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1759,16 +1759,16 @@ static constexpr unsigned int&#160;</td><td class="memItemRight"><b>TabStopsMax<
         <tr>
           <td class="memname">void CTConfig::SetWlanHostAutoStart </td>
           <td>(</td>
-          <td class="paramtype">boolean</td>          <td class="paramname"><span class="paramname"><em>enabled</em></span></td><td>)</td>
+          <td class="paramtype">unsigned int</td>          <td class="paramname"><span class="paramname"><em>mode</em></span></td><td>)</td>
           <td></td>
         </tr>
       </table>
 </div><div class="memdoc">
 
-<p>Enable or disable WLAN host mode auto-start on telnet connect. </p>
+<p>Set WLAN session mode policy. </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">enabled</td><td>TRUE to auto-enable host mode for new sessions. </td></tr>
+    <tr><td class="paramname">mode</td><td>0=WLAN disabled, 1=remote log mode, 2=shell client mode. </td></tr>
   </table>
   </dd>
 </dl>

@@ -110,16 +110,16 @@ $(function(){initNavTree('index.html','',''); });
   <div class="headertitle"><div class="title">VT100 Terminal Emulation on Raspberry Pi Zero W with Circle Bare Metal Framework </div></div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><p><a class="anchor" id="md__r_e_a_d_m_e"></a></p>
+<div class="textblock"><p><a class="anchor" id="md__2_volumes_2_s_s_d1000_22___workbench_22___h_w___projekte_24___realisierte___projekte_221___pi_zero___v_t100_2_r_e_a_d_m_e"></a></p>
 <h1 class="doxsection"><a class="anchor" id="motivation"></a>
 Motivation</h1>
 <p>My main motivation was that I wanted a terminal emulation for my VT100 replica (<a href="https://www.instructables.com/23-Scale-VT100-Terminal-Reproduction/">https://www.instructables.com/23-Scale-VT100-Terminal-Reproduction/</a>) which I printed and assembled. I wanted something that could start within seconds, so a bare metal implementation on a Pi Zero seems to be the way to go. I looked into the PiGFX implementation by Filippo Bergamasco (<a href="https://github.com/fbergama/pigfx">https://github.com/fbergama/pigfx</a>) and PiVT VT220 Emulator by Hans Hübner (<a href="https://github.com/hanshuebner/pivt">https://github.com/hanshuebner/pivt</a>). PiGFX for my taste was to much focused on reproducing vintage games on Z80 hardware or similar whereas PiVt was focused on VT220 with minimal configurability. Also the support for VT100 features like font stretching, double width fonts and double width double height fonts was missing in both implementations. So I decided to start my own VT100 Emulator journay and here is the result.</p>
 <p>Below you see the original VT100 terminal (the color has turned to yellow over the years) and my 60% replica in a color that matches the original "oyster white" and some font examples:</p>
 <table class="doxtable">
 <tr>
-<td><img src="IMG_1088.jpeg" alt="VT100 original" width="80%" class="inline"/></td><td><img src="IMG_1095.jpeg" alt="60% replica" width="80%" class="inline"/></td></tr>
+<td><img src="VT100/docs/images/IMG_1088.jpeg" alt="VT100 original" width="80%" class="inline"/></td><td><img src="VT100/docs/images/IMG_1095.jpeg" alt="60% replica" width="80%" class="inline"/></td></tr>
 <tr>
-<td><img src="DEC_Font_test.jpeg" alt="VT100 original" width="80%" class="inline"/></td><td><img src="DEC_Graphics_Font.jpeg" alt="60% replica" width="80%" class="inline"/></td></tr>
+<td><img src="VT100/docs/images/DEC_Font_test.jpeg" alt="VT100 original" width="80%" class="inline"/></td><td><img src="VT100/docs/images/DEC_Graphics_Font.jpeg" alt="60% replica" width="80%" class="inline"/></td></tr>
 </table>
 <p>The current VT100 terminal firmware turns a Raspberry Pi Zero W into a self-contained ANSI/VT100-compatible console. It boots straight into the terminal without Linux, using the Circle bare-metal framework for deterministic hardware access. The design targets headless benches and retro workstations that need a physical keyboard and display front-end for serial hosts.</p>
 <p>This project also includes a PCB design to support enhanced features such as a buzzer, an RS-232 adapter, a Mini-DIN-6 adapter for MBC2-Z80, and power distribution for the Pi Zero, MBC2, and display, plus a backplate to mount the board inside a 60% VT100 replica designed by megardi.</p>
@@ -141,6 +141,10 @@ Documentation Policy</h1>
 <li><a class="el" href="md_docs_2_v_t100___architecture.html" title="VT100 Architecture and Technical Implementation (VT100)">Architecture Overview</a> is the single technical architecture + implementation reference for developers.</li>
 <li><a class="el" href="md_docs_2_configuration___guide.html" title="Configuration Guide (VT100)">Configuration Guide</a> contains all configuration guidance, split into user/operator and admin/developer parts.</li>
 <li><a class="el" href="md_docs_2_hardware.html" title="Carrier Board for Pi Zero VT100 Terminal">Hardware Design</a> contains the KiCad design of the PCB and the OpenSCAD files for printing the backplate.</li>
+</ul>
+<p>Generated API documentation is also published via GitHub Pages:</p>
+<ul>
+<li><a href="https://rzuehlsd.github.io/PiZero_VT100/">Doxygen HTML Documentation</a></li>
 </ul>
 <p>When implementation changes affect behavior, update these documents in lockstep and avoid introducing additional overlapping technical documents.</p>
 <h1 class="doxsection"><a class="anchor" id="software-implementation"></a>
@@ -213,7 +217,11 @@ Main Features</h2>
 <li class="checked">WLAN debug output via telnet session</li>
 </ul>
 <ul class="check">
-<li class="checked">WLAN host mode to integrate remote hosts via tcp/ip</li>
+<li class="checked">WLAN per-session split between log mode and host bridge mode (current implementation)</li>
+<li class="unchecked">Target model: dedicated remote shell client mode (VT100-initiated) replacing host-server legacy path</li>
+</ul>
+<ul class="check">
+<li class="checked">WLAN logging and WLAN host mode successfully validated with local loopback (<span class="tt">./VT100_PTY &lt;ip&gt; 2323 --autorespond</span>)</li>
 </ul>
 </li>
 </ul>
@@ -247,8 +255,9 @@ Main Features</h2>
 <tr class="markdownTableRowEven">
 <td class="markdownTableBodyNone"><b>Deployment</b>  </td><td class="markdownTableBodyNone">Makefile-driven build, SD card copy workflow, optional bootloader assets  </td></tr>
 </table>
+<p>WLAN remote operation test status: WLAN logging mode and WLAN host mode have been successfully tested with local loopback using <span class="tt">VT100_PTY --autorespond</span>.</p>
 <p>And here are the results of the internal tests which could be switched on in VT100.txt config file:</p>
-<p><img src="Test Summary.jpeg" alt="VT100 original" width="70%" class="inline"/></p>
+<p><img src="VT100/docs/images/Test Summary.jpeg" alt="VT100 original" width="70%" class="inline"/></p>
 <h2 class="doxsection"><a class="anchor" id="compile-environment-setup"></a>
 Compile Environment Setup</h2>
 <h3 class="doxsection"><a class="anchor" id="make-targets"></a>
@@ -343,7 +352,7 @@ Configuration Summary</h4>
 <tr class="markdownTableRowEven">
 <td class="markdownTableBodyNone"><span class="tt">switch_txrx</span>  </td><td class="markdownTableBodyNone">0/1  </td><td class="markdownTableBodyNone">0  </td><td class="markdownTableBodyNone">Drives GPIO16 high to swap wiring  </td></tr>
 <tr class="markdownTableRowOdd">
-<td class="markdownTableBodyNone"><span class="tt">wlan_host_autostart</span>  </td><td class="markdownTableBodyNone">0/1  </td><td class="markdownTableBodyNone">0  </td><td class="markdownTableBodyNone"><span class="tt">1</span> auto-enables TCP host bridge mode when a client connects  </td></tr>
+<td class="markdownTableBodyNone"><span class="tt">wlan_host_autostart</span>  </td><td class="markdownTableBodyNone">0–2  </td><td class="markdownTableBodyNone">0  </td><td class="markdownTableBodyNone">Current implementation policy: 0=off, 1=log, 2=host (planned migration to explicit log/shell-client model)  </td></tr>
 <tr class="markdownTableRowEven">
 <td class="markdownTableBodyNone"><span class="tt">text_color</span>  </td><td class="markdownTableBodyNone">0–3  </td><td class="markdownTableBodyNone">1  </td><td class="markdownTableBodyNone">Foreground palette: 0=black, 1=white, 2=amber, 3=green  </td></tr>
 </table>
@@ -514,7 +523,7 @@ Example VT100.txt</h3>
 <div class="line"># 7=screen+file+wlan</div>
 <div class="line">log_output=0</div>
 <div class="line"> </div>
-<div class="line"># wlan_host_autostart: 0=command/log mode after connect, 1=auto-enable host bridge mode</div>
+<div class="line"># wlan_host_autostart: 0=off, 1=command/log mode after connect, 2=auto-enable host bridge mode</div>
 <div class="line">wlan_host_autostart=0</div>
 <div class="line"> </div>
 <div class="line"># Log file name (max 63 chars)</div>
@@ -539,72 +548,96 @@ Debug and Logging</h2>
 <li>Messages use familiar prefixes (<span class="tt">[NOTE]</span>, <span class="tt">[WARN]</span>, <span class="tt">[ERROR]</span>) with file/line metadata to simplify troubleshooting.</li>
 <li>Screen logging integrates with the terminal view without breaking VT100 escape handling.</li>
 <li>WLAN logging announces readiness with <span class="tt">WLAN ready: telnet &lt;ip&gt;:2323</span>; connect via telnet to monitor remotely.</li>
-<li>Full telnet host-mode command workflow (<span class="tt">host on/off</span>, <span class="tt">socat</span>, <span class="tt">screen</span>, and auto-start behavior) is documented in section 9.</li>
+<li>Host integration over TCP is available through a raw host session path (<span class="tt">socat</span> + <span class="tt">screen</span> + stdin/stdout host app).</li>
 </ul>
 <p>Refer to <span class="tt">VT100/docs/VT100_Architecture.md</span> for technical architecture and implementation details, and <span class="tt">VT100/docs/Configuration_Guide.md</span> for runtime controls and configuration.</p>
+<p>For the architecture and lifecycle model of WLAN log mode and host mode separation, see <span class="tt">VT100/docs/VT100_Architecture.md</span> (section 8.3).</p>
 <h2 class="doxsection"><a class="anchor" id="wlan-telnet-and-host-mode"></a>
 WLAN Telnet and Host Mode</h2>
-<p>This firmware supports two distinct WLAN session behaviors on the same telnet endpoint (<span class="tt">&lt;ip&gt;:2323</span>):</p>
+<p>This firmware currently supports two WLAN session behaviors on the same endpoint (<span class="tt">&lt;ip&gt;:2323</span>):</p>
 <ol type="1">
-<li><b>Command/log mode</b> (default) for remote diagnostics and control.</li>
-<li><b>Host bridge mode</b> for transparent VT100 host traffic over TCP.</li>
-<li><b>Unix <span class="tt">screen</span> as host mode</b> to connect any Unix host to the terminal via TCP.</li>
+<li><b>Log mode</b> (command prompt mode) for remote diagnostics and control.</li>
+<li><b>Host mode</b> (transparent VT100 host traffic over TCP).</li>
 </ol>
-<h3 class="doxsection"><a class="anchor" id="commandlog-mode-wlan-debugging"></a>
-Command/log mode (WLAN debugging)</h3>
-<p>Use this mode when you want to inspect runtime logs and run control commands without replacing the UART host path.</p>
+<p>The long-term target is a stricter separation of both modes; see section “Planned mode separation” below.</p>
+<h3 class="doxsection"><a class="anchor" id="log-mode-wlan-diagnostics"></a>
+Log mode (WLAN diagnostics)</h3>
+<p>Use this mode when you want to inspect runtime logs and run maintenance commands without replacing the UART host path.</p>
 <div class="fragment"><div class="line">telnet &lt;ip-or-mDNS-name&gt; 2323</div>
 </div><!-- fragment --><p>Typical session:</p>
 <div class="fragment"><div class="line">help</div>
 <div class="line">status</div>
 <div class="line">echo hello from remote debug</div>
-</div><!-- fragment --><p>What you get in this mode:</p>
+<div class="line">exit</div>
+</div><!-- fragment --><p>What you get in this mode (current):</p>
 <ul>
 <li>Mirrored log output (<span class="tt">[NOTE]</span>, <span class="tt">[WARN]</span>, <span class="tt">[ERROR]</span> etc.) over telnet.</li>
 <li>Device/network status via <span class="tt">status</span>.</li>
-<li>Runtime mode switching via <span class="tt">host on</span> and <span class="tt">host off</span>.</li>
 <li>Session close via <span class="tt">exit</span>.</li>
 </ul>
-<h3 class="doxsection"><a class="anchor" id="switch-to-transparent-host-bridge-mode"></a>
-Switch to transparent host bridge mode</h3>
-<p>In host bridge mode the terminal keyboard input is wired via tcp session to the connected client and response from client rendered on VT100 screen. So this mode effectively simulats a serial host connection over tcp. To enter this bridge mode proceed as follows:</p>
-<ol type="1">
-<li>From an active telnet session in command/log mode:</li>
-</ol>
+<h3 class="doxsection"><a class="anchor" id="host-mode-transparent-host-bridge"></a>
+Host mode (transparent host bridge)</h3>
+<p>In host mode, VT100 keyboard TX is sent to the TCP peer and TCP RX is rendered directly on the VT100 screen. This effectively simulates a serial host over TCP.</p>
+<p>Recommended entry:</p>
 <ul>
-<li>Type <span class="tt">host on</span></li>
+<li>Set <span class="tt">wlan_host_autostart=2</span> and connect a host client.</li>
 </ul>
-<ol type="1">
-<li>Behavior in host bridge mode:<ul>
+<p>Behavior in host mode:</p>
+<ul>
 <li>Keyboard TX from the VT100 app is sent to the active TCP client.</li>
 <li>TCP RX from the client is rendered directly to the VT100 screen.</li>
 <li>UART host rendering is suspended while host mode is active to avoid mixed sources.</li>
 </ul>
-</li>
-<li>Return to command/log mode:<ul>
-<li>Type <span class="tt">host off</span>, or</li>
-<li>Press <span class="tt">Ctrl-]</span> (escape back to command mode).</li>
+<p>Session end in host mode:</p>
+<ul>
+<li>Host mode remains raw until the TCP client disconnects.</li>
+<li>On reconnect, mode selection is applied again from <span class="tt">wlan_host_autostart</span>.</li>
 </ul>
-</li>
-</ol>
-<h3 class="doxsection"><a class="anchor" id="use-unix-screen-as-remote-host-for-vt100-app"></a>
-Use Unix <span class="tt">screen</span> as remote host for VT100 app</h3>
-<p><span class="tt">screen</span> cannot connect directly to TCP sockets, so bridge TCP to a pseudo-terminal with <span class="tt">socat</span>:</p>
+<h3 class="doxsection"><a class="anchor" id="use-local-host-loopback-helper-vt100_pty"></a>
+Use local host-loopback helper (<span class="tt">VT100_PTY</span>)</h3>
+<p>The recommended host-mode test path is the wrapper helper script:</p>
+<div class="fragment"><div class="line">./VT100_PTY &lt;ip&gt; 2323 --autorespond</div>
+</div><!-- fragment --><p>Current helper behavior (<span class="tt">--autorespond</span>):</p>
+<ul>
+<li>Uses <span class="tt">socat</span> + PTY + <span class="tt">screen</span> internally.</li>
+<li>Runs <span class="tt">VT100_SCREEN_ECHO.py</span> as stdin/stdout responder on the PTY.</li>
+<li>Echoes printable lines back to VT100 with prefix <span class="tt">SIMHOST:</span>.</li>
+<li>Filters known startup/log lines to avoid re-echo loops.</li>
+<li>Sends <span class="tt">exit</span> during helper shutdown so host session closes cleanly.</li>
+</ul>
+<p>Manual equivalent (advanced):</p>
 <div class="fragment"><div class="line">socat PTY,link=/tmp/vt100,raw,echo=0 TCP:&lt;ip&gt;:2323</div>
-</div><!-- fragment --><p>In a second terminal, attach with <span class="tt">screen</span>:</p>
-<div class="fragment"><div class="line">screen /tmp/vt100 115200</div>
+<div class="line">screen /tmp/vt100 115200</div>
 </div><!-- fragment --><p>Recommended workflow:</p>
 <ol type="1">
-<li>Start <span class="tt">telnet &lt;ip&gt; 2323</span>.</li>
-<li>Run <span class="tt">host on</span>.</li>
-<li>Start <span class="tt">socat</span> and attach <span class="tt">screen</span> to <span class="tt">/tmp/vt100</span>.</li>
-<li>Interact with the VT100 app as if <span class="tt">screen</span> were the host endpoint.</li>
+<li>Set <span class="tt">wlan_host_autostart=2</span>.</li>
+<li>Start <span class="tt">./VT100_PTY &lt;ip&gt; 2323 --autorespond</span>.</li>
+<li>Interact with the VT100 app and verify host bridge RX/TX plus <span class="tt">SIMHOST:</span> responses.</li>
 </ol>
+<h3 class="doxsection"><a class="anchor" id="helper-tooling-placement-recommended"></a>
+Helper tooling placement (recommended)</h3>
+<p>To keep host-loopback tooling scoped with firmware docs/tools, place helper files under:</p>
+<ul>
+<li><span class="tt">VT100/tools/host_loopback/VT100_PTY</span></li>
+<li><span class="tt">VT100/tools/host_loopback/VT100_SCREEN_ECHO.py</span></li>
+</ul>
+<p>Optional compatibility path:</p>
+<ul>
+<li>Keep a root-level launcher <span class="tt">./VT100_PTY</span> that forwards to <span class="tt">VT100/tools/host_loopback/VT100_PTY</span> so existing commands remain valid.</li>
+</ul>
 <h3 class="doxsection"><a class="anchor" id="auto-start-host-mode-on-connect"></a>
 Auto-start host mode on connect</h3>
 <p>Set the config parameter in <span class="tt">VT100.txt</span>:</p>
-<div class="fragment"><div class="line">wlan_host_autostart=1</div>
-</div><!-- fragment --><p>With this enabled, each new telnet client enters host bridge mode automatically. Set <span class="tt">wlan_host_autostart=0</span> to keep command/log mode as the default.</p>
+<div class="fragment"><div class="line">wlan_host_autostart=2</div>
+</div><!-- fragment --><p>With this enabled, each new telnet client starts directly in host bridge mode. Set <span class="tt">wlan_host_autostart=1</span> to start in command/log mode.</p>
+<h3 class="doxsection"><a class="anchor" id="strict-mode-separation"></a>
+Strict mode separation</h3>
+<p>WLAN modes are handled as strictly separated session types:</p>
+<ul>
+<li><b>Log mode</b>: remote logs, status, diagnostics, and orderly <span class="tt">exit</span> only.</li>
+<li><b>Host mode</b>: raw stdin/stdout host bridge only; no log/status chatter over the host payload channel.</li>
+</ul>
+<p>Architecture-relevant mode-separation details are maintained in <span class="tt">VT100/docs/VT100_Architecture.md</span> (section 8.3).</p>
 <h2 class="doxsection"><a class="anchor" id="internal-vt100-test-integration"></a>
 Internal VT100 Test Integration</h2>
 <p>The internal test functions are integrated into the kernel to verify most implemented escape sequences without a host connection while still sharing the same keyboard/UART path:</p>
@@ -843,7 +876,7 @@ Build fails with <span class="tt">fatal error: stdint.h: No such file or directo
 <li>Reboot after changing config.</li>
 </ul>
 <p>Quick verification key for this feature set:</p>
-<div class="fragment"><div class="line">wlan_host_autostart=0</div>
+<div class="fragment"><div class="line">wlan_host_autostart=1</div>
 </div><!-- fragment --><h3 class="doxsection"><a class="anchor" id="cannot-connect-to-wlan-telnet-console"></a>
 Cannot connect to WLAN telnet console</h3>
 <p>Checklist:</p>
@@ -862,7 +895,7 @@ Host mode enabled but VT100 still follows UART host</h3>
 <ul>
 <li>Ensure only one active telnet client is connected.</li>
 <li>Repeat the section 9.2 mode-switch sequence once.</li>
-<li>Confirm section 9.4 configuration for <span class="tt">wlan_host_autostart</span> is set as intended (<span class="tt">0</span> or <span class="tt">1</span>).</li>
+<li>Confirm section 9.4 configuration for <span class="tt">wlan_host_autostart</span> is set as intended (<span class="tt">0</span>, <span class="tt">1</span>, or <span class="tt">2</span>).</li>
 </ul>
 <h3 class="doxsection"><a class="anchor" id="screen-does-not-connect-directly-to-tcp"></a>
 <span class="tt">screen</span> does not connect directly to TCP</h3>

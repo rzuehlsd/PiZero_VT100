@@ -22,10 +22,10 @@ It combines architecture, dependency structure, runtime flow, and module-level i
   - 8.1 Sink selection model
   - 8.2 File sink
   - 8.3 WLAN/telnet sink
-    - 8.3.1 WLAN session model (strict separation)
-    - 8.3.2 Data-path gates by session
-    - 8.3.3 Telnet negotiation policy by session
-    - 8.3.4 Connect/close lifecycle and allowed command surface
+    - 8.3.1 Current-state session model (implemented)
+    - 8.3.2 Approved target model (2-mode)
+    - 8.3.3 Data-path gates in target model
+    - 8.3.4 Planned implementation phases
   - 8.4 Kernel networking loop and lifecycle
 - 9. Font and rendering details
   - 9.1 DEC special graphics and charset switching
@@ -266,7 +266,7 @@ Keyboard auto-repeat currently includes:
 - supports mode policy via `wlan_host_autostart` (`0` off, `1` log, `2` host)
 - in auto-host raw sessions, telnet option negotiation is bypassed to avoid control-byte leakage into host payload
 
-#### 8.3.1 WLAN session model (strict separation)
+#### 8.3.1 Current-state session model (implemented)
 
 Session selection is made at connect time from `wlan_host_autostart`:
 
@@ -285,31 +285,50 @@ Internal runtime state follows this strict split:
 - `SessionHostMode`
 - `SessionClosing`
 
-#### 8.3.2 Data-path gates by session
+#### 8.3.2 Approved target model (2-mode)
 
-Log mode gates:
+Approved target model removes host-server legacy mode and keeps exactly two runtime modes:
+
+- `RemoteLoggingStatusMode`
+  - diagnostics/log channel only
+  - command prompt/control surface (`help`, `status`, `echo`, `exit`)
+- `RemoteShellClientMode`
+  - VT100 initiates outbound remote shell session
+  - login/auth driven on VT100 side (IP/port/user/password input path)
+
+Target constraints:
+
+- no host-server legacy mode in final runtime model
+- no in-session switching between logging and shell streams
+- strict routing isolation between diagnostics traffic and shell payload
+
+#### 8.3.3 Data-path gates in target model
+
+`RemoteLoggingStatusMode` gates:
 
 - logger->remote mirror enabled
-- host TX/RX bridge forwarding disabled
-- command parser and prompt emission enabled
+- shell uplink/downlink disabled
+- prompt/command parser enabled
 
-Host mode gates:
+`RemoteShellClientMode` gates:
 
 - logger->remote mirror disabled
-- host TX/RX bridge forwarding enabled
-- command parser and prompt emission suppressed
+- keyboard uplink enabled to remote shell socket
+- socket downlink enabled to renderer
+- prompt/command parser disabled for shell payload path
 
-#### 8.3.3 Telnet negotiation policy by session
+Current implementation equivalent (for migration reference):
 
-- Log mode: telnet option negotiation enabled.
-- Host mode (raw client path): telnet option negotiation bypassed to prevent control-byte artifacts in host payload.
+- previous `log mode` maps to `RemoteLoggingStatusMode`
+- previous `host mode` maps functionally to the shell-payload path that will be replaced by `RemoteShellClientMode`
 
-#### 8.3.4 Connect/close lifecycle and allowed command surface
+#### 8.3.4 Planned implementation phases
 
-- Connect transitions directly to log or host session according to `wlan_host_autostart`.
-- `exit` command is valid only in log mode.
-- Host mode remains raw for the entire TCP session and ends by TCP disconnect.
-- On host disconnect, firmware returns to stable local-ready/waiting behavior without in-session mode switching.
+1. Add explicit mode policy (`off`, `remote_log`, `shell_client`) with compatibility mapping from `wlan_host_autostart`.
+2. Add shell-client state machine (`idle`, `connecting`, `auth`, `interactive`, `error`, `disconnect`).
+3. Add VT100-side login/connect UI and profile config keys.
+4. Move keyboard/socket routing to mode-gated shell-client path.
+5. Remove host-server runtime path and finalize config/doc cleanup.
 
 ### 8.4 Kernel networking loop and lifecycle
 

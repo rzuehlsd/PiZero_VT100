@@ -27,10 +27,12 @@ var index =
       [ "Display Orientation", "index.html#display-orientation", null ],
       [ "Debug and Logging", "index.html#debug-and-logging", null ],
       [ "WLAN Telnet and Host Mode", "index.html#wlan-telnet-and-host-mode", [
-        [ "Command/log mode (WLAN debugging)", "index.html#commandlog-mode-wlan-debugging", null ],
-        [ "Switch to transparent host bridge mode", "index.html#switch-to-transparent-host-bridge-mode", null ],
-        [ "Use Unix <span class=\"tt\">screen</span> as remote host for VT100 app", "index.html#use-unix-screen-as-remote-host-for-vt100-app", null ],
-        [ "Auto-start host mode on connect", "index.html#auto-start-host-mode-on-connect", null ]
+        [ "Log mode (WLAN diagnostics)", "index.html#log-mode-wlan-diagnostics", null ],
+        [ "Host mode (transparent host bridge)", "index.html#host-mode-transparent-host-bridge", null ],
+        [ "Use local host-loopback helper (<span class=\"tt\">VT100_PTY</span>)", "index.html#use-local-host-loopback-helper-vt100_pty", null ],
+        [ "Helper tooling placement (recommended)", "index.html#helper-tooling-placement-recommended", null ],
+        [ "Auto-start host mode on connect", "index.html#auto-start-host-mode-on-connect", null ],
+        [ "Strict mode separation", "index.html#strict-mode-separation", null ]
       ] ],
       [ "Internal VT100 Test Integration", "index.html#internal-vt100-test-integration", null ],
       [ "Initial Implementation Plan", "index.html#initial-implementation-plan", null ],

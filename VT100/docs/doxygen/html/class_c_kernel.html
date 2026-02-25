@@ -162,10 +162,13 @@ void&#160;</td><td class="memItemRight"><b>RunVTTestTick</b> ()</td></tr>
 <tr class="memdesc:a8b33fc5cd691e12b863fa51793697884"><td class="mdescLeft">&#160;</td><td class="mdescRight">Run periodic VT test tick (if enabled). <br /></td></tr>
 <tr class="memitem:aa98f1eab92ae89c87efedb97b7ff92a2" id="r_aa98f1eab92ae89c87efedb97b7ff92a2"><td class="memItemLeft"><a id="aa98f1eab92ae89c87efedb97b7ff92a2" name="aa98f1eab92ae89c87efedb97b7ff92a2"></a>
 void&#160;</td><td class="memItemRight"><b>SendHostOutput</b> (const char *pData, size_t nLength)</td></tr>
-<tr class="memdesc:aa98f1eab92ae89c87efedb97b7ff92a2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Forward keyboard-generated host output to TCP host mode or UART fallback. <br /></td></tr>
+<tr class="memdesc:aa98f1eab92ae89c87efedb97b7ff92a2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Forward keyboard-generated output to TCP shell client mode or UART fallback. <br /></td></tr>
 <tr class="memitem:adb7cc0a28a7da91429b73ad5e52147e6" id="r_adb7cc0a28a7da91429b73ad5e52147e6"><td class="memItemLeft"><a id="adb7cc0a28a7da91429b73ad5e52147e6" name="adb7cc0a28a7da91429b73ad5e52147e6"></a>
 void&#160;</td><td class="memItemRight"><b>HandleWlanHostRx</b> (const char *pData, size_t nLength)</td></tr>
-<tr class="memdesc:adb7cc0a28a7da91429b73ad5e52147e6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Consume bytes received from WLAN host bridge and render them. <br /></td></tr>
+<tr class="memdesc:adb7cc0a28a7da91429b73ad5e52147e6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Consume bytes received from WLAN shell client bridge and render them. <br /></td></tr>
+<tr class="memitem:ae9c6b9b9cfb774b52b5ee662392a8ca6" id="r_ae9c6b9b9cfb774b52b5ee662392a8ca6"><td class="memItemLeft"><a id="ae9c6b9b9cfb774b52b5ee662392a8ca6" name="ae9c6b9b9cfb774b52b5ee662392a8ca6"></a>
+bool&#160;</td><td class="memItemRight"><b>HandleShellClientKey</b> (const char *pString)</td></tr>
+<tr class="memdesc:ae9c6b9b9cfb774b52b5ee662392a8ca6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Consume keyboard input for interactive shell-client setup when active. <br /></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 id="header-pub-static-methods" class="groupheader"><a id="pub-static-methods" name="pub-static-methods"></a>
 Static Public Member Functions</h2></td></tr>

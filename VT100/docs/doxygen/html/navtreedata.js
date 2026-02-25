@@ -38,8 +38,10 @@ var NAVTREE =
         [ "B1) Source of truth and update checklist", "md_docs_2_configuration___guide.html#b1-source-of-truth-and-update-checklist", null ],
         [ "B2) Paths and ownership", "md_docs_2_configuration___guide.html#b2-paths-and-ownership", null ],
         [ "B3) Setup integration notes", "md_docs_2_configuration___guide.html#b3-setup-integration-notes", null ],
-        [ "B4) WLAN host mode integration notes", "md_docs_2_configuration___guide.html#b4-wlan-host-mode-integration-notes", null ],
-        [ "B5) Validation workflow after config-related changes", "md_docs_2_configuration___guide.html#b5-validation-workflow-after-config-related-changes", null ]
+        [ "B4) WLAN current-state integration notes", "md_docs_2_configuration___guide.html#b4-wlan-current-state-integration-notes", null ],
+        [ "B5) WLAN target model (approved)", "md_docs_2_configuration___guide.html#b5-wlan-target-model-approved", null ],
+        [ "B6) WLAN migration and implementation plan", "md_docs_2_configuration___guide.html#b6-wlan-migration-and-implementation-plan", null ],
+        [ "B7) Validation workflow after config-related changes", "md_docs_2_configuration___guide.html#b7-validation-workflow-after-config-related-changes", null ]
       ] ]
     ] ],
     [ "Carrier Board for Pi Zero VT100 Terminal", "md_docs_2_hardware.html", [
@@ -47,62 +49,8 @@ var NAVTREE =
       [ "Revision status", "md_docs_2_hardware.html#revision-status", null ],
       [ "Firmware interaction notes (2026-02-18)", "md_docs_2_hardware.html#firmware-interaction-notes-2026-02-18", null ]
     ] ],
-    [ "Manual Verification Plan (2026-02-12 to 2026-02-14)", "md_docs_2_manual___testplan__2026-02-12__to__2026-02-14.html", [
-      [ "Table of Contents", "md_docs_2_manual___testplan__2026-02-12__to__2026-02-14.html#table-of-contents-1", null ],
-      [ "Preconditions", "md_docs_2_manual___testplan__2026-02-12__to__2026-02-14.html#preconditions", null ],
-      [ "General Pass Criterion", "md_docs_2_manual___testplan__2026-02-12__to__2026-02-14.html#general-pass-criterion", null ],
-      [ "A1) WLAN Command Mode Basics", "md_docs_2_manual___testplan__2026-02-12__to__2026-02-14.html#a1-wlan-command-mode-basics", [
-        [ "Purpose of Test", "md_docs_2_manual___testplan__2026-02-12__to__2026-02-14.html#purpose-of-test", null ]
-      ] ],
-      [ "A2) WLAN Manual Host Mode Switch", "md_docs_2_manual___testplan__2026-02-12__to__2026-02-14.html#a2-wlan-manual-host-mode-switch", [
-        [ "Purpose of Test", "md_docs_2_manual___testplan__2026-02-12__to__2026-02-14.html#purpose-of-test-1", null ]
-      ] ],
-      [ "A3) WLAN Auto-Start Host Mode", "md_docs_2_manual___testplan__2026-02-12__to__2026-02-14.html#a3-wlan-auto-start-host-mode", [
-        [ "Purpose of Test", "md_docs_2_manual___testplan__2026-02-12__to__2026-02-14.html#purpose-of-test-2", null ]
-      ] ],
-      [ "A4) UART vs Host Source Separation", "md_docs_2_manual___testplan__2026-02-12__to__2026-02-14.html#a4-uart-vs-host-source-separation", [
-        [ "Purpose of Test", "md_docs_2_manual___testplan__2026-02-12__to__2026-02-14.html#purpose-of-test-3", null ]
-      ] ],
-      [ "B1) Setup B Smooth Scroll Bit Mapping", "md_docs_2_manual___testplan__2026-02-12__to__2026-02-14.html#b1-setup-b-smooth-scroll-bit-mapping", [
-        [ "Purpose of Test", "md_docs_2_manual___testplan__2026-02-12__to__2026-02-14.html#purpose-of-test-4", null ]
-      ] ],
-      [ "B2) Setup B Runtime Apply Without Reboot", "md_docs_2_manual___testplan__2026-02-12__to__2026-02-14.html#b2-setup-b-runtime-apply-without-reboot", [
-        [ "Purpose of Test", "md_docs_2_manual___testplan__2026-02-12__to__2026-02-14.html#purpose-of-test-5", null ]
-      ] ],
-      [ "B3) Setup B Additional Mapped Fields Sanity", "md_docs_2_manual___testplan__2026-02-12__to__2026-02-14.html#b3-setup-b-additional-mapped-fields-sanity", [
-        [ "Purpose of Test", "md_docs_2_manual___testplan__2026-02-12__to__2026-02-14.html#purpose-of-test-6", null ]
-      ] ],
-      [ "B4) Setup B Wrap-Around and Margin Bell Spot Check", "md_docs_2_manual___testplan__2026-02-12__to__2026-02-14.html#b4-setup-b-wrap-around-and-margin-bell-spot-check", [
-        [ "Purpose of Test", "md_docs_2_manual___testplan__2026-02-12__to__2026-02-14.html#purpose-of-test-7", null ]
-      ] ],
-      [ "C1) Modern Setup Navigation, Cancel, Save", "md_docs_2_manual___testplan__2026-02-12__to__2026-02-14.html#c1-modern-setup-navigation-cancel-save", [
-        [ "Purpose of Test", "md_docs_2_manual___testplan__2026-02-12__to__2026-02-14.html#purpose-of-test-8", null ]
-      ] ],
-      [ "C2) Modern Setup Persistence Matrix", "md_docs_2_manual___testplan__2026-02-12__to__2026-02-14.html#c2-modern-setup-persistence-matrix", [
-        [ "Purpose of Test", "md_docs_2_manual___testplan__2026-02-12__to__2026-02-14.html#purpose-of-test-9", null ]
-      ] ],
-      [ "C3) Modern Setup Reboot Roundtrip", "md_docs_2_manual___testplan__2026-02-12__to__2026-02-14.html#c3-modern-setup-reboot-roundtrip", [
-        [ "Purpose of Test", "md_docs_2_manual___testplan__2026-02-12__to__2026-02-14.html#purpose-of-test-10", null ]
-      ] ],
-      [ "C4) Modern Setup Runtime Apply Matrix", "md_docs_2_manual___testplan__2026-02-12__to__2026-02-14.html#c4-modern-setup-runtime-apply-matrix", [
-        [ "Purpose of Test", "md_docs_2_manual___testplan__2026-02-12__to__2026-02-14.html#purpose-of-test-11", null ]
-      ] ],
-      [ "D1) Smooth Scroll Boot-Time Apply", "md_docs_2_manual___testplan__2026-02-12__to__2026-02-14.html#d1-smooth-scroll-boot-time-apply", [
-        [ "Purpose of Test", "md_docs_2_manual___testplan__2026-02-12__to__2026-02-14.html#purpose-of-test-12", null ]
-      ] ],
-      [ "D2) Smooth Scroll Single-Line Insert/Delete Behavior", "md_docs_2_manual___testplan__2026-02-12__to__2026-02-14.html#d2-smooth-scroll-single-line-insertdelete-behavior", [
-        [ "Purpose of Test", "md_docs_2_manual___testplan__2026-02-12__to__2026-02-14.html#purpose-of-test-13", null ]
-      ] ],
-      [ "E1) Local Mode Toggle and Local Echo", "md_docs_2_manual___testplan__2026-02-12__to__2026-02-14.html#e1-local-mode-toggle-and-local-echo", [
-        [ "Purpose of Test", "md_docs_2_manual___testplan__2026-02-12__to__2026-02-14.html#purpose-of-test-14", null ]
-      ] ],
-      [ "E2) Local Mode Host Routing Restore", "md_docs_2_manual___testplan__2026-02-12__to__2026-02-14.html#e2-local-mode-host-routing-restore", [
-        [ "Purpose of Test", "md_docs_2_manual___testplan__2026-02-12__to__2026-02-14.html#purpose-of-test-15", null ]
-      ] ],
-      [ "Test Results Summary", "md_docs_2_manual___testplan__2026-02-12__to__2026-02-14.html#test-results-summary", null ]
-    ] ],
     [ "VT100 Architecture and Technical Implementation (VT100)", "md_docs_2_v_t100___architecture.html", [
-      [ "Table of Contents", "md_docs_2_v_t100___architecture.html#table-of-contents-2", null ],
+      [ "Table of Contents", "md_docs_2_v_t100___architecture.html#table-of-contents-1", null ],
       [ "1. Document role", "md_docs_2_v_t100___architecture.html#autotoc_md1-document-role", null ],
       [ "2. Runtime module map (current)", "md_docs_2_v_t100___architecture.html#autotoc_md2-runtime-module-map-current", null ],
       [ "3. Dependency graph (implementation-aligned)", "md_docs_2_v_t100___architecture.html#autotoc_md3-dependency-graph-implementation-aligned", null ],
@@ -121,7 +69,12 @@ var NAVTREE =
       [ "8. Logging and network integration", "md_docs_2_v_t100___architecture.html#autotoc_md8-logging-and-network-integration", [
         [ "8.1 Sink selection model", "md_docs_2_v_t100___architecture.html#autotoc_md81-sink-selection-model", null ],
         [ "8.2 File sink", "md_docs_2_v_t100___architecture.html#autotoc_md82-file-sink", null ],
-        [ "8.3 WLAN/telnet sink", "md_docs_2_v_t100___architecture.html#autotoc_md83-wlantelnet-sink", null ],
+        [ "8.3 WLAN/telnet sink", "md_docs_2_v_t100___architecture.html#autotoc_md83-wlantelnet-sink", [
+          [ "8.3.1 Current-state session model (implemented)", "md_docs_2_v_t100___architecture.html#autotoc_md831-current-state-session-model-implemented", null ],
+          [ "8.3.2 Approved target model (2-mode)", "md_docs_2_v_t100___architecture.html#autotoc_md832-approved-target-model-2-mode", null ],
+          [ "8.3.3 Data-path gates in target model", "md_docs_2_v_t100___architecture.html#autotoc_md833-data-path-gates-in-target-model", null ],
+          [ "8.3.4 Planned implementation phases", "md_docs_2_v_t100___architecture.html#autotoc_md834-planned-implementation-phases", null ]
+        ] ],
         [ "8.4 Kernel networking loop and lifecycle", "md_docs_2_v_t100___architecture.html#autotoc_md84-kernel-networking-loop-and-lifecycle", null ]
       ] ],
       [ "9. Font and rendering details", "md_docs_2_v_t100___architecture.html#autotoc_md9-font-and-rendering-details", [
@@ -155,7 +108,7 @@ var NAVTREE =
 var NAVTREEINDEX =
 [
 "_t_color_palette_8h.html",
-"index.html#dec-local-mode-f10"
+"index.html#debug-and-logging"
 ];
 
 var SYNCONMSG = 'click to disable panel synchronization';

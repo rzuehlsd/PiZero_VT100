@@ -154,113 +154,143 @@ $(function(){initNavTree('kernel_8h_source.html','',''); });
 <div class="line"><a id="l00042" name="l00042"></a><span class="lineno">   42</span><span class="keyword">class </span><a class="code hl_class" href="class_c_t_file_log.html">CTFileLog</a>;</div>
 <div class="line"><a id="l00043" name="l00043"></a><span class="lineno">   43</span><span class="keyword">class </span><a class="code hl_class" href="class_c_t_setup.html">CTSetup</a>;</div>
 <div class="line"><a id="l00044" name="l00044"></a><span class="lineno">   44</span><span class="keyword">class </span><a class="code hl_class" href="class_c_v_t_test.html">CVTTest</a>;</div>
-<div class="line"><a id="l00045" name="l00045"></a><span class="lineno">   45</span> </div>
-<div class="line"><a id="l00046" name="l00046"></a><span class="lineno">   46</span><span class="preprocessor">#include &quot;<a class="code" href="hal_8h.html">hal.h</a>&quot;</span></div>
-<div class="line"><a id="l00047" name="l00047"></a><span class="lineno">   47</span></div>
-<div class="line"><a id="l00056" name="l00056"></a><span class="lineno">   56</span> </div>
-<div class="line"><a id="l00057" name="l00057"></a><span class="lineno">   57</span><span class="keyword">enum</span> TShutdownMode</div>
-<div class="line"><a id="l00058" name="l00058"></a><span class="lineno">   58</span>{</div>
-<div class="line"><a id="l00059" name="l00059"></a><span class="lineno">   59</span>    ShutdownNone,</div>
-<div class="line"><a id="l00060" name="l00060"></a><span class="lineno">   60</span>    ShutdownHalt,</div>
-<div class="line"><a id="l00061" name="l00061"></a><span class="lineno">   61</span>    ShutdownReboot</div>
-<div class="line"><a id="l00062" name="l00062"></a><span class="lineno">   62</span>};</div>
-<div class="line"><a id="l00063" name="l00063"></a><span class="lineno">   63</span></div>
-<div class="foldopen" id="foldopen00072" data-start="{" data-end="};">
-<div class="line"><a id="l00072" name="l00072"></a><span class="lineno"><a class="line" href="class_c_kernel.html">   72</a></span><span class="keyword">class </span><a class="code hl_function" href="class_c_kernel.html#a06e0a6d15105f881c64b6a1c31ff9b81">CKernel</a></div>
-<div class="line"><a id="l00073" name="l00073"></a><span class="lineno">   73</span>{</div>
-<div class="line"><a id="l00074" name="l00074"></a><span class="lineno">   74</span><span class="keyword">public</span>:</div>
-<div class="line"><a id="l00076" name="l00076"></a><span class="lineno">   76</span>    <a class="code hl_function" href="class_c_kernel.html#a06e0a6d15105f881c64b6a1c31ff9b81">CKernel</a>(<span class="keywordtype">void</span>);</div>
-<div class="line"><a id="l00078" name="l00078"></a><span class="lineno">   78</span>    <a class="code hl_function" href="class_c_kernel.html#a127d8c2ddf52d6fc33b20a641b95ff18">~CKernel</a>(<span class="keywordtype">void</span>);</div>
-<div class="line"><a id="l00079" name="l00079"></a><span class="lineno">   79</span></div>
-<div class="line"><a id="l00081" name="l00081"></a><span class="lineno">   81</span>    <span class="keyword">static</span> <a class="code hl_function" href="class_c_kernel.html#a06e0a6d15105f881c64b6a1c31ff9b81">CKernel</a> *<a class="code hl_function" href="class_c_kernel.html#af020fc94f20d99ac191a9cdd95a076b8">Get</a>(<span class="keywordtype">void</span>);</div>
-<div class="line"><a id="l00082" name="l00082"></a><span class="lineno">   82</span></div>
-<div class="line"><a id="l00084" name="l00084"></a><span class="lineno">   84</span>    <span class="keywordtype">boolean</span> <a class="code hl_function" href="class_c_kernel.html#ae767168897a124e4f24f5a3b2955c4f3">Initialize</a>(<span class="keywordtype">void</span>);</div>
-<div class="line"><a id="l00085" name="l00085"></a><span class="lineno">   85</span></div>
-<div class="line"><a id="l00087" name="l00087"></a><span class="lineno">   87</span>    TShutdownMode <a class="code hl_function" href="class_c_kernel.html#a35b1e3c0aa496ac1eec6a70be56c1f6e">Run</a>(<span class="keywordtype">void</span>);</div>
-<div class="line"><a id="l00088" name="l00088"></a><span class="lineno">   88</span></div>
-<div class="line"><a id="l00090" name="l00090"></a><span class="lineno">   90</span>    <span class="keywordtype">bool</span> <a class="code hl_function" href="class_c_kernel.html#a3a233093da1a3c462f1bddd4dd36457f">IsTelnetReady</a>() <span class="keyword">const</span>;</div>
-<div class="line"><a id="l00092" name="l00092"></a><span class="lineno">   92</span>    <span class="keywordtype">void</span> <a class="code hl_function" href="class_c_kernel.html#a71f6181df0179d95b8dc40a6a2c5b511">MarkTelnetReady</a>();</div>
-<div class="line"><a id="l00094" name="l00094"></a><span class="lineno">   94</span>    <span class="keywordtype">void</span> <a class="code hl_function" href="class_c_kernel.html#a1bb467afedf25d10e8eeca55013c96b3">MarkTelnetWaiting</a>();</div>
-<div class="line"><a id="l00096" name="l00096"></a><span class="lineno">   96</span>    <span class="keywordtype">void</span> <a class="code hl_function" href="class_c_kernel.html#aac6ff3d22269c4506bdad92428f910bf">ApplyRuntimeConfig</a>();</div>
-<div class="line"><a id="l00097" name="l00097"></a><span class="lineno">   97</span></div>
-<div class="line"><a id="l00099" name="l00099"></a><span class="lineno">   99</span>    <span class="keywordtype">void</span> <a class="code hl_function" href="class_c_kernel.html#a920f008b565741cbbed3044dbb9ef6fa">ToggleSetupDialog</a>();</div>
-<div class="line"><a id="l00101" name="l00101"></a><span class="lineno">  101</span>    <span class="keywordtype">void</span> <a class="code hl_function" href="class_c_kernel.html#a0d9e495a82c4161fe2b72000bcc9f93e">ShowModernSetupDialog</a>();</div>
-<div class="line"><a id="l00103" name="l00103"></a><span class="lineno">  103</span>    <span class="keywordtype">bool</span> <a class="code hl_function" href="class_c_kernel.html#a744817c2b1967f7ba959128307319bae">IsLocalModeEnabled</a>() <span class="keyword">const</span>;</div>
-<div class="line"><a id="l00105" name="l00105"></a><span class="lineno">  105</span>    <span class="keywordtype">void</span> <a class="code hl_function" href="class_c_kernel.html#a9bb4f399f06afe4aef782b5be61767cf">ToggleLocalMode</a>();</div>
-<div class="line"><a id="l00106" name="l00106"></a><span class="lineno">  106</span></div>
-<div class="line"><a id="l00108" name="l00108"></a><span class="lineno">  108</span>    <span class="keywordtype">bool</span> <a class="code hl_function" href="class_c_kernel.html#a31272f49bd00cd903d2ad75b4c5c4fa7">HandleVTTestKey</a>(<span class="keyword">const</span> <span class="keywordtype">char</span> *pString);</div>
-<div class="line"><a id="l00109" name="l00109"></a><span class="lineno">  109</span></div>
-<div class="line"><a id="l00111" name="l00111"></a><span class="lineno">  111</span>    <span class="keywordtype">void</span> <a class="code hl_function" href="class_c_kernel.html#a8b33fc5cd691e12b863fa51793697884">RunVTTestTick</a>();</div>
-<div class="line"><a id="l00112" name="l00112"></a><span class="lineno">  112</span></div>
-<div class="line"><a id="l00114" name="l00114"></a><span class="lineno">  114</span>    <span class="keywordtype">void</span> <a class="code hl_function" href="class_c_kernel.html#aa98f1eab92ae89c87efedb97b7ff92a2">SendHostOutput</a>(<span class="keyword">const</span> <span class="keywordtype">char</span> *pData, <span class="keywordtype">size_t</span> nLength);</div>
-<div class="line"><a id="l00116" name="l00116"></a><span class="lineno">  116</span>    <span class="keywordtype">void</span> <a class="code hl_function" href="class_c_kernel.html#adb7cc0a28a7da91429b73ad5e52147e6">HandleWlanHostRx</a>(<span class="keyword">const</span> <span class="keywordtype">char</span> *pData, <span class="keywordtype">size_t</span> nLength);</div>
-<div class="line"><a id="l00117" name="l00117"></a><span class="lineno">  117</span> </div>
-<div class="line"><a id="l00118" name="l00118"></a><span class="lineno">  118</span><span class="keyword">protected</span>:</div>
-<div class="line"><a id="l00120" name="l00120"></a><span class="lineno">  120</span>    <span class="keywordtype">boolean</span> <a class="code hl_function" href="class_c_kernel.html#a43f78bc58b679e1d4e96b5b7f6099705">initFilesystem</a>(<span class="keywordtype">void</span>);</div>
-<div class="line"><a id="l00121" name="l00121"></a><span class="lineno">  121</span> </div>
-<div class="line"><a id="l00122" name="l00122"></a><span class="lineno">  122</span><span class="keyword">private</span>:</div>
-<div class="line"><a id="l00124" name="l00124"></a><span class="lineno">  124</span>    <span class="keywordtype">void</span> EnsureSerialTaskStarted();</div>
-<div class="line"><a id="l00126" name="l00126"></a><span class="lineno">  126</span>    <span class="keywordtype">void</span> ProcessSerial();</div>
-<div class="line"><a id="l00127" name="l00127"></a><span class="lineno">  127</span> </div>
-<div class="line"><a id="l00128" name="l00128"></a><span class="lineno">  128</span>    <span class="comment">// do not change this order - some members depend on others</span></div>
-<div class="line"><a id="l00129" name="l00129"></a><span class="lineno">  129</span>    CKernelOptions m_Options;</div>
-<div class="line"><a id="l00130" name="l00130"></a><span class="lineno">  130</span>    CDeviceNameService m_DeviceNameService;</div>
-<div class="line"><a id="l00131" name="l00131"></a><span class="lineno">  131</span>    CScreenDevice m_Screen;</div>
-<div class="line"><a id="l00132" name="l00132"></a><span class="lineno">  132</span>    CInterruptSystem m_Interrupt;</div>
-<div class="line"><a id="l00133" name="l00133"></a><span class="lineno">  133</span>    CLogger m_Logger;</div>
-<div class="line"><a id="l00134" name="l00134"></a><span class="lineno">  134</span>    CTimer m_Timer;</div>
-<div class="line"><a id="l00135" name="l00135"></a><span class="lineno">  135</span>    CScheduler m_Scheduler;</div>
-<div class="line"><a id="l00136" name="l00136"></a><span class="lineno">  136</span>    CUSBHCIDevice m_USBHCI;</div>
-<div class="line"><a id="l00137" name="l00137"></a><span class="lineno">  137</span>    CExceptionHandler m_ExceptionHandler;</div>
-<div class="line"><a id="l00138" name="l00138"></a><span class="lineno">  138</span>    CEMMCDevice m_EMMC;</div>
-<div class="line"><a id="l00139" name="l00139"></a><span class="lineno">  139</span>    FATFS m_FileSystem;</div>
-<div class="line"><a id="l00140" name="l00140"></a><span class="lineno">  140</span>    <a class="code hl_class" href="class_c_h_a_l.html">CHAL</a> m_HAL;</div>
-<div class="line"><a id="l00141" name="l00141"></a><span class="lineno">  141</span>    CBcm4343Device m_WLAN;</div>
-<div class="line"><a id="l00142" name="l00142"></a><span class="lineno">  142</span>    CNetSubSystem m_Net;</div>
-<div class="line"><a id="l00143" name="l00143"></a><span class="lineno">  143</span>    CWPASupplicant m_WpaSupplicant;</div>
-<div class="line"><a id="l00144" name="l00144"></a><span class="lineno">  144</span> </div>
-<div class="line"><a id="l00145" name="l00145"></a><span class="lineno">  145</span>    <span class="comment">// Tasks are created inside constructor and</span></div>
-<div class="line"><a id="l00146" name="l00146"></a><span class="lineno">  146</span>    <span class="comment">// initialized in kernel::Initialize()</span></div>
-<div class="line"><a id="l00147" name="l00147"></a><span class="lineno">  147</span>    <a class="code hl_class" href="class_c_t_renderer.html">CTRenderer</a> *m_pRenderer;</div>
-<div class="line"><a id="l00148" name="l00148"></a><span class="lineno">  148</span>    <a class="code hl_class" href="class_c_t_font_converter.html">CTFontConverter</a> *m_pFontConverter;</div>
-<div class="line"><a id="l00149" name="l00149"></a><span class="lineno">  149</span>    <a class="code hl_class" href="class_c_t_keyboard.html">CTKeyboard</a> *m_pKeyboard;</div>
-<div class="line"><a id="l00150" name="l00150"></a><span class="lineno">  150</span>    <a class="code hl_class" href="class_c_t_config.html">CTConfig</a> *m_pConfig;</div>
-<div class="line"><a id="l00151" name="l00151"></a><span class="lineno">  151</span>    <a class="code hl_class" href="class_c_t_u_a_r_t.html">CTUART</a> *m_pUART;</div>
-<div class="line"><a id="l00152" name="l00152"></a><span class="lineno">  152</span>    <a class="code hl_class" href="class_c_t_file_log.html">CTFileLog</a> *m_pFileLog;</div>
-<div class="line"><a id="l00153" name="l00153"></a><span class="lineno">  153</span>    <a class="code hl_class" href="class_c_t_wlan_log.html">CTWlanLog</a> *m_pWlanLog;</div>
-<div class="line"><a id="l00154" name="l00154"></a><span class="lineno">  154</span>    <a class="code hl_class" href="class_c_t_setup.html">CTSetup</a> *m_pSetup;</div>
-<div class="line"><a id="l00155" name="l00155"></a><span class="lineno">  155</span>    <a class="code hl_class" href="class_c_v_t_test.html">CVTTest</a> *m_pVTTest;</div>
-<div class="line"><a id="l00156" name="l00156"></a><span class="lineno">  156</span>    CDevice *m_pLogTarget;</div>
-<div class="line"><a id="l00157" name="l00157"></a><span class="lineno">  157</span>    CNullDevice *m_pNullLog;</div>
-<div class="line"><a id="l00158" name="l00158"></a><span class="lineno">  158</span> </div>
-<div class="line"><a id="l00159" name="l00159"></a><span class="lineno">  159</span>    <span class="keywordtype">boolean</span> m_bWlanLoggerEnabled;</div>
-<div class="line"><a id="l00160" name="l00160"></a><span class="lineno">  160</span>    <span class="keywordtype">boolean</span> m_bMDNSAdvertised;</div>
-<div class="line"><a id="l00161" name="l00161"></a><span class="lineno">  161</span>    <span class="keywordtype">bool</span> m_bSerialTaskStarted;</div>
-<div class="line"><a id="l00162" name="l00162"></a><span class="lineno">  162</span>    <span class="keywordtype">bool</span> m_bTelnetReady;</div>
-<div class="line"><a id="l00163" name="l00163"></a><span class="lineno">  163</span>    <span class="keywordtype">bool</span> m_bWaitingMessageActive;</div>
-<div class="line"><a id="l00164" name="l00164"></a><span class="lineno">  164</span>    <span class="keywordtype">bool</span> m_bScreenLoggerEnabled;</div>
-<div class="line"><a id="l00165" name="l00165"></a><span class="lineno">  165</span>    <span class="keywordtype">bool</span> m_bLocalModeEnabled;</div>
-<div class="line"><a id="l00166" name="l00166"></a><span class="lineno">  166</span>};</div>
+<div class="line"><a id="l00045" name="l00045"></a><span class="lineno">   45</span><span class="keyword">class </span>CSocket;</div>
+<div class="line"><a id="l00046" name="l00046"></a><span class="lineno">   46</span> </div>
+<div class="line"><a id="l00047" name="l00047"></a><span class="lineno">   47</span><span class="preprocessor">#include &quot;<a class="code" href="hal_8h.html">hal.h</a>&quot;</span></div>
+<div class="line"><a id="l00048" name="l00048"></a><span class="lineno">   48</span></div>
+<div class="line"><a id="l00057" name="l00057"></a><span class="lineno">   57</span> </div>
+<div class="line"><a id="l00058" name="l00058"></a><span class="lineno">   58</span><span class="keyword">enum</span> TShutdownMode</div>
+<div class="line"><a id="l00059" name="l00059"></a><span class="lineno">   59</span>{</div>
+<div class="line"><a id="l00060" name="l00060"></a><span class="lineno">   60</span>    ShutdownNone,</div>
+<div class="line"><a id="l00061" name="l00061"></a><span class="lineno">   61</span>    ShutdownHalt,</div>
+<div class="line"><a id="l00062" name="l00062"></a><span class="lineno">   62</span>    ShutdownReboot</div>
+<div class="line"><a id="l00063" name="l00063"></a><span class="lineno">   63</span>};</div>
+<div class="line"><a id="l00064" name="l00064"></a><span class="lineno">   64</span></div>
+<div class="foldopen" id="foldopen00073" data-start="{" data-end="};">
+<div class="line"><a id="l00073" name="l00073"></a><span class="lineno"><a class="line" href="class_c_kernel.html">   73</a></span><span class="keyword">class </span><a class="code hl_function" href="class_c_kernel.html#a06e0a6d15105f881c64b6a1c31ff9b81">CKernel</a></div>
+<div class="line"><a id="l00074" name="l00074"></a><span class="lineno">   74</span>{</div>
+<div class="line"><a id="l00075" name="l00075"></a><span class="lineno">   75</span><span class="keyword">public</span>:</div>
+<div class="line"><a id="l00077" name="l00077"></a><span class="lineno">   77</span>    <a class="code hl_function" href="class_c_kernel.html#a06e0a6d15105f881c64b6a1c31ff9b81">CKernel</a>(<span class="keywordtype">void</span>);</div>
+<div class="line"><a id="l00079" name="l00079"></a><span class="lineno">   79</span>    <a class="code hl_function" href="class_c_kernel.html#a127d8c2ddf52d6fc33b20a641b95ff18">~CKernel</a>(<span class="keywordtype">void</span>);</div>
+<div class="line"><a id="l00080" name="l00080"></a><span class="lineno">   80</span></div>
+<div class="line"><a id="l00082" name="l00082"></a><span class="lineno">   82</span>    <span class="keyword">static</span> <a class="code hl_function" href="class_c_kernel.html#a06e0a6d15105f881c64b6a1c31ff9b81">CKernel</a> *<a class="code hl_function" href="class_c_kernel.html#af020fc94f20d99ac191a9cdd95a076b8">Get</a>(<span class="keywordtype">void</span>);</div>
+<div class="line"><a id="l00083" name="l00083"></a><span class="lineno">   83</span></div>
+<div class="line"><a id="l00085" name="l00085"></a><span class="lineno">   85</span>    <span class="keywordtype">boolean</span> <a class="code hl_function" href="class_c_kernel.html#ae767168897a124e4f24f5a3b2955c4f3">Initialize</a>(<span class="keywordtype">void</span>);</div>
+<div class="line"><a id="l00086" name="l00086"></a><span class="lineno">   86</span></div>
+<div class="line"><a id="l00088" name="l00088"></a><span class="lineno">   88</span>    TShutdownMode <a class="code hl_function" href="class_c_kernel.html#a35b1e3c0aa496ac1eec6a70be56c1f6e">Run</a>(<span class="keywordtype">void</span>);</div>
+<div class="line"><a id="l00089" name="l00089"></a><span class="lineno">   89</span></div>
+<div class="line"><a id="l00091" name="l00091"></a><span class="lineno">   91</span>    <span class="keywordtype">bool</span> <a class="code hl_function" href="class_c_kernel.html#a3a233093da1a3c462f1bddd4dd36457f">IsTelnetReady</a>() <span class="keyword">const</span>;</div>
+<div class="line"><a id="l00093" name="l00093"></a><span class="lineno">   93</span>    <span class="keywordtype">void</span> <a class="code hl_function" href="class_c_kernel.html#a71f6181df0179d95b8dc40a6a2c5b511">MarkTelnetReady</a>();</div>
+<div class="line"><a id="l00095" name="l00095"></a><span class="lineno">   95</span>    <span class="keywordtype">void</span> <a class="code hl_function" href="class_c_kernel.html#a1bb467afedf25d10e8eeca55013c96b3">MarkTelnetWaiting</a>();</div>
+<div class="line"><a id="l00097" name="l00097"></a><span class="lineno">   97</span>    <span class="keywordtype">void</span> <a class="code hl_function" href="class_c_kernel.html#aac6ff3d22269c4506bdad92428f910bf">ApplyRuntimeConfig</a>();</div>
+<div class="line"><a id="l00098" name="l00098"></a><span class="lineno">   98</span></div>
+<div class="line"><a id="l00100" name="l00100"></a><span class="lineno">  100</span>    <span class="keywordtype">void</span> <a class="code hl_function" href="class_c_kernel.html#a920f008b565741cbbed3044dbb9ef6fa">ToggleSetupDialog</a>();</div>
+<div class="line"><a id="l00102" name="l00102"></a><span class="lineno">  102</span>    <span class="keywordtype">void</span> <a class="code hl_function" href="class_c_kernel.html#a0d9e495a82c4161fe2b72000bcc9f93e">ShowModernSetupDialog</a>();</div>
+<div class="line"><a id="l00104" name="l00104"></a><span class="lineno">  104</span>    <span class="keywordtype">bool</span> <a class="code hl_function" href="class_c_kernel.html#a744817c2b1967f7ba959128307319bae">IsLocalModeEnabled</a>() <span class="keyword">const</span>;</div>
+<div class="line"><a id="l00106" name="l00106"></a><span class="lineno">  106</span>    <span class="keywordtype">void</span> <a class="code hl_function" href="class_c_kernel.html#a9bb4f399f06afe4aef782b5be61767cf">ToggleLocalMode</a>();</div>
+<div class="line"><a id="l00107" name="l00107"></a><span class="lineno">  107</span></div>
+<div class="line"><a id="l00109" name="l00109"></a><span class="lineno">  109</span>    <span class="keywordtype">bool</span> <a class="code hl_function" href="class_c_kernel.html#a31272f49bd00cd903d2ad75b4c5c4fa7">HandleVTTestKey</a>(<span class="keyword">const</span> <span class="keywordtype">char</span> *pString);</div>
+<div class="line"><a id="l00110" name="l00110"></a><span class="lineno">  110</span></div>
+<div class="line"><a id="l00112" name="l00112"></a><span class="lineno">  112</span>    <span class="keywordtype">void</span> <a class="code hl_function" href="class_c_kernel.html#a8b33fc5cd691e12b863fa51793697884">RunVTTestTick</a>();</div>
+<div class="line"><a id="l00113" name="l00113"></a><span class="lineno">  113</span></div>
+<div class="line"><a id="l00115" name="l00115"></a><span class="lineno">  115</span>    <span class="keywordtype">void</span> <a class="code hl_function" href="class_c_kernel.html#aa98f1eab92ae89c87efedb97b7ff92a2">SendHostOutput</a>(<span class="keyword">const</span> <span class="keywordtype">char</span> *pData, <span class="keywordtype">size_t</span> nLength);</div>
+<div class="line"><a id="l00117" name="l00117"></a><span class="lineno">  117</span>    <span class="keywordtype">void</span> <a class="code hl_function" href="class_c_kernel.html#adb7cc0a28a7da91429b73ad5e52147e6">HandleWlanHostRx</a>(<span class="keyword">const</span> <span class="keywordtype">char</span> *pData, <span class="keywordtype">size_t</span> nLength);</div>
+<div class="line"><a id="l00119" name="l00119"></a><span class="lineno">  119</span>    <span class="keywordtype">bool</span> <a class="code hl_function" href="class_c_kernel.html#ae9c6b9b9cfb774b52b5ee662392a8ca6">HandleShellClientKey</a>(<span class="keyword">const</span> <span class="keywordtype">char</span> *pString);</div>
+<div class="line"><a id="l00120" name="l00120"></a><span class="lineno">  120</span> </div>
+<div class="line"><a id="l00121" name="l00121"></a><span class="lineno">  121</span><span class="keyword">protected</span>:</div>
+<div class="line"><a id="l00123" name="l00123"></a><span class="lineno">  123</span>    <span class="keywordtype">boolean</span> <a class="code hl_function" href="class_c_kernel.html#a43f78bc58b679e1d4e96b5b7f6099705">initFilesystem</a>(<span class="keywordtype">void</span>);</div>
+<div class="line"><a id="l00124" name="l00124"></a><span class="lineno">  124</span> </div>
+<div class="line"><a id="l00125" name="l00125"></a><span class="lineno">  125</span><span class="keyword">private</span>:</div>
+<div class="line"><a id="l00127" name="l00127"></a><span class="lineno">  127</span>    <span class="keywordtype">void</span> EnsureSerialTaskStarted();</div>
+<div class="line"><a id="l00129" name="l00129"></a><span class="lineno">  129</span>    <span class="keywordtype">void</span> ProcessSerial();</div>
+<div class="line"><a id="l00131" name="l00131"></a><span class="lineno">  131</span>    <span class="keywordtype">void</span> BeginShellClientPrompt();</div>
+<div class="line"><a id="l00133" name="l00133"></a><span class="lineno">  133</span>    <span class="keywordtype">void</span> RenderShellClientPrompt();</div>
+<div class="line"><a id="l00135" name="l00135"></a><span class="lineno">  135</span>    <span class="keywordtype">void</span> TryStartShellClientConnection();</div>
+<div class="line"><a id="l00137" name="l00137"></a><span class="lineno">  137</span>    <span class="keywordtype">void</span> ProcessShellClientConnection();</div>
+<div class="line"><a id="l00139" name="l00139"></a><span class="lineno">  139</span>    <span class="keywordtype">void</span> CloseShellClientConnection(<span class="keyword">const</span> <span class="keywordtype">char</span> *reason);</div>
+<div class="line"><a id="l00140" name="l00140"></a><span class="lineno">  140</span> </div>
+<div class="line"><a id="l00141" name="l00141"></a><span class="lineno">  141</span>    <span class="keyword">enum</span> TShellClientPromptField</div>
+<div class="line"><a id="l00142" name="l00142"></a><span class="lineno">  142</span>    {</div>
+<div class="line"><a id="l00143" name="l00143"></a><span class="lineno">  143</span>        ShellFieldHost,</div>
+<div class="line"><a id="l00144" name="l00144"></a><span class="lineno">  144</span>        ShellFieldUser,</div>
+<div class="line"><a id="l00145" name="l00145"></a><span class="lineno">  145</span>        ShellFieldPassword,</div>
+<div class="line"><a id="l00146" name="l00146"></a><span class="lineno">  146</span>        ShellFieldDone</div>
+<div class="line"><a id="l00147" name="l00147"></a><span class="lineno">  147</span>    };</div>
+<div class="line"><a id="l00148" name="l00148"></a><span class="lineno">  148</span> </div>
+<div class="line"><a id="l00149" name="l00149"></a><span class="lineno">  149</span>    <span class="comment">// do not change this order - some members depend on others</span></div>
+<div class="line"><a id="l00150" name="l00150"></a><span class="lineno">  150</span>    CKernelOptions m_Options;</div>
+<div class="line"><a id="l00151" name="l00151"></a><span class="lineno">  151</span>    CDeviceNameService m_DeviceNameService;</div>
+<div class="line"><a id="l00152" name="l00152"></a><span class="lineno">  152</span>    CScreenDevice m_Screen;</div>
+<div class="line"><a id="l00153" name="l00153"></a><span class="lineno">  153</span>    CInterruptSystem m_Interrupt;</div>
+<div class="line"><a id="l00154" name="l00154"></a><span class="lineno">  154</span>    CLogger m_Logger;</div>
+<div class="line"><a id="l00155" name="l00155"></a><span class="lineno">  155</span>    CTimer m_Timer;</div>
+<div class="line"><a id="l00156" name="l00156"></a><span class="lineno">  156</span>    CScheduler m_Scheduler;</div>
+<div class="line"><a id="l00157" name="l00157"></a><span class="lineno">  157</span>    CUSBHCIDevice m_USBHCI;</div>
+<div class="line"><a id="l00158" name="l00158"></a><span class="lineno">  158</span>    CExceptionHandler m_ExceptionHandler;</div>
+<div class="line"><a id="l00159" name="l00159"></a><span class="lineno">  159</span>    CEMMCDevice m_EMMC;</div>
+<div class="line"><a id="l00160" name="l00160"></a><span class="lineno">  160</span>    FATFS m_FileSystem;</div>
+<div class="line"><a id="l00161" name="l00161"></a><span class="lineno">  161</span>    <a class="code hl_class" href="class_c_h_a_l.html">CHAL</a> m_HAL;</div>
+<div class="line"><a id="l00162" name="l00162"></a><span class="lineno">  162</span>    CBcm4343Device m_WLAN;</div>
+<div class="line"><a id="l00163" name="l00163"></a><span class="lineno">  163</span>    CNetSubSystem m_Net;</div>
+<div class="line"><a id="l00164" name="l00164"></a><span class="lineno">  164</span>    CWPASupplicant m_WpaSupplicant;</div>
+<div class="line"><a id="l00165" name="l00165"></a><span class="lineno">  165</span> </div>
+<div class="line"><a id="l00166" name="l00166"></a><span class="lineno">  166</span>    <span class="comment">// Tasks are created inside constructor and</span></div>
+<div class="line"><a id="l00167" name="l00167"></a><span class="lineno">  167</span>    <span class="comment">// initialized in kernel::Initialize()</span></div>
+<div class="line"><a id="l00168" name="l00168"></a><span class="lineno">  168</span>    <a class="code hl_class" href="class_c_t_renderer.html">CTRenderer</a> *m_pRenderer;</div>
+<div class="line"><a id="l00169" name="l00169"></a><span class="lineno">  169</span>    <a class="code hl_class" href="class_c_t_font_converter.html">CTFontConverter</a> *m_pFontConverter;</div>
+<div class="line"><a id="l00170" name="l00170"></a><span class="lineno">  170</span>    <a class="code hl_class" href="class_c_t_keyboard.html">CTKeyboard</a> *m_pKeyboard;</div>
+<div class="line"><a id="l00171" name="l00171"></a><span class="lineno">  171</span>    <a class="code hl_class" href="class_c_t_config.html">CTConfig</a> *m_pConfig;</div>
+<div class="line"><a id="l00172" name="l00172"></a><span class="lineno">  172</span>    <a class="code hl_class" href="class_c_t_u_a_r_t.html">CTUART</a> *m_pUART;</div>
+<div class="line"><a id="l00173" name="l00173"></a><span class="lineno">  173</span>    <a class="code hl_class" href="class_c_t_file_log.html">CTFileLog</a> *m_pFileLog;</div>
+<div class="line"><a id="l00174" name="l00174"></a><span class="lineno">  174</span>    <a class="code hl_class" href="class_c_t_wlan_log.html">CTWlanLog</a> *m_pWlanLog;</div>
+<div class="line"><a id="l00175" name="l00175"></a><span class="lineno">  175</span>    <a class="code hl_class" href="class_c_t_setup.html">CTSetup</a> *m_pSetup;</div>
+<div class="line"><a id="l00176" name="l00176"></a><span class="lineno">  176</span>    <a class="code hl_class" href="class_c_v_t_test.html">CVTTest</a> *m_pVTTest;</div>
+<div class="line"><a id="l00177" name="l00177"></a><span class="lineno">  177</span>    CDevice *m_pLogTarget;</div>
+<div class="line"><a id="l00178" name="l00178"></a><span class="lineno">  178</span>    CNullDevice *m_pNullLog;</div>
+<div class="line"><a id="l00179" name="l00179"></a><span class="lineno">  179</span> </div>
+<div class="line"><a id="l00180" name="l00180"></a><span class="lineno">  180</span>    <span class="keywordtype">boolean</span> m_bWlanLoggerEnabled;</div>
+<div class="line"><a id="l00181" name="l00181"></a><span class="lineno">  181</span>    <span class="keywordtype">boolean</span> m_bMDNSAdvertised;</div>
+<div class="line"><a id="l00182" name="l00182"></a><span class="lineno">  182</span>    <span class="keywordtype">bool</span> m_bSerialTaskStarted;</div>
+<div class="line"><a id="l00183" name="l00183"></a><span class="lineno">  183</span>    <span class="keywordtype">bool</span> m_bTelnetReady;</div>
+<div class="line"><a id="l00184" name="l00184"></a><span class="lineno">  184</span>    <span class="keywordtype">bool</span> m_bWaitingMessageActive;</div>
+<div class="line"><a id="l00185" name="l00185"></a><span class="lineno">  185</span>    <span class="keywordtype">bool</span> m_bWaitingMessageShowsIP;</div>
+<div class="line"><a id="l00186" name="l00186"></a><span class="lineno">  186</span>    <span class="keywordtype">bool</span> m_bScreenLoggerEnabled;</div>
+<div class="line"><a id="l00187" name="l00187"></a><span class="lineno">  187</span>    <span class="keywordtype">bool</span> m_bLocalModeEnabled;</div>
+<div class="line"><a id="l00188" name="l00188"></a><span class="lineno">  188</span>    <span class="keywordtype">bool</span> m_bShellClientPromptShown;</div>
+<div class="line"><a id="l00189" name="l00189"></a><span class="lineno">  189</span>    <span class="keywordtype">bool</span> m_bShellClientInputActive;</div>
+<div class="line"><a id="l00190" name="l00190"></a><span class="lineno">  190</span>    <span class="keywordtype">bool</span> m_bShellConnectAttempted;</div>
+<div class="line"><a id="l00191" name="l00191"></a><span class="lineno">  191</span>    <span class="keywordtype">bool</span> m_bShellConnected;</div>
+<div class="line"><a id="l00192" name="l00192"></a><span class="lineno">  192</span>    <span class="keywordtype">bool</span> m_bShellSshDetected;</div>
+<div class="line"><a id="l00193" name="l00193"></a><span class="lineno">  193</span>    TShellClientPromptField m_ShellPromptField;</div>
+<div class="line"><a id="l00194" name="l00194"></a><span class="lineno">  194</span>    CSocket *m_pShellClientSocket;</div>
+<div class="line"><a id="l00195" name="l00195"></a><span class="lineno">  195</span>    u16 m_ShellPort;</div>
+<div class="line"><a id="l00196" name="l00196"></a><span class="lineno">  196</span>    <span class="keywordtype">unsigned</span> m_ShellRetryBackoff;</div>
+<div class="line"><a id="l00197" name="l00197"></a><span class="lineno">  197</span>    CString m_ShellHost;</div>
+<div class="line"><a id="l00198" name="l00198"></a><span class="lineno">  198</span>    CString m_ShellUser;</div>
+<div class="line"><a id="l00199" name="l00199"></a><span class="lineno">  199</span>    CString m_ShellPassword;</div>
+<div class="line"><a id="l00200" name="l00200"></a><span class="lineno">  200</span>    CString m_ShellInputBuffer;</div>
+<div class="line"><a id="l00201" name="l00201"></a><span class="lineno">  201</span>};</div>
 </div>
 <div class="ttc" id="aclass_c_h_a_l_html"><div class="ttname"><a href="class_c_h_a_l.html">CHAL</a></div><div class="ttdoc">Provides buzzer control, GPIO switching, and timing utilities.</div><div class="ttdef"><b>Definition</b> hal.h:43</div></div>
-<div class="ttc" id="aclass_c_kernel_html_a06e0a6d15105f881c64b6a1c31ff9b81"><div class="ttname"><a href="class_c_kernel.html#a06e0a6d15105f881c64b6a1c31ff9b81">CKernel::CKernel</a></div><div class="ttdeci">CKernel(void)</div><div class="ttdoc">Construct the kernel and wire up Circle subsystems.</div><div class="ttdef"><b>Definition</b> kernel.cpp:198</div></div>
-<div class="ttc" id="aclass_c_kernel_html_a0d9e495a82c4161fe2b72000bcc9f93e"><div class="ttname"><a href="class_c_kernel.html#a0d9e495a82c4161fe2b72000bcc9f93e">CKernel::ShowModernSetupDialog</a></div><div class="ttdeci">void ShowModernSetupDialog()</div><div class="ttdoc">Show the modern on-screen setup dialog.</div><div class="ttdef"><b>Definition</b> kernel.cpp:294</div></div>
-<div class="ttc" id="aclass_c_kernel_html_a127d8c2ddf52d6fc33b20a641b95ff18"><div class="ttname"><a href="class_c_kernel.html#a127d8c2ddf52d6fc33b20a641b95ff18">CKernel::~CKernel</a></div><div class="ttdeci">~CKernel(void)</div><div class="ttdoc">Release kernel-owned resources.</div><div class="ttdef"><b>Definition</b> kernel.cpp:269</div></div>
-<div class="ttc" id="aclass_c_kernel_html_a1bb467afedf25d10e8eeca55013c96b3"><div class="ttname"><a href="class_c_kernel.html#a1bb467afedf25d10e8eeca55013c96b3">CKernel::MarkTelnetWaiting</a></div><div class="ttdeci">void MarkTelnetWaiting()</div><div class="ttdoc">Mark telnet service as waiting for configuration.</div><div class="ttdef"><b>Definition</b> kernel.cpp:757</div></div>
-<div class="ttc" id="aclass_c_kernel_html_a31272f49bd00cd903d2ad75b4c5c4fa7"><div class="ttname"><a href="class_c_kernel.html#a31272f49bd00cd903d2ad75b4c5c4fa7">CKernel::HandleVTTestKey</a></div><div class="ttdeci">bool HandleVTTestKey(const char *pString)</div><div class="ttdoc">Forward a key press to the VT test runner (manual confirmation).</div><div class="ttdef"><b>Definition</b> kernel.cpp:310</div></div>
-<div class="ttc" id="aclass_c_kernel_html_a35b1e3c0aa496ac1eec6a70be56c1f6e"><div class="ttname"><a href="class_c_kernel.html#a35b1e3c0aa496ac1eec6a70be56c1f6e">CKernel::Run</a></div><div class="ttdeci">TShutdownMode Run(void)</div><div class="ttdoc">Enter the cooperative scheduler and main control loop.</div><div class="ttdef"><b>Definition</b> kernel.cpp:579</div></div>
-<div class="ttc" id="aclass_c_kernel_html_a3a233093da1a3c462f1bddd4dd36457f"><div class="ttname"><a href="class_c_kernel.html#a3a233093da1a3c462f1bddd4dd36457f">CKernel::IsTelnetReady</a></div><div class="ttdeci">bool IsTelnetReady() const</div><div class="ttdoc">Check whether the telnet service finished setup.</div><div class="ttdef"><b>Definition</b> kernel.cpp:634</div></div>
-<div class="ttc" id="aclass_c_kernel_html_a43f78bc58b679e1d4e96b5b7f6099705"><div class="ttname"><a href="class_c_kernel.html#a43f78bc58b679e1d4e96b5b7f6099705">CKernel::initFilesystem</a></div><div class="ttdeci">boolean initFilesystem(void)</div><div class="ttdoc">Mount the filesystem and prepare SD card access.</div><div class="ttdef"><b>Definition</b> kernel.cpp:319</div></div>
-<div class="ttc" id="aclass_c_kernel_html_a71f6181df0179d95b8dc40a6a2c5b511"><div class="ttname"><a href="class_c_kernel.html#a71f6181df0179d95b8dc40a6a2c5b511">CKernel::MarkTelnetReady</a></div><div class="ttdeci">void MarkTelnetReady()</div><div class="ttdoc">Mark telnet service as ready for clients.</div><div class="ttdef"><b>Definition</b> kernel.cpp:639</div></div>
-<div class="ttc" id="aclass_c_kernel_html_a744817c2b1967f7ba959128307319bae"><div class="ttname"><a href="class_c_kernel.html#a744817c2b1967f7ba959128307319bae">CKernel::IsLocalModeEnabled</a></div><div class="ttdeci">bool IsLocalModeEnabled() const</div><div class="ttdoc">Check whether keyboard input loopback mode is active.</div><div class="ttdef"><b>Definition</b> kernel.cpp:248</div></div>
-<div class="ttc" id="aclass_c_kernel_html_a8b33fc5cd691e12b863fa51793697884"><div class="ttname"><a href="class_c_kernel.html#a8b33fc5cd691e12b863fa51793697884">CKernel::RunVTTestTick</a></div><div class="ttdeci">void RunVTTestTick()</div><div class="ttdoc">Run periodic VT test tick (if enabled).</div><div class="ttdef"><b>Definition</b> kernel.cpp:302</div></div>
-<div class="ttc" id="aclass_c_kernel_html_a920f008b565741cbbed3044dbb9ef6fa"><div class="ttname"><a href="class_c_kernel.html#a920f008b565741cbbed3044dbb9ef6fa">CKernel::ToggleSetupDialog</a></div><div class="ttdeci">void ToggleSetupDialog()</div><div class="ttdoc">Toggle the on-screen setup dialog.</div><div class="ttdef"><b>Definition</b> kernel.cpp:286</div></div>
-<div class="ttc" id="aclass_c_kernel_html_a9bb4f399f06afe4aef782b5be61767cf"><div class="ttname"><a href="class_c_kernel.html#a9bb4f399f06afe4aef782b5be61767cf">CKernel::ToggleLocalMode</a></div><div class="ttdeci">void ToggleLocalMode()</div><div class="ttdoc">Toggle local keyboard loopback mode.</div><div class="ttdef"><b>Definition</b> kernel.cpp:253</div></div>
-<div class="ttc" id="aclass_c_kernel_html_aa98f1eab92ae89c87efedb97b7ff92a2"><div class="ttname"><a href="class_c_kernel.html#aa98f1eab92ae89c87efedb97b7ff92a2">CKernel::SendHostOutput</a></div><div class="ttdeci">void SendHostOutput(const char *pData, size_t nLength)</div><div class="ttdoc">Forward keyboard-generated host output to TCP host mode or UART fallback.</div><div class="ttdef"><b>Definition</b> kernel.cpp:679</div></div>
-<div class="ttc" id="aclass_c_kernel_html_aac6ff3d22269c4506bdad92428f910bf"><div class="ttname"><a href="class_c_kernel.html#aac6ff3d22269c4506bdad92428f910bf">CKernel::ApplyRuntimeConfig</a></div><div class="ttdeci">void ApplyRuntimeConfig()</div><div class="ttdoc">Apply current CTConfig values to runtime subsystems.</div><div class="ttdef"><b>Definition</b> kernel.cpp:658</div></div>
-<div class="ttc" id="aclass_c_kernel_html_adb7cc0a28a7da91429b73ad5e52147e6"><div class="ttname"><a href="class_c_kernel.html#adb7cc0a28a7da91429b73ad5e52147e6">CKernel::HandleWlanHostRx</a></div><div class="ttdeci">void HandleWlanHostRx(const char *pData, size_t nLength)</div><div class="ttdoc">Consume bytes received from WLAN host bridge and render them.</div><div class="ttdef"><b>Definition</b> kernel.cpp:700</div></div>
-<div class="ttc" id="aclass_c_kernel_html_ae767168897a124e4f24f5a3b2955c4f3"><div class="ttname"><a href="class_c_kernel.html#ae767168897a124e4f24f5a3b2955c4f3">CKernel::Initialize</a></div><div class="ttdeci">boolean Initialize(void)</div><div class="ttdoc">Initialize all VT100 subsystems and dependencies.</div><div class="ttdef"><b>Definition</b> kernel.cpp:352</div></div>
-<div class="ttc" id="aclass_c_kernel_html_af020fc94f20d99ac191a9cdd95a076b8"><div class="ttname"><a href="class_c_kernel.html#af020fc94f20d99ac191a9cdd95a076b8">CKernel::Get</a></div><div class="ttdeci">static CKernel * Get(void)</div><div class="ttdoc">Access the singleton kernel instance.</div><div class="ttdef"><b>Definition</b> kernel.cpp:61</div></div>
+<div class="ttc" id="aclass_c_kernel_html_a06e0a6d15105f881c64b6a1c31ff9b81"><div class="ttname"><a href="class_c_kernel.html#a06e0a6d15105f881c64b6a1c31ff9b81">CKernel::CKernel</a></div><div class="ttdeci">CKernel(void)</div><div class="ttdoc">Construct the kernel and wire up Circle subsystems.</div><div class="ttdef"><b>Definition</b> kernel.cpp:271</div></div>
+<div class="ttc" id="aclass_c_kernel_html_a0d9e495a82c4161fe2b72000bcc9f93e"><div class="ttname"><a href="class_c_kernel.html#a0d9e495a82c4161fe2b72000bcc9f93e">CKernel::ShowModernSetupDialog</a></div><div class="ttdeci">void ShowModernSetupDialog()</div><div class="ttdoc">Show the modern on-screen setup dialog.</div><div class="ttdef"><b>Definition</b> kernel.cpp:751</div></div>
+<div class="ttc" id="aclass_c_kernel_html_a127d8c2ddf52d6fc33b20a641b95ff18"><div class="ttname"><a href="class_c_kernel.html#a127d8c2ddf52d6fc33b20a641b95ff18">CKernel::~CKernel</a></div><div class="ttdeci">~CKernel(void)</div><div class="ttdoc">Release kernel-owned resources.</div><div class="ttdef"><b>Definition</b> kernel.cpp:726</div></div>
+<div class="ttc" id="aclass_c_kernel_html_a1bb467afedf25d10e8eeca55013c96b3"><div class="ttname"><a href="class_c_kernel.html#a1bb467afedf25d10e8eeca55013c96b3">CKernel::MarkTelnetWaiting</a></div><div class="ttdeci">void MarkTelnetWaiting()</div><div class="ttdoc">Mark telnet service as waiting for configuration.</div><div class="ttdef"><b>Definition</b> kernel.cpp:1279</div></div>
+<div class="ttc" id="aclass_c_kernel_html_a31272f49bd00cd903d2ad75b4c5c4fa7"><div class="ttname"><a href="class_c_kernel.html#a31272f49bd00cd903d2ad75b4c5c4fa7">CKernel::HandleVTTestKey</a></div><div class="ttdeci">bool HandleVTTestKey(const char *pString)</div><div class="ttdoc">Forward a key press to the VT test runner (manual confirmation).</div><div class="ttdef"><b>Definition</b> kernel.cpp:767</div></div>
+<div class="ttc" id="aclass_c_kernel_html_a35b1e3c0aa496ac1eec6a70be56c1f6e"><div class="ttname"><a href="class_c_kernel.html#a35b1e3c0aa496ac1eec6a70be56c1f6e">CKernel::Run</a></div><div class="ttdeci">TShutdownMode Run(void)</div><div class="ttdoc">Enter the cooperative scheduler and main control loop.</div><div class="ttdef"><b>Definition</b> kernel.cpp:1048</div></div>
+<div class="ttc" id="aclass_c_kernel_html_a3a233093da1a3c462f1bddd4dd36457f"><div class="ttname"><a href="class_c_kernel.html#a3a233093da1a3c462f1bddd4dd36457f">CKernel::IsTelnetReady</a></div><div class="ttdeci">bool IsTelnetReady() const</div><div class="ttdoc">Check whether the telnet service finished setup.</div><div class="ttdef"><b>Definition</b> kernel.cpp:1131</div></div>
+<div class="ttc" id="aclass_c_kernel_html_a43f78bc58b679e1d4e96b5b7f6099705"><div class="ttname"><a href="class_c_kernel.html#a43f78bc58b679e1d4e96b5b7f6099705">CKernel::initFilesystem</a></div><div class="ttdeci">boolean initFilesystem(void)</div><div class="ttdoc">Mount the filesystem and prepare SD card access.</div><div class="ttdef"><b>Definition</b> kernel.cpp:776</div></div>
+<div class="ttc" id="aclass_c_kernel_html_a71f6181df0179d95b8dc40a6a2c5b511"><div class="ttname"><a href="class_c_kernel.html#a71f6181df0179d95b8dc40a6a2c5b511">CKernel::MarkTelnetReady</a></div><div class="ttdeci">void MarkTelnetReady()</div><div class="ttdoc">Mark telnet service as ready for clients.</div><div class="ttdef"><b>Definition</b> kernel.cpp:1136</div></div>
+<div class="ttc" id="aclass_c_kernel_html_a744817c2b1967f7ba959128307319bae"><div class="ttname"><a href="class_c_kernel.html#a744817c2b1967f7ba959128307319bae">CKernel::IsLocalModeEnabled</a></div><div class="ttdeci">bool IsLocalModeEnabled() const</div><div class="ttdoc">Check whether keyboard input loopback mode is active.</div><div class="ttdef"><b>Definition</b> kernel.cpp:335</div></div>
+<div class="ttc" id="aclass_c_kernel_html_a8b33fc5cd691e12b863fa51793697884"><div class="ttname"><a href="class_c_kernel.html#a8b33fc5cd691e12b863fa51793697884">CKernel::RunVTTestTick</a></div><div class="ttdeci">void RunVTTestTick()</div><div class="ttdoc">Run periodic VT test tick (if enabled).</div><div class="ttdef"><b>Definition</b> kernel.cpp:759</div></div>
+<div class="ttc" id="aclass_c_kernel_html_a920f008b565741cbbed3044dbb9ef6fa"><div class="ttname"><a href="class_c_kernel.html#a920f008b565741cbbed3044dbb9ef6fa">CKernel::ToggleSetupDialog</a></div><div class="ttdeci">void ToggleSetupDialog()</div><div class="ttdoc">Toggle the on-screen setup dialog.</div><div class="ttdef"><b>Definition</b> kernel.cpp:743</div></div>
+<div class="ttc" id="aclass_c_kernel_html_a9bb4f399f06afe4aef782b5be61767cf"><div class="ttname"><a href="class_c_kernel.html#a9bb4f399f06afe4aef782b5be61767cf">CKernel::ToggleLocalMode</a></div><div class="ttdeci">void ToggleLocalMode()</div><div class="ttdoc">Toggle local keyboard loopback mode.</div><div class="ttdef"><b>Definition</b> kernel.cpp:710</div></div>
+<div class="ttc" id="aclass_c_kernel_html_aa98f1eab92ae89c87efedb97b7ff92a2"><div class="ttname"><a href="class_c_kernel.html#aa98f1eab92ae89c87efedb97b7ff92a2">CKernel::SendHostOutput</a></div><div class="ttdeci">void SendHostOutput(const char *pData, size_t nLength)</div><div class="ttdoc">Forward keyboard-generated output to TCP shell client mode or UART fallback.</div><div class="ttdef"><b>Definition</b> kernel.cpp:1186</div></div>
+<div class="ttc" id="aclass_c_kernel_html_aac6ff3d22269c4506bdad92428f910bf"><div class="ttname"><a href="class_c_kernel.html#aac6ff3d22269c4506bdad92428f910bf">CKernel::ApplyRuntimeConfig</a></div><div class="ttdeci">void ApplyRuntimeConfig()</div><div class="ttdoc">Apply current CTConfig values to runtime subsystems.</div><div class="ttdef"><b>Definition</b> kernel.cpp:1165</div></div>
+<div class="ttc" id="aclass_c_kernel_html_adb7cc0a28a7da91429b73ad5e52147e6"><div class="ttname"><a href="class_c_kernel.html#adb7cc0a28a7da91429b73ad5e52147e6">CKernel::HandleWlanHostRx</a></div><div class="ttdeci">void HandleWlanHostRx(const char *pData, size_t nLength)</div><div class="ttdoc">Consume bytes received from WLAN shell client bridge and render them.</div><div class="ttdef"><b>Definition</b> kernel.cpp:1222</div></div>
+<div class="ttc" id="aclass_c_kernel_html_ae767168897a124e4f24f5a3b2955c4f3"><div class="ttname"><a href="class_c_kernel.html#ae767168897a124e4f24f5a3b2955c4f3">CKernel::Initialize</a></div><div class="ttdeci">boolean Initialize(void)</div><div class="ttdoc">Initialize all VT100 subsystems and dependencies.</div><div class="ttdef"><b>Definition</b> kernel.cpp:809</div></div>
+<div class="ttc" id="aclass_c_kernel_html_ae9c6b9b9cfb774b52b5ee662392a8ca6"><div class="ttname"><a href="class_c_kernel.html#ae9c6b9b9cfb774b52b5ee662392a8ca6">CKernel::HandleShellClientKey</a></div><div class="ttdeci">bool HandleShellClientKey(const char *pString)</div><div class="ttdoc">Consume keyboard input for interactive shell-client setup when active.</div><div class="ttdef"><b>Definition</b> kernel.cpp:410</div></div>
+<div class="ttc" id="aclass_c_kernel_html_af020fc94f20d99ac191a9cdd95a076b8"><div class="ttname"><a href="class_c_kernel.html#af020fc94f20d99ac191a9cdd95a076b8">CKernel::Get</a></div><div class="ttdeci">static CKernel * Get(void)</div><div class="ttdoc">Access the singleton kernel instance.</div><div class="ttdef"><b>Definition</b> kernel.cpp:129</div></div>
 <div class="ttc" id="aclass_c_t_config_html"><div class="ttname"><a href="class_c_t_config.html">CTConfig</a></div><div class="ttdoc">Cooperative task responsible for configuration persistence and lookup.</div><div class="ttdef"><b>Definition</b> TConfig.h:54</div></div>
 <div class="ttc" id="aclass_c_t_file_log_html"><div class="ttname"><a href="class_c_t_file_log.html">CTFileLog</a></div><div class="ttdoc">Provides file-based persistence for Circle logger messages.</div><div class="ttdef"><b>Definition</b> TFileLog.h:39</div></div>
 <div class="ttc" id="aclass_c_t_font_converter_html"><div class="ttname"><a href="class_c_t_font_converter.html">CTFontConverter</a></div><div class="ttdoc">Background task that materializes VT100 fonts on demand.</div><div class="ttdef"><b>Definition</b> TFontConverter.h:49</div></div>

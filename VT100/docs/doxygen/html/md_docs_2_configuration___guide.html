@@ -130,8 +130,10 @@ Table of Contents</h1>
 <li>B1) Source of truth and update checklist</li>
 <li>B2) Paths and ownership</li>
 <li>B3) Setup integration notes</li>
-<li>B4) WLAN host mode integration notes</li>
-<li>B5) Validation workflow after config-related changes</li>
+<li>B4) WLAN current-state integration notes</li>
+<li>B5) WLAN target model (approved)</li>
+<li>B6) WLAN migration and implementation plan</li>
+<li>B7) Validation workflow after config-related changes</li>
 </ul>
 </li>
 </ul>
@@ -196,23 +198,39 @@ A3) <span class="tt">VT100.txt</span> keys (persisted)</h2>
 <li><span class="tt">repeat_rate_cps</span> (2..20)</li>
 <li><span class="tt">switch_txrx</span> (0/1)</li>
 <li><span class="tt">margin_bell</span> (0/1)</li>
-<li><span class="tt">wlan_host_autostart</span> (0/1)</li>
+<li><span class="tt">wlan_host_autostart</span> (0/1/2; 0=off, 1=log, 2=host; current implementation, planned to be replaced by target model keys)</li>
 <li><span class="tt">log_output</span> (0..7; 0=none, 1=screen, 2=file, 3=wlan, 4=screen+file, 5=screen+wlan, 6=file+wlan, 7=screen+file+wlan)</li>
 <li><span class="tt">log_filename</span> (string, max 63 chars)</li>
 </ol>
 <h2 class="doxsection"><a class="anchor" id="a4-wlan-usage-operator-level"></a>
 A4) WLAN usage (operator level)</h2>
 <p>Endpoint: <span class="tt">telnet &lt;ip-or-hostname&gt; 2323</span></p>
-<p>Command mode commands:</p>
+<p>Waiting-screen connect hints on VT100 include:</p>
+<ul>
+<li><span class="tt">telnet &lt;ip-address&gt; 2323</span> once concrete IP has been assigned</li>
+<li><span class="tt">telnet &lt;hostname&gt;.local 2323</span> when hostname is available</li>
+<li>The waiting/connect message is shown once after DHCP provides a usable IP address.</li>
+</ul>
+<p>Log mode commands:</p>
 <ul>
 <li><span class="tt">help</span></li>
 <li><span class="tt">status</span></li>
 <li><span class="tt">echo &lt;text&gt;</span></li>
-<li><span class="tt">host on</span></li>
-<li><span class="tt">host off</span></li>
 <li><span class="tt">exit</span></li>
 </ul>
+<p>Log mode prompt:</p>
+<ul>
+<li><span class="tt">&gt;: </span> is shown at the start of each command line in log mode.</li>
+<li>No prompt is inserted while host mode is active.</li>
+<li>Incoming log lines in log mode are separated from the prompt by spaces only (no extra CRLF inserted before a log message).</li>
+<li>Pressing Enter on an empty command line emits a clean newline and re-shows the prompt.</li>
+</ul>
 <p>When host mode is on, keyboard TX and TCP RX are used as terminal host traffic.</p>
+<p>Host-mode session end:</p>
+<ul>
+<li>Host mode is a dedicated raw session type.</li>
+<li>Session ends when the remote TCP client disconnects.</li>
+</ul>
 <h1 class="doxsection"><a class="anchor" id="part-b--admin--developer"></a>
 Part B — Admin / Developer</h1>
 <h2 class="doxsection"><a class="anchor" id="b1-source-of-truth-and-update-checklist"></a>
@@ -246,15 +264,68 @@ B3) Setup integration notes</h2>
 <li>Legacy SET-UP B maps group 3 second bit from left (mask <span class="tt">0x4</span>, VT100 “Wraparound”) to <span class="tt">wrap_around</span>.</li>
 <li>Modern setup save path now calls kernel runtime apply for safe non-disruptive updates (renderer and HAL) to preserve stable keyboard/dialog handler routing.</li>
 </ul>
-<h2 class="doxsection"><a class="anchor" id="b4-wlan-host-mode-integration-notes"></a>
-B4) WLAN host mode integration notes</h2>
+<h2 class="doxsection"><a class="anchor" id="b4-wlan-current-state-integration-notes"></a>
+B4) WLAN current-state integration notes</h2>
 <ul>
-<li><span class="tt"><a class="el" href="class_c_t_wlan_log.html" title="Network logging endpoint streaming log traffic to remote clients.">CTWlanLog</a></span> command mode and host mode share one TCP endpoint.</li>
-<li>Host mode can be entered by command parser action or automatically (<span class="tt">wlan_host_autostart=1</span>).</li>
-<li><span class="tt">Ctrl-]</span> in host mode exits back to command mode.</li>
+<li><span class="tt"><a class="el" href="class_c_t_wlan_log.html" title="Network logging endpoint streaming log traffic to remote clients.">CTWlanLog</a></span> uses one TCP endpoint with strict per-session mode separation.</li>
+<li><span class="tt">wlan_host_autostart=0</span> disables WLAN remote mode.</li>
+<li><span class="tt">wlan_host_autostart=1</span> starts a log-mode session.</li>
+<li><span class="tt">wlan_host_autostart=2</span> starts a raw host-mode session.</li>
 </ul>
-<h2 class="doxsection"><a class="anchor" id="b5-validation-workflow-after-config-related-changes"></a>
-B5) Validation workflow after config-related changes</h2>
+<h2 class="doxsection"><a class="anchor" id="b5-wlan-target-model-approved"></a>
+B5) WLAN target model (approved)</h2>
+<p>Approved target model (without host-server legacy):</p>
+<ul>
+<li><b>Remote Logging/Status mode</b>: remote diagnostics/log sink only (<span class="tt">help</span>, <span class="tt">status</span>, <span class="tt">echo</span>, <span class="tt">exit</span>) with command prompt; no interactive shell stream.</li>
+<li><b>Remote Shell Client mode</b>: VT100 acts as client and initiates a remote shell session to a configured host; keyboard uplink and renderer downlink belong exclusively to this mode.</li>
+</ul>
+<p>Explicit non-goal in target model:</p>
+<ul>
+<li>No host-server legacy mode in final mode model.</li>
+</ul>
+<p>Mode separation constraints:</p>
+<ul>
+<li>Logging stream and shell stream are strictly isolated.</li>
+<li>No in-session mode switching between logging and shell-client traffic paths.</li>
+<li>Shell-client authentication/login flow is handled on VT100 (IP/port/user/password input path).</li>
+</ul>
+<p>Architecture-level session model and lifecycle are documented in <span class="tt">docs/VT100_Architecture.md</span> (section 8.3).</p>
+<h2 class="doxsection"><a class="anchor" id="b6-wlan-migration-and-implementation-plan"></a>
+B6) WLAN migration and implementation plan</h2>
+<p>Planned migration from current implementation (<span class="tt">wlan_host_autostart</span>) to target model:</p>
+<ol type="1">
+<li>Introduce explicit policy key <span class="tt">wlan_mode_policy</span> with values:<ul>
+<li><span class="tt">0=off</span></li>
+<li><span class="tt">1=remote_log</span></li>
+<li><span class="tt">2=shell_client</span></li>
+</ul>
+</li>
+<li>Keep <span class="tt">wlan_host_autostart</span> as compatibility input during transition only.</li>
+<li>Compatibility mapping during transition:<ul>
+<li>old <span class="tt">0</span> -&gt; new <span class="tt">0</span></li>
+<li>old <span class="tt">1</span> -&gt; new <span class="tt">1</span></li>
+<li>old <span class="tt">2</span> -&gt; new <span class="tt">2</span> (temporary mapping from former host-server value to shell-client target)</li>
+</ul>
+</li>
+<li>Add shell-client profile keys (target, no runtime claim yet):<ul>
+<li><span class="tt">shell_client_host</span></li>
+<li><span class="tt">shell_client_port</span></li>
+<li><span class="tt">shell_client_user</span></li>
+<li>password entry runtime-only by default (optional persisted storage only via explicit user opt-in).</li>
+</ul>
+</li>
+<li>Remove host-server runtime path after shell-client mode is feature-complete and validated.</li>
+</ol>
+<p>Implementation order (approved):</p>
+<ol type="1">
+<li>Config/state model split</li>
+<li>Shell-client state machine (<span class="tt">idle</span>, <span class="tt">connecting</span>, <span class="tt">auth</span>, <span class="tt">interactive</span>, <span class="tt">error</span>, <span class="tt">disconnect</span>)</li>
+<li>VT100 login/connect UI</li>
+<li>I/O routing gates and safety guards</li>
+<li>Legacy removal cleanup and docs finalization</li>
+</ol>
+<h2 class="doxsection"><a class="anchor" id="b7-validation-workflow-after-config-related-changes"></a>
+B7) Validation workflow after config-related changes</h2>
 <ol type="1">
 <li>Build <span class="tt">VT100</span>.</li>
 <li>Boot with a known <span class="tt">VT100.txt</span>.</li>

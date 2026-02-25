@@ -8,6 +8,7 @@ var class_c_t_wlan_log =
     [ "ProcessLine", "class_c_t_wlan_log.html#a3c39100794fd2ced641ea094958a2850", null ],
     [ "Run", "class_c_t_wlan_log.html#aadc8da5343c3b31225b09493cc2acb15", null ],
     [ "Send", "class_c_t_wlan_log.html#aee2ae31661803847bb78bcad2c477892", null ],
+    [ "SendCommandPrompt", "class_c_t_wlan_log.html#ad12089826caaa09f72f3c16367eec532", null ],
     [ "SendHostData", "class_c_t_wlan_log.html#aa03c02daad64921bc94cd8571784f9d5", null ],
     [ "SendLine", "class_c_t_wlan_log.html#ad2431479c7867e5cdcbfa2faa597eb7e", null ],
     [ "SetFallback", "class_c_t_wlan_log.html#ae82fad81064a3a14913530322c8a1d6f", null ],

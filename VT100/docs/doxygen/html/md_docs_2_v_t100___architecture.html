@@ -112,7 +112,7 @@ $(function(){initNavTree('md_docs_2_v_t100___architecture.html','',''); });
 <div class="contents">
 <div class="textblock"><p><a class="anchor" id="vt100-architecture-and-technical-implementation-vt100"></a></p>
 <p>This is the single technical reference for developers. It combines architecture, dependency structure, runtime flow, and module-level implementation details that were previously spread across multiple documents.</p>
-<h1 class="doxsection"><a class="anchor" id="table-of-contents-2"></a>
+<h1 class="doxsection"><a class="anchor" id="table-of-contents-1"></a>
 Table of Contents</h1>
 <ul>
 <li>1. Document role</li>
@@ -135,7 +135,13 @@ Table of Contents</h1>
 <li>8. Logging and network integration<ul>
 <li>8.1 Sink selection model</li>
 <li>8.2 File sink</li>
-<li>8.3 WLAN/telnet sink</li>
+<li>8.3 WLAN/telnet sink<ul>
+<li>8.3.1 Current-state session model (implemented)</li>
+<li>8.3.2 Approved target model (2-mode)</li>
+<li>8.3.3 Data-path gates in target model</li>
+<li>8.3.4 Planned implementation phases</li>
+</ul>
+</li>
 <li>8.4 Kernel networking loop and lifecycle</li>
 </ul>
 </li>
@@ -174,38 +180,34 @@ Table of Contents</h1>
 </ul>
 <h1 class="doxsection"><a class="anchor" id="autotoc_md3-dependency-graph-implementation-aligned"></a>
 3. Dependency graph (implementation-aligned)</h1>
-<p> 
-<pre class="mermaid">
-graph TD
-    CKernel --> CTConfig
-    CKernel --> CTFontConverter
-    CKernel --> CTRenderer
-    CKernel --> CTKeyboard
-    CKernel --> CTUART
-    CKernel --> CTSetup
-    CKernel --> CTFileLog
-    CKernel --> CTWlanLog
-    CKernel --> CHAL
-    CKernel --> CVTTest
-
-    CTSetup --> CTRenderer
-    CTSetup --> CTConfig
-    CTSetup --> CTKeyboard
-
-    CTKeyboard --> CTConfig
-    CTRenderer --> CTConfig
-    CTRenderer --> CTFontConverter
-
-    CTFileLog --> CLogger
-    CTWlanLog --> CLogger
-    CTWlanLog --> CNetSubSystem
-    CTWlanLog --> CWPASupplicant
-
-    CTUART --> CSerialDevice
-    CTRenderer --> CBcmFrameBuffer
-</pre>
-</p>
-<p>Notes:</p>
+<div class="fragment"><div class="line">graph TD</div>
+<div class="line">  CKernel --&gt; CTConfig</div>
+<div class="line">  CKernel --&gt; CTFontConverter</div>
+<div class="line">  CKernel --&gt; CTRenderer</div>
+<div class="line">  CKernel --&gt; CTKeyboard</div>
+<div class="line">  CKernel --&gt; CTUART</div>
+<div class="line">  CKernel --&gt; CTSetup</div>
+<div class="line">  CKernel --&gt; CTFileLog</div>
+<div class="line">  CKernel --&gt; CTWlanLog</div>
+<div class="line">  CKernel --&gt; CHAL</div>
+<div class="line">  CKernel --&gt; CVTTest</div>
+<div class="line"> </div>
+<div class="line">  CTSetup --&gt; CTRenderer</div>
+<div class="line">  CTSetup --&gt; CTConfig</div>
+<div class="line">  CTSetup --&gt; CTKeyboard</div>
+<div class="line"> </div>
+<div class="line">  CTKeyboard --&gt; CTConfig</div>
+<div class="line">  CTRenderer --&gt; CTConfig</div>
+<div class="line">  CTRenderer --&gt; CTFontConverter</div>
+<div class="line"> </div>
+<div class="line">  CTFileLog --&gt; CLogger</div>
+<div class="line">  CTWlanLog --&gt; CLogger</div>
+<div class="line">  CTWlanLog --&gt; CNetSubSystem</div>
+<div class="line">  CTWlanLog --&gt; CWPASupplicant</div>
+<div class="line"> </div>
+<div class="line">  CTUART --&gt; CSerialDevice</div>
+<div class="line">  CTRenderer --&gt; CBcmFrameBuffer</div>
+</div><!-- fragment --><p>Notes:</p>
 <ul>
 <li><span class="tt"><a class="el" href="class_c_kernel.html" title="Central coordinator for hardware bring-up and runtime control.">CKernel</a></span> remains the integration hub and lifecycle owner of singleton task modules.</li>
 <li><span class="tt"><a class="el" href="class_c_t_config.html" title="Cooperative task responsible for configuration persistence and lookup.">CTConfig</a></span> is the runtime configuration source of truth.</li>
@@ -225,35 +227,31 @@ graph TD
 <li>Optional WLAN log/telnet initialization</li>
 <li>Start periodic task and continue to runtime loop</li>
 </ol>
-<p> 
-<pre class="mermaid">
-sequenceDiagram
-    participant Main as main.cpp
-    participant Kernel as CKernel
-    participant Config as CTConfig
-    participant Font as CTFontConverter
-    participant Renderer as CTRenderer
-    participant Keyboard as CTKeyboard
-    participant UART as CTUART
-    participant Setup as CTSetup
-    participant Wlan as CTWlanLog
-
-    Main->>Kernel: Initialize()
-    Kernel->>Config: Initialize()
-    Kernel->>Config: LoadFromFile()
-    Kernel->>Font: Initialize()
-    Kernel->>Renderer: Initialize()
-    Kernel->>Keyboard: Configure(callbacks)
-    Kernel->>Keyboard: Initialize()
-    Kernel->>UART: Initialize(&interrupt, nullptr)
-    Kernel->>Setup: Initialize(renderer, config, keyboard)
-    alt WLAN logging enabled
-        Kernel->>Wlan: Initialize(..., port 2323, fallback)
-    end
-    Main->>Kernel: Run()
-</pre>
-</p>
-<h1 class="doxsection"><a class="anchor" id="autotoc_md5-task-model-and-interaction-pattern"></a>
+<div class="fragment"><div class="line">sequenceDiagram</div>
+<div class="line">  participant Main as main.cpp</div>
+<div class="line">  participant Kernel as CKernel</div>
+<div class="line">  participant Config as CTConfig</div>
+<div class="line">  participant Font as CTFontConverter</div>
+<div class="line">  participant Renderer as CTRenderer</div>
+<div class="line">  participant Keyboard as CTKeyboard</div>
+<div class="line">  participant UART as CTUART</div>
+<div class="line">  participant Setup as CTSetup</div>
+<div class="line">  participant Wlan as CTWlanLog</div>
+<div class="line"> </div>
+<div class="line">  Main-&gt;&gt;Kernel: Initialize()</div>
+<div class="line">  Kernel-&gt;&gt;Config: Initialize()</div>
+<div class="line">  Kernel-&gt;&gt;Config: LoadFromFile()</div>
+<div class="line">  Kernel-&gt;&gt;Font: Initialize()</div>
+<div class="line">  Kernel-&gt;&gt;Renderer: Initialize()</div>
+<div class="line">  Kernel-&gt;&gt;Keyboard: Configure(callbacks)</div>
+<div class="line">  Kernel-&gt;&gt;Keyboard: Initialize()</div>
+<div class="line">  Kernel-&gt;&gt;UART: Initialize(&amp;interrupt, nullptr)</div>
+<div class="line">  Kernel-&gt;&gt;Setup: Initialize(renderer, config, keyboard)</div>
+<div class="line">  alt WLAN logging enabled</div>
+<div class="line">    Kernel-&gt;&gt;Wlan: Initialize(..., port 2323, fallback)</div>
+<div class="line">  end</div>
+<div class="line">  Main-&gt;&gt;Kernel: Run()</div>
+</div><!-- fragment --><h1 class="doxsection"><a class="anchor" id="autotoc_md5-task-model-and-interaction-pattern"></a>
 5. Task model and interaction pattern</h1>
 <p>The refactoring model captured in <span class="tt">docs/Refactoring_Note.md</span> is retained where it still matches code:</p>
 <ul>
@@ -291,34 +289,30 @@ sequenceDiagram
 <li>WLAN host mode RX path: <span class="tt">HandleWlanHostRx()</span> → renderer write</li>
 <li>setup visibility guard: serial/host rendering is suppressed while setup overlay is visible</li>
 </ul>
-<p> 
-<pre class="mermaid">
-sequenceDiagram
-    participant HID as USB Keyboard
-    participant Kbd as CTKeyboard
-    participant Kcb as kernel onKeyPressed
-    participant Router as CKernel::SendHostOutput
-    participant Uart as CTUART
-    participant Wlan as CTWlanLog
-    participant Rndr as CTRenderer
-
-    HID->>Kbd: key event
-    Kbd->>Kcb: translated text
-    Kcb->>Router: SendHostOutput()
-    alt WLAN host mode active
-        Router->>Wlan: SendHostData()
-    else UART mode
-        Router->>Uart: Send()
-    end
-
-    Uart-->>Router: DrainSerialInput()
-    Router->>Rndr: Write(serial bytes)
-
-    Wlan-->>Router: HandleWlanHostRx()
-    Router->>Rndr: Write(host bridge bytes)
-</pre>
-</p>
-<h1 class="doxsection"><a class="anchor" id="autotoc_md7-setup-subsystem-details"></a>
+<div class="fragment"><div class="line">sequenceDiagram</div>
+<div class="line">  participant HID as USB Keyboard</div>
+<div class="line">  participant Kbd as CTKeyboard</div>
+<div class="line">  participant Kcb as kernel onKeyPressed</div>
+<div class="line">  participant Router as CKernel::SendHostOutput</div>
+<div class="line">  participant Uart as CTUART</div>
+<div class="line">  participant Wlan as CTWlanLog</div>
+<div class="line">  participant Rndr as CTRenderer</div>
+<div class="line"> </div>
+<div class="line">  HID-&gt;&gt;Kbd: key event</div>
+<div class="line">  Kbd-&gt;&gt;Kcb: translated text</div>
+<div class="line">  Kcb-&gt;&gt;Router: SendHostOutput()</div>
+<div class="line">  alt WLAN host mode active</div>
+<div class="line">    Router-&gt;&gt;Wlan: SendHostData()</div>
+<div class="line">  else UART mode</div>
+<div class="line">    Router-&gt;&gt;Uart: Send()</div>
+<div class="line">  end</div>
+<div class="line"> </div>
+<div class="line">  Uart--&gt;&gt;Router: DrainSerialInput()</div>
+<div class="line">  Router-&gt;&gt;Rndr: Write(serial bytes)</div>
+<div class="line"> </div>
+<div class="line">  Wlan--&gt;&gt;Router: HandleWlanHostRx()</div>
+<div class="line">  Router-&gt;&gt;Rndr: Write(host bridge bytes)</div>
+</div><!-- fragment --><h1 class="doxsection"><a class="anchor" id="autotoc_md7-setup-subsystem-details"></a>
 7. Setup subsystem details</h1>
 <h2 class="doxsection"><a class="anchor" id="autotoc_md71-legacy-setup-f12"></a>
 7.1 Legacy setup (F12)</h2>
@@ -387,10 +381,79 @@ sequenceDiagram
 <p><span class="tt"><a class="el" href="class_c_t_wlan_log.html" title="Network logging endpoint streaming log traffic to remote clients.">CTWlanLog</a></span>:</p>
 <ul>
 <li>listens on port <span class="tt">2323</span></li>
-<li>supports command/log mode and host bridge mode on the same endpoint</li>
-<li>supports auto host mode via <span class="tt">wlan_host_autostart=1</span></li>
-<li>operator command workflow is documented in <span class="tt">README.md</span> section 9</li>
+<li>uses strict per-session mode separation (log mode vs host mode) on the same endpoint</li>
+<li>supports mode policy via <span class="tt">wlan_host_autostart</span> (<span class="tt">0</span> off, <span class="tt">1</span> log, <span class="tt">2</span> host)</li>
+<li>in auto-host raw sessions, telnet option negotiation is bypassed to avoid control-byte leakage into host payload</li>
 </ul>
+<h3 class="doxsection"><a class="anchor" id="autotoc_md831-current-state-session-model-implemented"></a>
+8.3.1 Current-state session model (implemented)</h3>
+<p>Session selection is made at connect time from <span class="tt">wlan_host_autostart</span>:</p>
+<ul>
+<li><span class="tt">0</span> =&gt; WLAN remote mode disabled</li>
+<li><span class="tt">1</span> =&gt; log-mode session</li>
+<li><span class="tt">2</span> =&gt; host-mode session</li>
+</ul>
+<p>Operational intent by session:</p>
+<ul>
+<li>Log mode: diagnostics/control (<span class="tt">help</span>, <span class="tt">status</span>, <span class="tt">echo</span>, <span class="tt">exit</span>) with remote log mirroring and command prompt.</li>
+<li>Host mode: raw VT100 host bridge only (keyboard TX to host, host RX to renderer), no prompt/parser chatter in payload.</li>
+</ul>
+<p>Internal runtime state follows this strict split:</p>
+<ul>
+<li><span class="tt">SessionLogMode</span></li>
+<li><span class="tt">SessionHostMode</span></li>
+<li><span class="tt">SessionClosing</span></li>
+</ul>
+<h3 class="doxsection"><a class="anchor" id="autotoc_md832-approved-target-model-2-mode"></a>
+8.3.2 Approved target model (2-mode)</h3>
+<p>Approved target model removes host-server legacy mode and keeps exactly two runtime modes:</p>
+<ul>
+<li><span class="tt">RemoteLoggingStatusMode</span><ul>
+<li>diagnostics/log channel only</li>
+<li>command prompt/control surface (<span class="tt">help</span>, <span class="tt">status</span>, <span class="tt">echo</span>, <span class="tt">exit</span>)</li>
+</ul>
+</li>
+<li><span class="tt">RemoteShellClientMode</span><ul>
+<li>VT100 initiates outbound remote shell session</li>
+<li>login/auth driven on VT100 side (IP/port/user/password input path)</li>
+</ul>
+</li>
+</ul>
+<p>Target constraints:</p>
+<ul>
+<li>no host-server legacy mode in final runtime model</li>
+<li>no in-session switching between logging and shell streams</li>
+<li>strict routing isolation between diagnostics traffic and shell payload</li>
+</ul>
+<h3 class="doxsection"><a class="anchor" id="autotoc_md833-data-path-gates-in-target-model"></a>
+8.3.3 Data-path gates in target model</h3>
+<p><span class="tt">RemoteLoggingStatusMode</span> gates:</p>
+<ul>
+<li>logger-&gt;remote mirror enabled</li>
+<li>shell uplink/downlink disabled</li>
+<li>prompt/command parser enabled</li>
+</ul>
+<p><span class="tt">RemoteShellClientMode</span> gates:</p>
+<ul>
+<li>logger-&gt;remote mirror disabled</li>
+<li>keyboard uplink enabled to remote shell socket</li>
+<li>socket downlink enabled to renderer</li>
+<li>prompt/command parser disabled for shell payload path</li>
+</ul>
+<p>Current implementation equivalent (for migration reference):</p>
+<ul>
+<li>previous <span class="tt">log mode</span> maps to <span class="tt">RemoteLoggingStatusMode</span></li>
+<li>previous <span class="tt">host mode</span> maps functionally to the shell-payload path that will be replaced by <span class="tt">RemoteShellClientMode</span></li>
+</ul>
+<h3 class="doxsection"><a class="anchor" id="autotoc_md834-planned-implementation-phases"></a>
+8.3.4 Planned implementation phases</h3>
+<ol type="1">
+<li>Add explicit mode policy (<span class="tt">off</span>, <span class="tt">remote_log</span>, <span class="tt">shell_client</span>) with compatibility mapping from <span class="tt">wlan_host_autostart</span>.</li>
+<li>Add shell-client state machine (<span class="tt">idle</span>, <span class="tt">connecting</span>, <span class="tt">auth</span>, <span class="tt">interactive</span>, <span class="tt">error</span>, <span class="tt">disconnect</span>).</li>
+<li>Add VT100-side login/connect UI and profile config keys.</li>
+<li>Move keyboard/socket routing to mode-gated shell-client path.</li>
+<li>Remove host-server runtime path and finalize config/doc cleanup.</li>
+</ol>
 <h2 class="doxsection"><a class="anchor" id="autotoc_md84-kernel-networking-loop-and-lifecycle"></a>
 8.4 Kernel networking loop and lifecycle</h2>
 <p>Current kernel behavior aligned with implementation:</p>
@@ -404,6 +467,7 @@ sequenceDiagram
 <ul>
 <li>there is no dedicated deferred-serial backlog queue with 4 KiB cap in current implementation; serial routing is controlled by readiness/host-mode guards in the run loop.</li>
 </ul>
+<p>This architecture section is now the canonical source for WLAN log/host separation design and lifecycle behavior.</p>
 <h1 class="doxsection"><a class="anchor" id="autotoc_md9-font-and-rendering-details"></a>
 9. Font and rendering details</h1>
 <p>Font modules:</p>
@@ -486,7 +550,7 @@ sequenceDiagram
 12. Development notes</h1>
 <ul>
 <li>QEMU-specific runtime/build fallback paths were intentionally removed from <span class="tt">VT100</span>.</li>
-<li>Command mode and host bridge mode intentionally share the same telnet endpoint (<span class="tt">:2323</span>).</li>
+<li>Current implementation enforces strict separation of log-mode command sessions and host-mode raw sessions on <span class="tt">:2323</span>, selected per connection via <span class="tt">wlan_host_autostart</span>.</li>
 <li>For configuration changes, keep <span class="tt"><a class="el" href="class_c_t_config.html" title="Cooperative task responsible for configuration persistence and lookup.">CTConfig</a></span> defaults/parser/setters/save format and <span class="tt">Configuration_Guide.md</span> in sync.</li>
 <li><span class="tt">docs/Refactoring_Note.md</span> remains useful as historical refactoring context, but this file is the normative technical reference.</li>
 </ul>

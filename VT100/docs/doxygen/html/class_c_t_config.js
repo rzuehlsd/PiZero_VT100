@@ -60,6 +60,6 @@ var class_c_t_config =
     [ "SetTextColor", "class_c_t_config.html#a1f1444488fee05c2e927fb70688d3b26", null ],
     [ "SetVT52ModeEnabled", "class_c_t_config.html#a9876d46e2c477858736f8ef3d81c3b39", null ],
     [ "SetVTTestEnabled", "class_c_t_config.html#a0f65dc11809836dba99df35772147764", null ],
-    [ "SetWlanHostAutoStart", "class_c_t_config.html#added4e6be8c1d1d0c2d74c2e83bd8c38", null ],
+    [ "SetWlanHostAutoStart", "class_c_t_config.html#a42e44f7245782d721d7bf19060657832", null ],
     [ "SetWrapAroundEnabled", "class_c_t_config.html#aaddcad69e73e2c1c0ab924fb85d4fa8a", null ]
 ];

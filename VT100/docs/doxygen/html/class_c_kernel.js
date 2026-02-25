@@ -3,6 +3,7 @@ var class_c_kernel =
     [ "CKernel", "class_c_kernel.html#a06e0a6d15105f881c64b6a1c31ff9b81", null ],
     [ "~CKernel", "class_c_kernel.html#a127d8c2ddf52d6fc33b20a641b95ff18", null ],
     [ "ApplyRuntimeConfig", "class_c_kernel.html#aac6ff3d22269c4506bdad92428f910bf", null ],
+    [ "HandleShellClientKey", "class_c_kernel.html#ae9c6b9b9cfb774b52b5ee662392a8ca6", null ],
     [ "HandleVTTestKey", "class_c_kernel.html#a31272f49bd00cd903d2ad75b4c5c4fa7", null ],
     [ "HandleWlanHostRx", "class_c_kernel.html#adb7cc0a28a7da91429b73ad5e52147e6", null ],
     [ "initFilesystem", "class_c_kernel.html#a43f78bc58b679e1d4e96b5b7f6099705", null ],

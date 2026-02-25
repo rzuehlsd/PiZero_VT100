@@ -3,38 +3,65 @@
 
 set -euo pipefail
 
-SERVER=${1:-"localhost"}
-PORT=${2:-2323}
-shift $(( $# >= 1 ? 1 : 0 )) || true
-shift $(( $# >= 1 ? 1 : 0 )) || true
+SERVER="localhost"
+PORT=2323
+
+if [[ $# -gt 0 && "$1" != -* ]]; then
+  SERVER="$1"
+  shift
+fi
+
+if [[ $# -gt 0 && "$1" != -* ]]; then
+  PORT="$1"
+  shift
+fi
 
 AUTORESPOND=0
-if [[ $# -gt 0 ]]; then
-  for arg in "$@"; do
-    case "$arg" in
-      --autorespond)
-        AUTORESPOND=1
-        ;;
-      -h|--help)
-        cat <<'EOF'
-Usage: VT100_PTY [server] [port] [--autorespond]
+RUN_CMD=()
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --autorespond)
+      AUTORESPOND=1
+      shift
+      ;;
+    --run)
+      shift
+      if [[ $# -eq 0 ]]; then
+        echo "Missing command after --run" >&2
+        exit 1
+      fi
+      RUN_CMD=("$@")
+      break
+      ;;
+    -h|--help)
+      cat <<'EOF'
+Usage: VT100_PTY [server] [port] [--autorespond] [--run command [args...]]
 
 Options:
   --autorespond   Echo incoming VT100 lines back with prefix "SIMHOST:".
+  --run ...       Start program inside screen with stdin/stdout bound to PTY.
+                  Example: VT100_PTY localhost 2323 --run vttest
+                  Uses Python PTY helper to provide a controlling TTY for interactive tools.
 EOF
-        exit 0
-        ;;
-      *)
-        echo "Unknown option: $arg" >&2
-        exit 1
-        ;;
-    esac
-  done
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $1" >&2
+      exit 1
+      ;;
+  esac
+done
+
+if [[ "$AUTORESPOND" -eq 1 && "${#RUN_CMD[@]}" -gt 0 ]]; then
+  echo "--autorespond and --run cannot be used together." >&2
+  exit 1
 fi
 
 PTY="/tmp/vt100-$$.pty"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ECHO_SCRIPT="$SCRIPT_DIR/VT100_SCREEN_ECHO.py"
+CTTY_RUN_SCRIPT="$SCRIPT_DIR/VT100_CTTY_RUN.py"
 PYTHON_BIN=""
 SOCAT_PID=""
 
@@ -51,6 +78,17 @@ resolve_python() {
 
   return 1
 }
+
+if [[ "${#RUN_CMD[@]}" -gt 0 ]]; then
+  if [[ ! -f "$CTTY_RUN_SCRIPT" ]]; then
+    echo "Missing helper script: $CTTY_RUN_SCRIPT" >&2
+    exit 1
+  fi
+  if ! resolve_python; then
+    echo "Missing Python interpreter (python3/python not found in PATH)." >&2
+    exit 1
+  fi
+fi
 
 cleanup() {
   if [[ -n "$SOCAT_PID" ]] && kill -0 "$SOCAT_PID" 2>/dev/null; then
@@ -94,7 +132,11 @@ fi
 echo "Opening screen on $PTY"
 echo "Use screen escape Ctrl-A then K to quit."
 
-if [[ "$AUTORESPOND" -eq 1 ]]; then
+if [[ "${#RUN_CMD[@]}" -gt 0 ]]; then
+  printf -v RUN_ESC '%q ' "${RUN_CMD[@]}"
+  echo "Running command in screen via PTY: ${RUN_CMD[*]}"
+  TERM=vt100 screen -S "vt100" bash -lc "exec '$PYTHON_BIN' '$CTTY_RUN_SCRIPT' '$PTY' ${RUN_ESC}"
+elif [[ "$AUTORESPOND" -eq 1 ]]; then
   TERM=vt100 screen -S "vt100" bash -lc "'$PYTHON_BIN' '$ECHO_SCRIPT' < '$PTY' > '$PTY'"
 else
   TERM=vt100 screen -S "vt100" "$PTY"
