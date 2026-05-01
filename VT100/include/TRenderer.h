@@ -297,6 +297,11 @@ public:
 
 
 private:
+    /// \brief Apply a font using either pixel-stable or row/column-stable cursor handling.
+    boolean ApplyFont(const TFont &rFont,
+                      CCharGenerator::TFontFlags FontFlags,
+                      boolean preservePixelCursor);
+
     /// \brief Write a single character respecting current state machine.
     void Write(char chChar);
 

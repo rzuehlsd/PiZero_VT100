@@ -28,6 +28,20 @@ Reconstructed from git commit history and intended as a concise daily summary of
 
 ## 2026-01-21
 - Implemented features: added reverse video, underline/bold attribute handling, blinking cursor, and DEC/VT100 color/font escape-sequence behavior.
+- Guarded raw renderer pixel access against out-of-bounds writes and restored Setup B to the stable header row while continuing the title alignment fix.
+- Added a comparison build where Setup B calls `RenderHeader()` with the same parameters as Setup A to isolate whether the remaining title offset is caused by the header call itself.
+
+## 2026-05-01
+- Added a comparison build that swaps the legacy F12 page order so Setup B renders first and Setup A second, to determine whether the remaining title offset follows the page content or the A->B transition timing.
+- Replaced the setup header's parsed `ESC c` reset with a direct renderer parser reset before drawing, to isolate whether a stale local escape-sequence state causes the remaining Setup B title offset.
+- Restored the normal legacy F12 page order after the comparison test so further checks run again with Setup A first and Setup B second.
+- Fixed renderer font-switch cursor handling so DEC double-height and double-width mode changes keep the current pixel position instead of re-scaling the cursor by the new character height.
+- Split DEC font-mode handling onto an explicit pixel-stable renderer path so ESC `#3/#5/#6` no longer depends on the generic `SetFont()` remapping logic.
+- Cleared the renderer's pending wrap state on full-screen clears and absolute cursor jumps so legacy setup headers cannot inherit a stale newline/scroll condition into the next font-mode draw.
+
+## 2026-04-22
+- Implemented features: GPIO overvoltage protection design finalized for Adapter Board revision V2.3; relay swap mismatch vulnerability identified and documented.
+- Codebase changes: corrected Hardware.md — 1 kΩ only on RxD (not TxD); added relay scenario signal level analysis table; updated ToDo with null-modem vulnerability fix strategy (resistor before relay).
 - Codebase changes: improved escape-sequence parsing for text attributes and continued fixes for combined attribute-command handling.
 
 ## 2026-01-22
@@ -114,6 +128,10 @@ Reconstructed from git commit history and intended as a concise daily summary of
 - Implemented features: restored visible smooth-scroll animation frames on Setup B toggle (frames now pushed each tick), unblocked macOS builds, refreshed Modern Setup with a three-column view (centered title, centered footer help), clarified serial defaults/baud range and color names, enabled bitmask log output selection (multiple sinks), preserved VT100.txt comments when saving, and added periodic scroll timing stats (smooth vs normal) logged every 30s.
 - Codebase changes: push composed smooth-scroll frames to the framebuffer each animation tick, updated Config.mk to use the Homebrew-linked arm-none-eabi toolchain in /usr/local/bin, expanded Modern Setup layout with centered header/footer and Description column, refined Modern descriptions, changed log output editing to toggle sink bits (screen/file/WLAN), added save logic to merge updated values into existing VT100.txt without stripping comments using Circle `CString`-compatible formatting/appends, slowed smooth-scroll pacing to ~170ms per line (~6 lps) with per-pixel steps, ensured smooth-scroll frames render live buffer content so new lines appear progressively instead of in a final batch, replaced scroll queueing with a debounce guard so isolated single-line scrolls animate while bursts fall back to instant (eliminating multi-line jumps/backtracks), and instrumented scroll paths to record/emit per-mode durations; verified a clean `make -j4` build in VT100.
 - Implemented features: setup dialogs A, B, and Modern now honor the actively configured VT100 font family instead of forcing 10x20 CRT, and the Modern setup title is rendered single-line and centered correctly.
+
+## 2026-04-30
+- Implemented features: stabilized legacy setup rendering so F11 opens the modern dialog directly, Setup A/B restore their content reliably, and the Setup B header no longer depends on the renderer's broken DEC bottom-half double-height handling.
+- Codebase changes: refactored `CTSetup` show paths to separate legacy and modern dialog activation, added renderer-state normalization before setup redraws, corrected legacy header handling after `ESC#4` regression, restored stable Setup A/B title positioning by using `ESC#3` only and resetting to normal font before later row-based rendering, added a VT100 `RIS` reset before each legacy header draw so Setup B no longer inherits parser/terminal state from the Setup A page switch, aligned Setup B's bottom settings row with Setup A while removing a stray debug `!`, made the subtitle row offset configurable for Setup B, and added a targeted bottom-scanline clear when rendering the higher Setup B title to counter the observed top-to-bottom pixel wrap artifact; verified with `make -j4` in VT100.
 - Codebase changes: switched renderer ESC #3/#5/#6 font-mode handling to reuse the current configured font selection, changed startup config font application to use selection-based API so state restoration keeps selection metadata, and removed double-width title rendering in Modern setup while centering title text against the inner content width.
 - Implemented features: Modern setup title now renders in double width and remains centered.
 - Codebase changes: updated Modern title centering math to account for double-width rendered text (`ESC#6`) and restored DEC normal-width reset (`ESC#5`) after title draw.
@@ -214,6 +232,10 @@ Reconstructed from git commit history and intended as a concise daily summary of
 - Implemented features: stabilized `exit` disconnect handling by deferring socket close to a safe point after receive-chunk processing.
 - Codebase changes: changed `exit` command flow to set a deferred close flag processed in `HandleIncomingData()`, prevented further byte handling once close is requested, and replaced hardcoded disconnect text length with dynamically sized reason-aware VT100 disconnect messages.
 - Implemented features: reduced command-mode telnet `^M` artifacts by enabling server-side ECHO negotiation.
+
+## 2026-04-30
+- Implemented features: stabilized setup dialog activation and rendering for mini-keyboard F11/F12 usage, including direct Modern dialog entry and cleaner legacy title redraw.
+- Codebase changes: refactored `CTSetup` to prepare dialog state without forcing an intermediate SET-UP A render, added explicit renderer state normalization before setup draws, and fixed legacy double-height header rendering to redraw the title on both title rows.
 - Codebase changes: updated telnet option negotiation in `CTWlanLog` to advertise `WILL ECHO` and accept `DO ECHO` alongside suppress-go-ahead handling, while keeping deferred-close disconnect logic unchanged.
 - Implemented features: added a post-greeting telnet notice indicating WLAN mode is active and network establishment may require waiting before connection-ready messages appear.
 - Codebase changes: extended `CTWlanLog::AnnounceConnection()` greeting text with an explicit wait hint for WLAN/network setup progress.

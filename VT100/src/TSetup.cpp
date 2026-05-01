@@ -18,155 +18,154 @@
 
 namespace
 {
-static const unsigned kBaudRates[] = {
-    50, 75, 110, 134, 150, 300, 600, 1200, 1800, 2400, 4800,
-    9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600};
-static const unsigned kBaudRateCount = sizeof(kBaudRates) / sizeof(kBaudRates[0]);
-static const char *kColorNames[] = {"Black", "White", "Amber", "Green"};
-static const char *kLineEndingNames[] = {"LF", "CRLF", "CR"};
-static const char *kParityNames[] = {"None", "Even", "Odd"};
-static const char *kFontNames[] = {"8x20", "10x20 CRT", "10x20 Solid"};
-static const char *kLogOutputNames[] = {
-    "None",
-    "Screen",
-    "File",
-    "WLAN",
-    "Screen+File",
-    "Screen+WLAN",
-    "File+WLAN",
-    "Screen+File+WLAN"};
-static const char *kWlanModeNames[] = {
-    "Off",
-    "RemoteLog",
-    "ShellClient"};
-static const char *kPresetLogFiles[] = {"vt100.log", "session.log", "terminal.log", "serial.log"};
-static const unsigned kPresetLogFileCount = sizeof(kPresetLogFiles) / sizeof(kPresetLogFiles[0]);
-constexpr unsigned int kRepeatDelayMinMs = 250U;
-constexpr unsigned int kRepeatDelayMaxMs = 1000U;
-constexpr unsigned int kRepeatRateMinCps = 2U;
-constexpr unsigned int kRepeatRateMaxCps = 20U;
-constexpr unsigned int kModernDialogMinRows = 12U;
-constexpr unsigned int kModernDialogMinCols = 72U;
-constexpr unsigned int kModernRowBufferSize = 192U;
-constexpr unsigned int kModernFieldCount = 20U;
+    static const unsigned kBaudRates[] = {
+        50, 75, 110, 134, 150, 300, 600, 1200, 1800, 2400, 4800,
+        9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600};
+    static const unsigned kBaudRateCount = sizeof(kBaudRates) / sizeof(kBaudRates[0]);
+    static const char *kColorNames[] = {"Black", "White", "Amber", "Green"};
+    static const char *kLineEndingNames[] = {"LF", "CRLF", "CR"};
+    static const char *kParityNames[] = {"None", "Even", "Odd"};
+    static const char *kFontNames[] = {"8x20", "10x20 CRT", "10x20 Solid"};
+    static const char *kLogOutputNames[] = {
+        "None",
+        "Screen",
+        "File",
+        "WLAN",
+        "Screen+File",
+        "Screen+WLAN",
+        "File+WLAN",
+        "Screen+File+WLAN"};
+    static const char *kWlanModeNames[] = {
+        "Off",
+        "RemoteLog",
+        "ShellClient"};
+    static const char *kPresetLogFiles[] = {"vt100.log", "session.log", "terminal.log", "serial.log"};
+    static const unsigned kPresetLogFileCount = sizeof(kPresetLogFiles) / sizeof(kPresetLogFiles[0]);
+    constexpr unsigned int kRepeatDelayMinMs = 250U;
+    constexpr unsigned int kRepeatDelayMaxMs = 1000U;
+    constexpr unsigned int kRepeatRateMinCps = 2U;
+    constexpr unsigned int kRepeatRateMaxCps = 20U;
+    constexpr unsigned int kModernDialogMinRows = 12U;
+    constexpr unsigned int kModernDialogMinCols = 72U;
+    constexpr unsigned int kModernRowBufferSize = 192U;
+    constexpr unsigned int kModernFieldCount = 20U;
 
-static const char *kModernFieldNames[kModernFieldCount] = {
-    "line_ending",
-    "baud_rate",
-    "serial_bits",
-    "serial_parity",
-    "cursor_type",
-    "cursor_blinking",
-    "vt_test",
-    "vt52_mode",
-    "font_selection",
-    "text_color",
-    "background_color",
-    "buzzer_volume",
-    "key_click",
-    "key_auto_repeat",
-    "repeat_delay_ms",
-    "repeat_rate_cps",
-    "switch_txrx",
-    "wlan_host_autostart",
-    "log_output",
-    "log_filename"};
+    static const char *kModernFieldNames[kModernFieldCount] = {
+        "line_ending",
+        "baud_rate",
+        "serial_bits",
+        "serial_parity",
+        "cursor_type",
+        "cursor_blinking",
+        "vt_test",
+        "vt52_mode",
+        "font_selection",
+        "text_color",
+        "background_color",
+        "buzzer_volume",
+        "key_click",
+        "key_auto_repeat",
+        "repeat_delay_ms",
+        "repeat_rate_cps",
+        "switch_txrx",
+        "wlan_host_autostart",
+        "log_output",
+        "log_filename"};
 
-static const char *kModernFieldDescriptions[kModernFieldCount] = {
-    "Line ending: LF/CRLF/CR",
-    "Baud rate 300-115200 (default 115200)",
-    "Data bits: 7 or 8 (default 8)",
-    "Parity: none/even/odd (default none)",
-    "Cursor: underline/block",
-    "Cursor blink on/off",
-    "Enable VT test runner",
-    "Mode: ANSI or VT52",
-    "Font: 8x20/10x20/10x20Solid",
-    "Text color: black/white/amber/green (default white)",
-    "Background: black/white/amber/green (default black)",
-    "Buzzer volume 0-100%",
-    "Key click on/off",
-    "Auto-repeat on/off",
-    "Repeat delay 250-1000 ms",
-    "Repeat rate 2-20 cps",
-    "Swap UART TX/RX",
-    "WLAN mode: Off/RemoteLog/ShellClient",
-    "Log outputs bitmask: bit1=screen, bit2=file, bit3=wlan",
-    "Log file name"};
+    static const char *kModernFieldDescriptions[kModernFieldCount] = {
+        "Line ending: LF/CRLF/CR",
+        "Baud rate 300-115200 (default 115200)",
+        "Data bits: 7 or 8 (default 8)",
+        "Parity: none/even/odd (default none)",
+        "Cursor: underline/block",
+        "Cursor blink on/off",
+        "Enable VT test runner",
+        "Mode: ANSI or VT52",
+        "Font: 8x20/10x20/10x20Solid",
+        "Text color: black/white/amber/green (default white)",
+        "Background: black/white/amber/green (default black)",
+        "Buzzer volume 0-100%",
+        "Key click on/off",
+        "Auto-repeat on/off",
+        "Repeat delay 250-1000 ms",
+        "Repeat rate 2-20 cps",
+        "Swap UART TX/RX",
+        "WLAN mode: Off/RemoteLog/ShellClient",
+        "Log outputs bitmask: bit1=screen, bit2=file, bit3=wlan",
+        "Log file name"};
 
-static unsigned FindBaudIndex(unsigned value)
-{
-    for (unsigned i = 0; i < kBaudRateCount; ++i)
+    static unsigned FindBaudIndex(unsigned value)
     {
-        if (kBaudRates[i] == value)
+        for (unsigned i = 0; i < kBaudRateCount; ++i)
         {
-            return i;
+            if (kBaudRates[i] == value)
+            {
+                return i;
+            }
         }
-    }
-    return 11U; // 9600 default
-}
-
-static unsigned CycleUnsigned(unsigned value, unsigned minValue, unsigned maxValue, int delta)
-{
-    if (maxValue < minValue)
-    {
-        return value;
-    }
-    if (delta > 0)
-    {
-        return (value >= maxValue) ? minValue : (value + 1U);
-    }
-    return (value <= minValue) ? maxValue : (value - 1U);
-}
-
-static const char *BoolName(bool value)
-{
-    return value ? "On" : "Off";
-}
-
-static void BuildTabLine(char *out, unsigned cols, const CTConfig *config)
-{
-    if (out == nullptr || cols == 0)
-    {
-        return;
+        return 11U; // 9600 default
     }
 
-    for (unsigned i = 0; i < cols; ++i)
+    static unsigned CycleUnsigned(unsigned value, unsigned minValue, unsigned maxValue, int delta)
     {
-        if (config != nullptr)
+        if (maxValue < minValue)
         {
-            out[i] = config->IsTabStop(i) ? 'T' : ' ';
+            return value;
         }
-        else
+        if (delta > 0)
         {
-            out[i] = ((i + 1) % 8 == 0) ? 'T' : ' ';
+            return (value >= maxValue) ? minValue : (value + 1U);
         }
-    }
-    out[cols] = '\0';
-}
-
-static void BuildDigitLine(char *out, unsigned cols)
-{
-    if (out == nullptr || cols == 0)
-    {
-        return;
+        return (value <= minValue) ? maxValue : (value - 1U);
     }
 
-    const char *digits = "0123456789";
-    unsigned pos = 0;
-
-    while (pos < cols)
+    static const char *BoolName(bool value)
     {
-        for (unsigned i = 0; i < 10 && pos < cols; ++i)
+        return value ? "On" : "Off";
+    }
+
+    static void BuildTabLine(char *out, unsigned cols, const CTConfig *config)
+    {
+        if (out == nullptr || cols == 0)
         {
-            out[pos++] = digits[i];
+            return;
         }
+
+        for (unsigned i = 0; i < cols; ++i)
+        {
+            if (config != nullptr)
+            {
+                out[i] = config->IsTabStop(i) ? 'T' : ' ';
+            }
+            else
+            {
+                out[i] = ((i + 1) % 8 == 0) ? 'T' : ' ';
+            }
+        }
+        out[cols] = '\0';
     }
 
-    out[cols] = '\0';
-}
-}
+    static void BuildDigitLine(char *out, unsigned cols)
+    {
+        if (out == nullptr || cols == 0)
+        {
+            return;
+        }
 
+        const char *digits = "0123456789";
+        unsigned pos = 0;
+
+        while (pos < cols)
+        {
+            for (unsigned i = 0; i < 10 && pos < cols; ++i)
+            {
+                out[pos++] = digits[i];
+            }
+        }
+
+        out[cols] = '\0';
+    }
+}
 
 static CTSetup *s_pThis = nullptr;
 CTSetup *CTSetup::Get(void)
@@ -179,34 +178,7 @@ CTSetup *CTSetup::Get(void)
 }
 
 CTSetup::CTSetup()
-    : CTask()
-    , m_pRenderer(nullptr)
-    , m_pConfig(nullptr)
-    , m_pKeyboard(nullptr)
-    , m_pPrevKeyPressed(nullptr)
-    , m_pPrevKeyStatusRaw(nullptr)
-    , m_Snapshot{nullptr, 0, false, false, {}}
-    , m_Visible(false)
-    , m_ExitRequested(false)
-    , m_SaveRequested(false)
-    , m_KeyPending(false)
-    , m_F12Down(false)
-    , m_F11Down(false)
-    , m_KeyBuffer{0}
-    , m_DialogMode(DialogModeLegacy)
-    , m_Page(SetupPageA)
-    , m_SetupBToggle{0, 0, 0, 0}
-    , m_SetupBTxSpeed(9600)
-    , m_SetupBRxSpeed(9600)
-    , m_SetupBField(SetupBFieldToggle1)
-    , m_SetupBBitIndex(0)
-    , m_TabRow(0)
-    , m_TabCols(0)
-    , m_TabEditCol(0)
-    , m_ModernSelected(ModernFieldLineEnding)
-    , m_ModernConfig{}
-    , m_ModernLayoutValid(false)
-    , m_ModernLayout{}
+    : CTask(), m_pRenderer(nullptr), m_pConfig(nullptr), m_pKeyboard(nullptr), m_pPrevKeyPressed(nullptr), m_pPrevKeyStatusRaw(nullptr), m_Snapshot{nullptr, 0, false, false, {}}, m_Visible(false), m_ExitRequested(false), m_SaveRequested(false), m_KeyPending(false), m_F12Down(false), m_F11Down(false), m_KeyBuffer{0}, m_DialogMode(DialogModeLegacy), m_Page(SetupPageA), m_SetupBToggle{0, 0, 0, 0}, m_SetupBTxSpeed(9600), m_SetupBRxSpeed(9600), m_SetupBField(SetupBFieldToggle1), m_SetupBBitIndex(0), m_TabRow(0), m_TabCols(0), m_TabEditCol(0), m_ModernSelected(ModernFieldLineEnding), m_ModernConfig{}, m_ModernLayoutValid(false), m_ModernLayout{}
 {
     SetName("Setup");
     Suspend();
@@ -239,40 +211,10 @@ void CTSetup::Toggle()
 
 void CTSetup::Show()
 {
-    if (m_pRenderer == nullptr)
+    if (!m_Visible && !PrepareToShow())
     {
         return;
     }
-
-    if (m_pKeyboard != nullptr)
-    {
-        m_pPrevKeyPressed = m_pKeyboard->GetKeyPressedHandler();
-        m_pPrevKeyStatusRaw = m_pKeyboard->GetKeyStatusHandlerRaw();
-        m_pKeyboard->SetKeyPressedHandler(KeyPressedHandler);
-        m_pKeyboard->SetKeyStatusHandlerRaw(KeyStatusHandlerRaw);
-    }
-
-    size_t size = m_pRenderer->GetBufferSize();
-    if (size == 0)
-    {
-        return;
-    }
-
-    if (m_Snapshot.buffer == nullptr || m_Snapshot.size != size)
-    {
-        delete[] m_Snapshot.buffer;
-        m_Snapshot.buffer = new u8[size];
-        m_Snapshot.size = size;
-    }
-
-    if (m_Snapshot.buffer != nullptr)
-    {
-        m_pRenderer->SaveScreenBuffer(m_Snapshot.buffer, size);
-        m_Snapshot.valid = true;
-    }
-
-    m_pRenderer->SaveState(m_Snapshot.rendererState);
-    m_Snapshot.stateValid = true;
 
     m_DialogMode = DialogModeLegacy;
     InitializeSetupBFromConfig();
@@ -292,9 +234,9 @@ void CTSetup::Show()
 
 void CTSetup::ShowModern()
 {
-    if (!m_Visible)
+    if (!m_Visible && !PrepareToShow())
     {
-        Show();
+        return;
     }
 
     if (m_pRenderer == nullptr)
@@ -311,6 +253,52 @@ void CTSetup::ShowModern()
     InitializeModernFromConfig();
     m_ModernLayoutValid = false;
     Render();
+}
+
+bool CTSetup::PrepareToShow()
+{
+    if (m_pRenderer == nullptr)
+    {
+        return false;
+    }
+
+    if (m_pKeyboard != nullptr)
+    {
+        m_pPrevKeyPressed = m_pKeyboard->GetKeyPressedHandler();
+        m_pPrevKeyStatusRaw = m_pKeyboard->GetKeyStatusHandlerRaw();
+        m_pKeyboard->SetKeyPressedHandler(KeyPressedHandler);
+        m_pKeyboard->SetKeyStatusHandlerRaw(KeyStatusHandlerRaw);
+    }
+
+    size_t size = m_pRenderer->GetBufferSize();
+    if (size == 0)
+    {
+        return false;
+    }
+
+    if (m_Snapshot.buffer == nullptr || m_Snapshot.size != size)
+    {
+        delete[] m_Snapshot.buffer;
+        m_Snapshot.buffer = new u8[size];
+        m_Snapshot.size = size;
+    }
+
+    if (m_Snapshot.buffer != nullptr)
+    {
+        m_pRenderer->SaveScreenBuffer(m_Snapshot.buffer, size);
+        m_Snapshot.valid = true;
+    }
+
+    m_pRenderer->SaveState(m_Snapshot.rendererState);
+    m_Snapshot.stateValid = true;
+    m_Visible = true;
+
+    if (IsSuspended())
+    {
+        Start();
+    }
+
+    return true;
 }
 
 void CTSetup::Hide()
@@ -655,7 +643,7 @@ void CTSetup::Render()
     RenderPageA();
 }
 
-void CTSetup::RenderHeader(const char *pTitle, unsigned topRow)
+void CTSetup::RenderHeader(const char *pTitle, unsigned topRow, unsigned subtitleRowOffset, bool clearBottomPixelRow)
 {
     if (m_pRenderer == nullptr)
     {
@@ -663,14 +651,8 @@ void CTSetup::RenderHeader(const char *pTitle, unsigned topRow)
     }
 
     static const char kESC_3[] = "\x1B#3";
-    static const char kESC_4[] = "\x1B#4";
     static const char kESC_5[] = "\x1B#5";
     static const char kESC_6[] = "\x1B#6";
-    static const char kESC_Reset[] = "\x1B[0m";
-    static const char kESC_G0_US[] = "\x1B(B";
-    static const char kESC_G1_US[] = "\x1B)B";
-    static const char kSI_G0[] = "\x0F";
-
     EColorSelection fgSel = TerminalColorGreen;
     EColorSelection bgSel = TerminalColorBlack;
     if (m_pConfig != nullptr)
@@ -685,32 +667,62 @@ void CTSetup::RenderHeader(const char *pTitle, unsigned topRow)
     m_pRenderer->SetColors(fgColor, bgColor);
     m_pRenderer->SetCursorMode(false);
     m_pRenderer->SetBlinkingCursor(false);
+    m_pRenderer->ResetParserState();
     m_pRenderer->ClearDisplay();
-    m_pRenderer->Goto(0, 0);
-    m_pRenderer->Write(kESC_Reset, strlen(kESC_Reset));
-    m_pRenderer->Write(kESC_G0_US, strlen(kESC_G0_US));
-    m_pRenderer->Write(kESC_G1_US, strlen(kESC_G1_US));
-    m_pRenderer->Write(kSI_G0, strlen(kSI_G0));
-    m_pRenderer->Write(kESC_5, strlen(kESC_5));
+    NormalizeRenderState(false);
 
-    // Title: double width + double height (top and bottom lines)
+    // Render the title with ESC#3 only, then immediately return to normal font
+    // so later Goto() calls continue to use the normal row height.
     m_pRenderer->Goto(topRow, 0);
     m_pRenderer->SetColors(fgColor, bgColor);
     m_pRenderer->Write(kESC_3, strlen(kESC_3));
     m_pRenderer->Write(pTitle, strlen(pTitle));
-
-    m_pRenderer->Goto(topRow + 1, 0);
-    m_pRenderer->SetColors(fgColor, bgColor);
-    m_pRenderer->Write(kESC_4, strlen(kESC_4));
-    m_pRenderer->Write("\r", 1);
+    m_pRenderer->Write(kESC_5, strlen(kESC_5));
 
     // Subtitle: double width
-    m_pRenderer->Goto(topRow + 3, 0);
+    m_pRenderer->Goto(topRow + subtitleRowOffset, 0);
     m_pRenderer->SetColors(fgColor, bgColor);
     m_pRenderer->Write(kESC_6, strlen(kESC_6));
     m_pRenderer->Write("TO EXIT PRESS \"SET-UP\"", strlen("TO EXIT PRESS \"SET-UP\""));
 
     // Return to normal width
+    m_pRenderer->Write(kESC_5, strlen(kESC_5));
+
+    if (clearBottomPixelRow)
+    {
+        const unsigned width = m_pRenderer->GetWidth();
+        const unsigned height = m_pRenderer->GetHeight();
+        if (height > 0)
+        {
+            const unsigned lastY = height - 1;
+            for (unsigned x = 0; x < width; ++x)
+            {
+                m_pRenderer->SetPixel(x, lastY, bgColor);
+            }
+        }
+    }
+}
+
+void CTSetup::NormalizeRenderState(bool graphicsInG1)
+{
+    if (m_pRenderer == nullptr)
+    {
+        return;
+    }
+
+    static const char kESC_Reset[] = "\x1B[0m";
+    static const char kESC_G0_US[] = "\x1B(B";
+    static const char kESC_G1_US[] = "\x1B)B";
+    static const char kESC_G1_GRAPHICS[] = "\x1B)0";
+    static const char kSI_G0[] = "\x0F";
+    static const char kESC_5[] = "\x1B#5";
+
+    m_pRenderer->Goto(0, 0);
+    m_pRenderer->Write(kESC_Reset, strlen(kESC_Reset));
+    m_pRenderer->Write(kESC_G0_US, strlen(kESC_G0_US));
+    m_pRenderer->Write(graphicsInG1 ? kESC_G1_GRAPHICS : kESC_G1_US,
+                       graphicsInG1 ? strlen(kESC_G1_GRAPHICS) : strlen(kESC_G1_US));
+    m_pRenderer->Write(kSI_G0, strlen(kSI_G0));
     m_pRenderer->Write(kESC_5, strlen(kESC_5));
 }
 
@@ -816,7 +828,6 @@ void CTSetup::RenderPageB()
     const TRendererColor fgColor = m_pRenderer->MapColor(fgSel);
     const TRendererColor bgColor = m_pRenderer->MapColor(bgSel);
 
-    // Keep SET-UP B at its previous/original position
     RenderHeader("SET-UP B", 1);
 
     unsigned rows = m_pRenderer->GetRows();
@@ -826,12 +837,7 @@ void CTSetup::RenderPageB()
         return;
     }
 
-    const unsigned infoRow = (rows >= 3) ? (rows - 3) : 0;
-    const unsigned dataRow = (rows >= 2) ? (rows - 2) : 0;
-
-    m_pRenderer->SetColors(fgColor, bgColor);
-    m_pRenderer->Goto(infoRow, 0);
-    m_pRenderer->Write("!", 1);
+    const unsigned dataRow = (rows >= 1) ? (rows - 1) : 0;
 
     auto writeToggleBits = [this](unsigned value)
     {
@@ -1277,6 +1283,7 @@ void CTSetup::RenderModernDialog()
     m_pRenderer->SetCursorMode(false);
     m_pRenderer->SetBlinkingCursor(false);
     m_pRenderer->ClearDisplay();
+    NormalizeRenderState(true);
 
     memset(line, 'q', drawWidth);
     if (drawWidth >= 2)

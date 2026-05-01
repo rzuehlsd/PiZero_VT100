@@ -436,15 +436,24 @@ bool CTRenderer::SetFont(EFontSelection selection, CCharGenerator::TFontFlags Fo
 {
     m_CurrentFontSelection = selection;
     const TFont &font = CTFontConverter::Get()->GetFont(selection);
-    return SetFont(font, FontFlags);
+    return ApplyFont(font, FontFlags, FALSE);
 }
 
 bool CTRenderer::SetFont(const TFont &rFont, CCharGenerator::TFontFlags FontFlags)
+{
+    return ApplyFont(rFont, FontFlags, FALSE);
+}
+
+bool CTRenderer::ApplyFont(const TFont &rFont,
+                          CCharGenerator::TFontFlags FontFlags,
+                          boolean preservePixelCursor)
 {
     m_SpinLock.Acquire();
 
     const bool cursorWasVisible = m_bCursorVisible;
     const bool blinkingWasEnabled = m_bBlinkingCursor;
+    const unsigned previousCursorX = m_nCursorX;
+    const unsigned previousCursorY = m_nCursorY;
 
     unsigned cursorColumn = 0;
     unsigned cursorRow = 0;
@@ -538,32 +547,47 @@ bool CTRenderer::SetFont(const TFont &rFont, CCharGenerator::TFontFlags FontFlag
     m_nUsedHeight = m_nHeight / m_pCharGen->GetCharHeight() * m_pCharGen->GetCharHeight();
     m_nScrollEnd = m_nUsedHeight;
 
-    const unsigned newColumns = GetColumns();
-    const unsigned newRows = GetRows();
-    if (newColumns > 0)
+    if (preservePixelCursor)
     {
-        if (cursorColumn >= newColumns)
-        {
-            cursorColumn = newColumns - 1;
-        }
-        m_nCursorX = cursorColumn * m_pCharGen->GetCharWidth();
-    }
-    else
-    {
-        m_nCursorX = 0;
-    }
+        const unsigned maxCursorX = (m_nUsedWidth >= m_pCharGen->GetCharWidth())
+                                        ? (m_nUsedWidth - m_pCharGen->GetCharWidth())
+                                        : 0;
+        const unsigned maxCursorY = (m_nUsedHeight >= m_pCharGen->GetCharHeight())
+                                        ? (m_nUsedHeight - m_pCharGen->GetCharHeight())
+                                        : 0;
 
-    if (newRows > 0)
-    {
-        if (cursorRow >= newRows)
-        {
-            cursorRow = newRows - 1;
-        }
-        m_nCursorY = cursorRow * m_pCharGen->GetCharHeight();
+        m_nCursorX = previousCursorX <= maxCursorX ? previousCursorX : maxCursorX;
+        m_nCursorY = previousCursorY <= maxCursorY ? previousCursorY : maxCursorY;
     }
     else
     {
-        m_nCursorY = 0;
+        const unsigned newColumns = GetColumns();
+        const unsigned newRows = GetRows();
+        if (newColumns > 0)
+        {
+            if (cursorColumn >= newColumns)
+            {
+                cursorColumn = newColumns - 1;
+            }
+            m_nCursorX = cursorColumn * m_pCharGen->GetCharWidth();
+        }
+        else
+        {
+            m_nCursorX = 0;
+        }
+
+        if (newRows > 0)
+        {
+            if (cursorRow >= newRows)
+            {
+                cursorRow = newRows - 1;
+            }
+            m_nCursorY = cursorRow * m_pCharGen->GetCharHeight();
+        }
+        else
+        {
+            m_nCursorY = 0;
+        }
     }
 
     m_bCursorVisible = false;
@@ -674,6 +698,8 @@ void CTRenderer::Goto(unsigned nRow, unsigned nColumn)
             m_nNextCursorBlink = CTimer::Get()->GetTicks() + m_nCursorBlinkPeriodTicks;
         }
     }
+
+    m_bWrapPending = FALSE;
 
     m_SpinLock.Release();
 }
@@ -1056,6 +1082,11 @@ void CTRenderer::ScreenAlignmentTest(void)
 
 inline void CTRenderer::SetRawPixel(unsigned nPosX, unsigned nPosY, CDisplay::TRawColor nColor)
 {
+    if (nPosX >= m_nWidth || nPosY >= m_nHeight)
+    {
+        return;
+    }
+
     switch (m_nDepth)
     {
     case 1:
@@ -1087,6 +1118,11 @@ inline void CTRenderer::SetRawPixel(unsigned nPosX, unsigned nPosY, CDisplay::TR
 
 inline CDisplay::TRawColor CTRenderer::GetRawPixel(unsigned nPosX, unsigned nPosY)
 {
+    if (nPosX >= m_nWidth || nPosY >= m_nHeight)
+    {
+        return m_BackgroundColor;
+    }
+
     switch (m_nDepth)
     {
     case 1:
@@ -1732,7 +1768,9 @@ void CTRenderer::Write(char chChar)
         {
         case '3':
             // Double Width double Height top half -> ignore, as we do not support double height
-            SetFont(m_CurrentFontSelection, CCharGenerator::FontFlagsDoubleBoth);
+            ApplyFont(CTFontConverter::Get()->GetFont(m_CurrentFontSelection),
+                      CCharGenerator::FontFlagsDoubleBoth,
+                      TRUE);
             m_State = StateStart;
             break;
         case '4':
@@ -1741,12 +1779,16 @@ void CTRenderer::Write(char chChar)
             break;
         case '5':
             // Standard DEC font mode using currently selected VT100 font family
-            SetFont(m_CurrentFontSelection, CCharGenerator::FontFlagsNone);
+            ApplyFont(CTFontConverter::Get()->GetFont(m_CurrentFontSelection),
+                      CCharGenerator::FontFlagsNone,
+                      TRUE);
             m_State = StateStart;
             break;
         case '6':
             // Double width mode using currently selected VT100 font family
-            SetFont(m_CurrentFontSelection, CCharGenerator::FontFlagsDoubleWidth);
+            ApplyFont(CTFontConverter::Get()->GetFont(m_CurrentFontSelection),
+                      CCharGenerator::FontFlagsDoubleWidth,
+                      TRUE);
             m_State = StateStart;
             break;
         case '8':
@@ -2660,6 +2702,7 @@ void CTRenderer::ClearDisplay(void)
 {
     m_nCursorX = 0;
     m_nCursorY = 0;
+    m_bWrapPending = FALSE;
     ClearDisplayEnd();
 }
 
