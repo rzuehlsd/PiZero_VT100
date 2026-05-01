@@ -582,11 +582,11 @@ The table below lists the escape and control sequences handled by this firmware,
 | ESC Y r c | VT52 direct cursor address | ✓ | — | — | — | — | Implemented | [PASS] |
 | ESC H | Set tab stop (HTS) | — | ✓ | ✓ | ✓ | ✓ | Implemented (ANSI mode) | [PASS] |
 | ESC < | Enter ANSI Mode | ✓ | — | — | — | — | Implemented | [PASS] |
-| ESC #3 | Double-height line (top) | — | ✓ | ✓ | ✓ | — | Implemented | [PASS] |
-| ESC #4 | Double-height line (bottom) | — | ✓ | ✓ | ✓ | — | Implemented | [PASS] |
+| ESC #3 | Double-height line (top) | — | ✓ | ✓ | ✓ | — | Partial (approximated, not true double-height) | [PASS] |
+| ESC #4 | Double-height line (bottom) | — | ✓ | ✓ | ✓ | — | Partial (approximated, not true double-height) | [PASS] |
 | ESC #5 | Normal line size | — | ✓ | ✓ | ✓ | — | Implemented | [PASS] |
 | ESC #6 | Double-width line | — | ✓ | ✓ | ✓ | — | Implemented | [PASS] |
-| ESC #8 | Screen test | — | ✓ | ✓ | ✓ | — | Parsed (ignored) | [PASS] |
+| ESC #8 | Screen test | — | ✓ | ✓ | ✓ | — | Implemented (DECALN fill) | [PASS] |
 | ESC [ A | Cursor up (CUU) | — | ✓ | ✓ | ✓ | ✓ | Implemented | [PASS] |
 | ESC [ B | Cursor down (CUD) | — | ✓ | ✓ | ✓ | ✓ | Implemented | [PASS] |
 | ESC [ C | Cursor right (CUF) | — | ✓ | ✓ | ✓ | ✓ | Implemented | [PASS] |
@@ -600,17 +600,17 @@ The table below lists the escape and control sequences handled by this firmware,
 | ESC [ n L | Insert lines (IL) | — | ✓ | ✓ | ✓ | ✓ | Implemented | [PASS] |
 | ESC [ n M | Delete lines (DL) | — | ✓ | ✓ | ✓ | ✓ | Implemented | [PASS] |
 | ESC [ n P | Delete characters (DCH) | — | ✓ | ✓ | ✓ | ✓ | Implemented | [PASS] |
-| ESC [ 4 h / 4 l | Insert mode (IRM) | — | ✓ | ✓ | ✓ | ✓ | Parsed (not supported) | [PASS] |
+| ESC [ 4 h / 4 l | Insert mode (IRM) | — | ✓ | ✓ | ✓ | ✓ | Implemented | [PASS] |
 | ESC [ n m | Select graphic rendition (SGR) | — | ✓ | ✓ | ✓ | ✓ | Partial (0,1,4,5,7) | [PASS] |
 | ESC [ 0 m | SGR reset (attributes/colors) | — | ✓ | ✓ | ✓ | ✓ | Implemented | [PASS] |
 | ESC [ 1 m | SGR bold/intense | — | ✓ | ✓ | ✓ | ✓ | Implemented | [PASS] |
 | ESC [ 2 m | SGR dim/half-bright | — | ✓ | ✓ | ✓ | ✓ | Implemented | [PASS] |
 | ESC [ 4 m | SGR underline | — | ✓ | ✓ | ✓ | ✓ | Implemented | [PASS] |
-| ESC [ 5 m | SGR blink | — | ✓ | ✓ | ✓ | ✓ | Implemented | [PASS] |
+| ESC [ 5 m | SGR blink | — | ✓ | ✓ | ✓ | ✓ | Partial (attribute latched, no text blink animation) | [PASS] |
 | ESC [ 7 m | SGR reverse video | — | ✓ | ✓ | ✓ | ✓ | Implemented | [PASS] |
 | ESC [ 27 m | SGR reverse off | — | ✓ | ✓ | ✓ | ✓ | Implemented | [PASS] |
-| ESC [ 30-37 / 90-97 m | Set foreground color | — | ✓ | ✓ | ✓ | ✓ | Set in VT100.txt | [PASS] |
-| ESC [ 40-47 / 100-107 m | Set background color | — | ✓ | ✓ | ✓ | ✓ | Set in VT100.txt | [PASS] |
+| ESC [ 30-37 / 90-97 m | Set foreground color | — | ✓ | ✓ | ✓ | ✓ | Not implemented as ANSI color rendering | [PASS] |
+| ESC [ 40-47 / 100-107 m | Set background color | — | ✓ | ✓ | ✓ | ✓ | Not implemented as ANSI color rendering | [PASS] |
 | ESC [ ? 2 l | Enter VT52 Mode | — | ✓ | ✓ | ✓ | — | Implemented | [PASS] |
 | ESC [ ? 25 h / l | Cursor visible (DECTCEM) | — | ✓ | ✓ | ✓ | — | Implemented | [PASS] |
 | ESC [ r1; r2 r | Scroll region (DECSTBM) | — | ✓ | ✓ | ✓ | — | Implemented | [PASS] |
@@ -623,7 +623,88 @@ The table below lists the escape and control sequences handled by this firmware,
 
 **Color note:** The firmware emulates monochrome VT100/VT220/VT320 terminals. ANSI color SGR codes are parsed but not applied; choose text/background colors in `VT100.txt` instead.
 
+**Source-of-truth note:** The status entries above are derived from the current renderer implementation in `VT100/src/TRenderer.cpp`. When this table and older prose disagree, the code should be treated as authoritative.
 
+## VT100 Conformance Assessment
+
+The primary compatibility goal for this project is VT52 plus the core VT100 behavior set. Later DEC/xterm-style extensions and features that conflict with the reduced 60% hardware are secondary.
+
+The table below groups the current implementation into three buckets for practical conformance work:
+
+- `100%`: implemented in the current parser/renderer without an explicit known limitation in code.
+- `Partial`: implemented only as a subset, approximation, or with visible behavioral limits.
+- `Not met`: explicitly ignored or absent in the current implementation.
+
+This is still not a claim of full original-hardware fidelity. If you need near-complete hardware-level VT100 behavior, see the recommendation near the top of this README.
+
+Hardware and product-scope constraints that intentionally shape this assessment:
+
+- `DECCOLM` (`80/132 columns`) is outside the target because the current framebuffer/display geometry is fixed by the hardware design.
+- `DECKPAM` and `DECKPNM` are outside the target because the reduced 60% keyboard has no numeric keypad block.
+- `DECCKM` is lower priority for the same reason: it only changes which escape sequences dedicated cursor keys send to host applications.
+
+`DECCKM` explained briefly: in normal cursor-key mode the arrow keys typically send `ESC [ A/B/C/D`; in application cursor-key mode they send `ESC O A/B/C/D`. Some full-screen host applications care about that distinction.
+
+| VT100 property | Fulfillment | Notes |
+| --- | --- | --- |
+| VT52 compatibility mode | 100% | VT52 control subset and mode switching are implemented and are a primary target. |
+| Basic cursor control (`BS`, `CR`, `LF`, `CUU`, `CUD`, `CUF`, `CUB`, `CUP`, `HVP`) | 100% | Implemented in the parser and dedicated cursor helpers. |
+| Screen and line erase (`ED`, `EL`) | 100% | Variants `0`, `1`, and `2` are implemented. |
+| Character edits (`ICH`, `DCH`, `ECH`) | 100% | Insert, delete, and erase-char behavior is present. |
+| Line edits (`IL`, `DL`) | 100% | Works within the active scroll region. |
+| Scroll semantics (`IND`, `NEL`, `RI`) | 100% | Forward and reverse scrolling behavior is implemented. |
+| Scroll region (`DECSTBM`) | 100% | Includes VT100-style clamping for oversized parameters. |
+| Wraparound mode (`DECAWM`) | 100% | Uses VT100-style wrap-pending behavior at the last column. |
+| Origin mode (`DECOM`) | 100% | Cursor addressing is relative to the active scroll region. |
+| Save and restore cursor (`DECSC`, `DECRC`, `CSI s/u`) | 100% | Position, modes, and key attributes are restored. |
+| Tab handling (`HT`, `HTS`, `TBC`, `CBT`) | 100% | Forward tab, set/clear stop, clear-all, and back-tab are implemented. |
+| Device reports (`DA`, `DSR 5`, `DSR 6`) | 100% | The terminal replies to identity and status queries. |
+| Character sets (`G0/G1`, DEC Special Graphics) | 100% | Graphics character selection and switching are implemented. |
+| Alignment test (`DECALN`, `ESC #8`) | 100% | Implemented as full-screen alignment fill. |
+| Insert mode (`IRM`, `CSI 4 h/l`) | 100% | Printable characters are inserted when the mode is enabled. |
+| SGR core subset (`0`, `1`, `2`, `4`, `5`, `7`, `27`) | Partial | Supported set is limited to a subset of SGR. |
+| SGR blink text behavior | Partial | The attribute is latched, but rendered text does not visibly blink. |
+| DEC line attributes (`ESC #3`, `#4`, `#5`, `#6`) | Partial | Double-width works; double-height currently uses generic doubled rendering rather than distinct VT100 top/bottom-half semantics. |
+| Application keypad mode (`DECKPAM`, `DECKPNM`) | Not targeted | Explicitly ignored by the parser and intentionally outside scope because the 60% keyboard has no numeric keypad. |
+| Cursor key application mode (`DECCKM`) | Not targeted | Explicitly ignored by the parser; accepted limitation for the reduced keyboard/input model. |
+| 80/132-column switching (`DECCOLM`) | Not targeted | Outside scope because the current hardware uses a fixed display geometry. |
+| ANSI color rendering via SGR | Not met | Terminal remains monochrome; colors are selected via configuration instead. |
+| Full original VT100 hardware fidelity | Not met | The project emulates behavior, not the complete DEC hardware stack. |
+
+## Practical vttest Plan
+
+The most reliable way to turn the matrix above into an evidence-based report is to run `vttest` from a Unix host against the firmware and record each section as `pass`, `partial`, or `fail`.
+
+Recommended workflow:
+
+1. Start with the built-in `VTTest` for a quick on-device sanity check of cursoring, scrolling, wraparound, DEC graphics, and line attributes.
+2. Connect from a Unix host in raw character mode. Avoid telnet line mode, otherwise control-key and cursor tests become misleading.
+3. Run `vttest` and keep a simple report sheet with these columns: `section`, `expected result`, `observed result`, `status`, `notes`.
+4. Treat the code-based matrix in this README as the expected baseline before you begin. Any mismatch between `vttest` and the matrix is worth investigating.
+
+Suggested `vttest` interpretation for the current implementation:
+
+| vttest area | Expected result | Why |
+| --- | --- | --- |
+| Cursor movement and direct cursor addressing | Pass | Core cursor commands are implemented and already covered by the internal test suite. |
+| Screen clearing and line clearing | Pass | `ED` and `EL` variants are implemented. |
+| Insert/delete chars and lines | Pass | `ICH`, `DCH`, `ECH`, `IL`, and `DL` are implemented in the renderer. |
+| Scrolling, reverse index, and scroll regions | Pass | `IND`, `NEL`, `RI`, and `DECSTBM` are implemented. |
+| Wraparound tests | Pass | The renderer carries a dedicated wrap-pending state for VT100-style behavior. |
+| Origin mode tests | Pass | `DECOM` is implemented and influences cursor addressing. |
+| Device attributes and status reports | Pass | Primary `DA`, `DSR 5`, and `DSR 6` replies are implemented. |
+| Tab stop handling | Pass | Forward tab, set/clear tab stop, clear all, and back-tab are present. |
+| VT52 mode tests | Pass | VT52 subset and ANSI escape back to normal mode are implemented. |
+| DEC special graphics | Pass | G0/G1 switching and graphics glyph selection are implemented. |
+| SGR attribute tests | Partial | Bold, dim, underline, reverse, and reset work, but only a subset of SGR is supported. |
+| Blink attribute tests | Partial | `SGR 5` is accepted, but text blink is not visibly rendered. |
+| DEC double-width / double-height line tests | Partial | Double-width is implemented; double-height is only approximated. |
+| Keypad application mode tests | Not targeted | `DECKPAM` and `DECKPNM` are outside the current product scope because the keyboard has no numeric keypad. |
+| Cursor key application mode tests | Not targeted | `DECCKM` is outside the current product scope and currently ignored. |
+| 80/132-column switching tests | Not targeted | `DECCOLM` is outside scope because the display geometry is fixed by the hardware. |
+| ANSI color tests | Fail | The firmware is monochrome and does not apply color SGR codes. |
+
+When you run `vttest`, capture the exact menu section names alongside the outcomes. That gives you a reproducible conformance ledger and a concrete backlog for the remaining `partial` and `fail` items.
 
 ## Troubleshooting
 

@@ -32,12 +32,8 @@ Reconstructed from git commit history and intended as a concise daily summary of
 - Added a comparison build where Setup B calls `RenderHeader()` with the same parameters as Setup A to isolate whether the remaining title offset is caused by the header call itself.
 
 ## 2026-05-01
-- Added a comparison build that swaps the legacy F12 page order so Setup B renders first and Setup A second, to determine whether the remaining title offset follows the page content or the A->B transition timing.
-- Replaced the setup header's parsed `ESC c` reset with a direct renderer parser reset before drawing, to isolate whether a stale local escape-sequence state causes the remaining Setup B title offset.
-- Restored the normal legacy F12 page order after the comparison test so further checks run again with Setup A first and Setup B second.
-- Fixed renderer font-switch cursor handling so DEC double-height and double-width mode changes keep the current pixel position instead of re-scaling the cursor by the new character height.
-- Split DEC font-mode handling onto an explicit pixel-stable renderer path so ESC `#3/#5/#6` no longer depends on the generic `SetFont()` remapping logic.
-- Cleared the renderer's pending wrap state on full-screen clears and absolute cursor jumps so legacy setup headers cannot inherit a stale newline/scroll condition into the next font-mode draw.
+- Implemented features: stabilized legacy setup-header rendering by isolating parser-state carry-over, preserving cursor pixel position across DEC line-attribute font changes, clearing stale wrap state before absolute draws, and refined the documentation assessment to prioritize VT52/VT100 core compatibility over out-of-scope hardware-limited features.
+- Codebase changes: added comparison builds for Setup A/B ordering diagnostics, replaced the setup header's parsed `ESC c` with a direct renderer parser reset before drawing, split DEC font-mode switching onto a pixel-stable path for `ESC #3/#5/#6`, cleared pending wrap state on full-screen clears and absolute cursor jumps, documented the VT100 conformance matrix plus a concrete `vttest` validation plan in `README.md`, and clarified accepted hardware scope limits for `DECCOLM`, `DECKPAM/DECKPNM`, and `DECCKM`.
 
 ## 2026-04-22
 - Implemented features: GPIO overvoltage protection design finalized for Adapter Board revision V2.3; relay swap mismatch vulnerability identified and documented.
