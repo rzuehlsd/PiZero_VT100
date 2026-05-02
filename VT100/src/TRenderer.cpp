@@ -2174,9 +2174,7 @@ void CTRenderer::Write(char chChar)
             {
                 const unsigned savedX = m_nCursorX;
                 const unsigned savedY = m_nCursorY;
-                m_nCursorX = 0;
-                m_nCursorY = 0;
-                ClearDisplayEnd();
+                ClearDisplay();
                 m_nCursorX = savedX;
                 m_nCursorY = savedY;
             }
@@ -2380,7 +2378,7 @@ void CTRenderer::Write(char chChar)
                     }
                     else if (mode == 47 || mode == 1047 || mode == 1049)
                     {
-                        // xterm alternate screen buffer.
+                        ClearDisplay();
                         if (enable)
                         {
                             EnterAlternateScreen();
@@ -2949,6 +2947,7 @@ void CTRenderer::ClearDisplay(void)
     m_nCursorX = 0;
     m_nCursorY = 0;
     m_bWrapPending = FALSE;
+    ResetLineAttributes();
     ClearDisplayEnd();
 }
 

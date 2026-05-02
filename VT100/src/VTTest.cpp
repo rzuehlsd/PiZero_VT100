@@ -37,6 +37,22 @@ static const char *kScrollLines[kScrollLineCount] = {
     "L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8", "L9", "L10"
 };
 
+void ResetFullScreenTestState(CTRenderer *pRenderer)
+{
+    if (pRenderer == nullptr)
+    {
+        return;
+    }
+
+    // Restore the full-screen terminal baseline before each VTTest screen so
+    // scroll regions, origin mode, charsets, and DEC line attributes cannot leak.
+    static const char kResetSeq[] =
+        "\x1B#5\x1B(B\x1B)0\x0F\x1B[0m\x1B[?6l\x1B[?7h\x1B[?25h\x1B[r\x1B[2J\x1B[H";
+    pRenderer->ResetParserState();
+    pRenderer->Write(kResetSeq, len(kResetSeq));
+    pRenderer->ResetParserState();
+}
+
 static const CVTTest::TVTTestStep kCoreSteps[] = {
     {"ANSI Cursor Position", "\x1B[1;1H\x1B[5;10H", "Cursor should be at row 5, column 10.", 4, 9},
     {"ANSI Cursor Home", "\x1B[H", "Cursor should move to home (row 1, col 1).", 0, 0},
@@ -163,27 +179,27 @@ static const char *kGraphicsFontParts[] = {
     "Graph : \x1B(0`abcdefghijklmnopqrstuvwxyz{|}~\x1B(B",
 
     // 2. Double Width (Positioned below Normal)
-    "\x1B[5;1H\x1B#5Double Width:\r\n"
-    "\x1B#6Normal: `abcdefghijklmnopqrstuvwxyz{|}~\r\n"
-    "\x1B#6Graph : \x1B(0`abcdefghijklmnopqrstuvwxyz{|}~\x1B(B",
+    "\x1B[5;1H\x1B#5Double Width:"
+    "\x1B[6;1H\x1B#6Normal: `abcdefghijklmnopqrstuvwxyz{|}~"
+    "\x1B[7;1H\x1B#6Graph : \x1B(0`abcdefghijklmnopqrstuvwxyz{|}~\x1B(B"
+    "\x1B[8;1H\x1B#5",
 
     // 3. Double Height (Positioned below Double Width)
-    "\x1B[10;1H\x1B#5Double Height:\r\n"
-    "\x1B#3Normal: `abcdefghijklmnopqrstuvwxyz{|}~\r\n"
-    "\x1B#4Normal: `abcdefghijklmnopqrstuvwxyz{|}~\r\n"
-    "\x1B#3Graph : \x1B(0`abcdefghijklmnopqrstuvwxyz{|}~\x1B(B\r\n"
-    "\x1B#4Graph : \x1B(0`abcdefghijklmnopqrstuvwxyz{|}~\x1B(B\r\n"
+    "\x1B[10;1H\x1B#5Double Height:"
+    "\x1B[11;1H\x1B#3Normal: `abcdefghijklmnopqrstuvwxyz{|}~"
+    "\x1B[12;1H\x1B#4Normal: `abcdefghijklmnopqrstuvwxyz{|}~"
+    "\x1B[14;1H\x1B#3Graph : \x1B(0`abcdefghijklmnopqrstuvwxyz{|}~\x1B(B"
+    "\x1B[15;1H\x1B#4Graph : \x1B(0`abcdefghijklmnopqrstuvwxyz{|}~\x1B(B"
     "\x1B[24;1H\x1B#5\x1B(B" // Ensure Normal Single Width and ASCII at bottom
 };
 static const unsigned kGraphicsFontPartCount = sizeof(kGraphicsFontParts) / sizeof(kGraphicsFontParts[0]);
 
 static const char *kDecLineAttrParts[] = {
     "\x1B[2J\x1B[H",
-    "\x1B[4;1H\x1B#3DOUBLE WIDTH DOUBLE HEIGHT\r\n\x1B#5",
-    "\x1B[5;1H\x1B#4DOUBLE WIDTH DOUBLE HEIGHT\r\n\x1B#5",
-    "\x1B[10;1H\x1B#6DOUBLE WIDTH\r\n\x1B#5",
-    "\x1B[14;1H\x1B#5NORMAL FONT\r\n",
-    "\x1B[18;1H\x1B[1mBOLD\x1B[0m \x1B[4mUNDERLINE\x1B[0m \x1B[7mREVERSE\x1B[0m \r\n"
+    "\x1B[4;1H\x1B#3DOUBLE WIDTH DOUBLE HEIGHT\x1B[5;1H\x1B#4DOUBLE WIDTH DOUBLE HEIGHT\x1B[6;1H\x1B#5",
+    "\x1B[10;1H\x1B#6DOUBLE WIDTH\x1B[11;1H\x1B#5",
+    "\x1B[14;1H\x1B#5NORMAL FONT",
+    "\x1B[18;1H\x1B[1mBOLD\x1B[0m \x1B[4mUNDERLINE\x1B[0m \x1B[7mREVERSE\x1B[0m"
 };
 static const unsigned kDecLineAttrPartCount = sizeof(kDecLineAttrParts) / sizeof(kDecLineAttrParts[0]);
 
@@ -225,14 +241,12 @@ static const char *kAutoPageParts[] = {
 static const unsigned kAutoPagePartCount = sizeof(kAutoPageParts) / sizeof(kAutoPageParts[0]);
 
 static const char *kDecomOriginParts[] = {
-    // Layout similar to DEC Scroll Region tests
-    "\x1B[2J\x1B[H\x1B[0m\x1B[?6l\x1B[r"      // reset DECOM + scroll region
-    "\x1B[6;9r"                              // set scroll region rows 6-9
-    "\x1B[5;1HTOP"                           // marker above region
-    "\x1B[10;1HBOT"                          // marker below region
-    "\x1B[6;1H\x1B[K\x1B[7;1H\x1B[K\x1B[8;1H\x1B[K\x1B[9;1H\x1B[K" // clear region lines
-    "\x1B[12;1HEXPECT: ABS row1; ORI row6 (scroll-top); ROW4 row9.\x1B[K"
-    "\x1B[13;1HRETURN=OK  SPACE=NOT OK\x1B[K",
+    // Use the normal VTTest frame and only prepare the demo area.
+    "\x1B#5\x1B[0m\x1B[?6l\x1B[r"
+    "\x1B[5;1H\x1B[K\x1B[6;1H\x1B[K\x1B[7;1H\x1B[K\x1B[8;1H\x1B[K\x1B[9;1H\x1B[K\x1B[10;1H\x1B[K"
+    "\x1B[6;9r"
+    "\x1B[5;1HTOP"
+    "\x1B[10;1HBOT",
 
     // Phase 1: DECOM off -> absolute CUP
     "\x1B[?6l\x1B[1;10HABS\x1B[K",
@@ -786,13 +800,9 @@ void CVTTest::ShowIntro(void)
         return;
     }
 
-    const unsigned rows = m_pRenderer->GetRows();
-    CString clearSeq;
-    clearSeq.Format("\x1B#5\x1B[0m\x1B[1;%ur\x1B[2J\x1B[H", rows > 0 ? rows : 1);
-    m_pRenderer->ResetParserState();
-    m_pRenderer->Write(clearSeq.c_str(), clearSeq.GetLength());
+    ResetFullScreenTestState(m_pRenderer);
 
-    const char *titleSeq = "\x1B[1;1H\x1B#3VT100 Internal Test\r\n\x1B[2;1H\x1B#4VT100 Internal Test\r\n\x1B#5";
+    const char *titleSeq = "\x1B[1;1H\x1B#3VT100 Internal Test\x1B[2;1H\x1B#4VT100 Internal Test\x1B[3;1H\x1B#5";
     m_pRenderer->Write(titleSeq, strlen(titleSeq));
     m_pRenderer->ResetParserState();
 
@@ -831,7 +841,9 @@ void CVTTest::RunStep(const TVTTestStep &step)
 
     if (isDecomOriginTest)
     {
-        m_pRenderer->ResetParserState();
+        DrawTestFrame(step);
+        m_bShowRulers = savedRulers;
+        m_bTabLayout = savedTabLayout;
         m_bSequencePartsActive = true;
         m_sequenceParts = kDecomOriginParts;
         m_sequencePartCount = kDecomOriginPartCount;
@@ -987,7 +999,7 @@ void CVTTest::RunStep(const TVTTestStep &step)
         // Row 2: column ruler only (as long as it exists)
         if (rows >= 2)
         {
-            m_pRenderer->Write("\x1B[2;1H1234567890", len("\x1B[2;1H1234567890"));
+            m_pRenderer->Write("\x1B[2;1H\x1B#5" "1234567890", len("\x1B[2;1H\x1B#5" "1234567890"));
             for (unsigned c = 11; c <= cols; c += 10)
             {
                 CString s;
@@ -1082,6 +1094,8 @@ void CVTTest::RunStep(const TVTTestStep &step)
         {
             config->SetWrapAroundEnabled(isWrapOnTest ? TRUE : FALSE);
         }
+
+        m_pRenderer->SetWrapAroundMode(isWrapOnTest ? TRUE : FALSE);
 
         StartBoundaryAnimation(isWrapOnTest, false);
         return;
@@ -1280,43 +1294,46 @@ void CVTTest::ShowPrompt(void)
 
 void CVTTest::ShowSummary(void)
 {
-    // Reset parser and force Normal font (10x20) so GetRows returns max capacity
-    m_pRenderer->ResetParserState();
-    m_pRenderer->Write("\x1B#5", 3);
-
-    // Reset line/char attributes and clear screen before summary
-    const unsigned rows = m_pRenderer->GetRows();
-    CString clearSeq;
-    clearSeq.Format("\x1B#5\x1B[0m\x1B[1;%ur\x1B[2J\x1B[H", rows > 0 ? rows : 1);
-    m_pRenderer->Write(clearSeq.c_str(), clearSeq.GetLength());
+    ResetFullScreenTestState(m_pRenderer);
 
     const unsigned dRows = m_pRenderer->GetRows();
     const unsigned dCols = m_pRenderer->GetColumns();
     const unsigned dHeight = m_pRenderer->GetHeight();
     
-    // Explicitly title with debug info
-    CString titleMsg;
-    titleMsg.Format("VT100 Internal Test Summary (R:%u C:%u H:%u Items:%u)", dRows, dCols, dHeight, m_allCount);
-    
-    // Draw the title as a real DEC double-height pair.
-    // #3 renders the upper half of the glyphs, #4 renders the lower half,
-    // and #5 restores normal line size for the summary content below.
+    CString titleMsg("VT100 Test Summary");
+    unsigned titleChars = static_cast<unsigned>(titleMsg.GetLength());
+    unsigned maxTitleChars = dCols > 1 ? (dCols / 2) : dCols;
+    if (maxTitleChars > 40)
+    {
+        maxTitleChars = 40;
+    }
+    if (maxTitleChars > 0 && titleChars > maxTitleChars)
+    {
+        titleChars = maxTitleChars;
+    }
 
-    // Line 1: top half
-    m_pRenderer->Write("\x1B[1;1H\x1B#3", 7);
-    m_pRenderer->Write(titleMsg.c_str(), titleMsg.GetLength());
-    m_pRenderer->Write("\r\n", 2);
+    const unsigned titlePadding = (maxTitleChars > titleChars) ? ((maxTitleChars - titleChars) / 2) : 0;
+    CString titleLine;
+    for (unsigned i = 0; i < titlePadding; ++i)
+    {
+        titleLine.Append(" ");
+    }
+    const char *pTitle = titleMsg.c_str();
+    for (unsigned i = 0; i < titleChars && pTitle[i] != '\0'; ++i)
+    {
+        titleLine.Append(pTitle[i]);
+    }
 
-    // Line 2: bottom half
-    m_pRenderer->Write("\x1B#4", 3);
-    m_pRenderer->Write(titleMsg.c_str(), titleMsg.GetLength());
-    m_pRenderer->Write("\r\n", 2);
-
-    // Reset to normal line size for the summary content.
-    m_pRenderer->Write("\x1B#5", 3);
+    // Set #3/#4 from column 1 because DEC line attributes apply to the whole row.
+    // Centering is done with leading spaces inside the DWDH text line itself.
+    CString titleSeq;
+    titleSeq.Format("\x1B[1;1H\x1B#3\x1B[K%s\x1B[2;1H\x1B#4\x1B[K%s\x1B[3;1H\x1B#5",
+                    titleLine.c_str(),
+                    titleLine.c_str());
+    m_pRenderer->Write(titleSeq.c_str(), titleSeq.GetLength());
     m_pRenderer->ResetParserState();
 
-    LOGNOTE("VT100 Internal Test Summary - R:%u C:%u H:%u", dRows, dCols, dHeight);
+    LOGNOTE("VT100 Internal Test Summary - R:%u C:%u H:%u Items:%u", dRows, dCols, dHeight, m_allCount);
 
     unsigned passCount = 0;
     unsigned failCount = 0;
@@ -1425,11 +1442,11 @@ void CVTTest::ShowSummary(void)
     }
 
     // Position summary at the bottom
-    unsigned summaryLine = rows > 1 ? rows - 1 : line + leftCount;
-    if (summaryLine < line + leftCount && summaryLine >= rows) summaryLine = rows - 1; // Adjust if overlapping
+    unsigned summaryLine = dRows > 1 ? dRows - 1 : line + leftCount;
+    if (summaryLine < line + leftCount && summaryLine >= dRows) summaryLine = dRows - 1; // Adjust if overlapping
     if (summaryLine < line + leftCount) summaryLine = line + leftCount; // Ensure it's below list if space allows or scroll...
     // Actually just force bottom of screen
-    summaryLine = rows > 0 ? rows - 1 : 0; 
+    summaryLine = dRows > 0 ? dRows - 1 : 0; 
     
     // Clear the summary line area just in case
     m_pRenderer->Goto(summaryLine, 0);
@@ -1488,8 +1505,7 @@ void CVTTest::LogSummary(void)
 
 void CVTTest::DrawTestFrame(const TVTTestStep &step)
 {
-    // Use renderer's ClearDisplay to clear screen and home cursor
-    m_pRenderer->ClearDisplay();
+    ResetFullScreenTestState(m_pRenderer);
 
     if (m_bShowRulers)
     {
@@ -1501,6 +1517,7 @@ void CVTTest::DrawTestFrame(const TVTTestStep &step)
             hRuler.Append(digit);
         }
         m_pRenderer->Goto(0, 0);
+        m_pRenderer->Write("\x1B#5", 3);
         m_pRenderer->Write(hRuler.c_str(), hRuler.GetLength());
 
         if (!m_bTabLayout)
