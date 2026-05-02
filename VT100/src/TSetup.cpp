@@ -18,6 +18,33 @@
 
 namespace
 {
+    class CScopedMarginBellMute
+    {
+    public:
+        explicit CScopedMarginBellMute(CTConfig *pConfig)
+        : m_pConfig(pConfig)
+        , m_bRestore(false)
+        {
+            if (m_pConfig != nullptr && m_pConfig->GetMarginBellEnabled())
+            {
+                m_pConfig->SetMarginBellEnabled(FALSE);
+                m_bRestore = true;
+            }
+        }
+
+        ~CScopedMarginBellMute()
+        {
+            if (m_bRestore && m_pConfig != nullptr)
+            {
+                m_pConfig->SetMarginBellEnabled(TRUE);
+            }
+        }
+
+    private:
+        CTConfig *m_pConfig;
+        bool m_bRestore;
+    };
+
     static const unsigned kBaudRates[] = {
         50, 75, 110, 134, 150, 300, 600, 1200, 1800, 2400, 4800,
         9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600};
@@ -690,7 +717,9 @@ void CTSetup::RenderHeader(const char *pTitle, unsigned topRow, unsigned subtitl
     m_pRenderer->Goto(topRow + 2, 0);
     m_pRenderer->SetColors(fgColor, bgColor);
     m_pRenderer->Write(kESC_6, strlen(kESC_6));
+    m_pRenderer->Write("\x1B[4m", strlen("\x1B[4m"));
     m_pRenderer->Write("TO EXIT PRESS \"SET-UP\"", strlen("TO EXIT PRESS \"SET-UP\""));
+    m_pRenderer->Write("\x1B[24m", strlen("\x1B[24m"));
 
     // Return to normal width
     m_pRenderer->Write(kESC_5, strlen(kESC_5));
@@ -739,6 +768,8 @@ void CTSetup::RenderPageA()
     {
         return;
     }
+
+    CScopedMarginBellMute scopedMarginBellMute(m_pConfig);
 
     EColorSelection fgSel = TerminalColorGreen;
     EColorSelection bgSel = TerminalColorBlack;
@@ -823,6 +854,8 @@ void CTSetup::RenderPageB()
     {
         return;
     }
+
+    CScopedMarginBellMute scopedMarginBellMute(m_pConfig);
 
     EColorSelection fgSel = TerminalColorGreen;
     EColorSelection bgSel = TerminalColorBlack;
@@ -1258,6 +1291,8 @@ void CTSetup::RenderModernDialog()
         return;
     }
 
+    CScopedMarginBellMute scopedMarginBellMute(m_pConfig);
+
     EColorSelection fgSel = TerminalColorGreen;
     EColorSelection bgSel = TerminalColorBlack;
     if (m_pConfig != nullptr)
@@ -1333,19 +1368,26 @@ void CTSetup::RenderModernDialog()
 
     const char *titleText = "VT100 Emulation Setup";
     const unsigned titleLen = strlen(titleText);
-    const unsigned innerStartDouble = (layout.left + 1U) / 2U;
     const unsigned innerWidthDouble = drawInnerWidth / 2U;
-    unsigned titleCol = innerStartDouble;
+    unsigned centeredTitleOffset = 0;
     if (innerWidthDouble > titleLen)
     {
-        titleCol = innerStartDouble + ((innerWidthDouble - titleLen) / 2U);
+        centeredTitleOffset = (innerWidthDouble - titleLen) / 2U;
     }
-    m_pRenderer->Write("\x1B[1m", strlen("\x1B[1m"));
+    const unsigned titleChars = (innerWidthDouble < sizeof(line) - 1U) ? innerWidthDouble : (sizeof(line) - 1U);
+    memset(line, ' ', titleChars);
+    if (titleChars > 0)
+    {
+        const unsigned copiedTitleLen = (titleLen < titleChars) ? titleLen : titleChars;
+        memcpy(line + centeredTitleOffset, titleText, copiedTitleLen);
+    }
+    line[titleChars] = '\0';
+    m_pRenderer->Goto(layout.top + 1, layout.left + 1);
     m_pRenderer->Write("\x1B#6", strlen("\x1B#6"));
-    m_pRenderer->Goto(layout.top + 1, titleCol);
-    m_pRenderer->Write(titleText, titleLen);
-    m_pRenderer->Write("\x1B#5", strlen("\x1B#5"));
+    m_pRenderer->Write("\x1B[1m", strlen("\x1B[1m"));
+    m_pRenderer->Write(line, titleChars);
     m_pRenderer->Write("\x1B[22m", strlen("\x1B[22m"));
+    m_pRenderer->Write("\x1B#5", strlen("\x1B#5"));
 
     m_pRenderer->Goto(layout.top + 3, layout.left + 2);
     m_pRenderer->Write("Parameter", strlen("Parameter"));
@@ -1495,6 +1537,8 @@ bool CTSetup::RenderModernSelectionDelta(TModernField previousSelected, unsigned
         return false;
     }
 
+    CScopedMarginBellMute scopedMarginBellMute(m_pConfig);
+
     TModernLayoutState currentLayout{};
     if (!ComputeModernLayout(currentLayout))
     {
@@ -1547,6 +1591,8 @@ bool CTSetup::RenderModernValueDelta()
     {
         return false;
     }
+
+    CScopedMarginBellMute scopedMarginBellMute(m_pConfig);
 
     TModernLayoutState currentLayout{};
     if (!ComputeModernLayout(currentLayout))
