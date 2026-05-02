@@ -126,7 +126,9 @@ private:
     void Render();
     void RenderPageA();
     void RenderPageB();
-    void RenderHeader(const char *pTitle, unsigned topRow);
+    void RenderHeader(const char *pTitle, unsigned topRow, unsigned subtitleRowOffset = 2, bool clearBottomPixelRow = false);
+    bool PrepareToShow();
+    void NormalizeRenderState(bool graphicsInG1);
     void InitializeSetupBFromConfig();
     void ApplySetupBToConfig();
     void MoveSetupBFieldLeft();
@@ -191,5 +193,4 @@ private:
     TModernConfigState m_ModernConfig;
     bool m_ModernLayoutValid;
     TModernLayoutState m_ModernLayout;
-
 };

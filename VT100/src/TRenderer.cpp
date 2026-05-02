@@ -81,6 +81,8 @@ CTRenderer::CTRenderer(void)
       m_FontFlags(CCharGenerator::FontFlagsNone),
       m_pCharGen(nullptr),
       m_pGraphicsCharGen(nullptr),
+    m_pDoubleBothCharGen(nullptr),
+    m_pGraphicsDoubleBothCharGen(nullptr),
       m_CurrentFontSelection(EFontSelection::VT100Font10x20),
       m_G0CharSet(CharSetUS),
       m_G1CharSet(CharSetGraphics),
@@ -185,10 +187,242 @@ inline unsigned CSIParamOrDefault(const unsigned *params, unsigned count, unsign
 }
 }
 
+unsigned CTRenderer::GetBaseCharWidth(void) const
+{
+    return m_pCharGen ? m_pCharGen->GetCharWidth() : 0;
+}
+
+unsigned CTRenderer::GetBaseCharHeight(void) const
+{
+    return m_pCharGen ? m_pCharGen->GetCharHeight() : 0;
+}
+
+unsigned CTRenderer::GetRowCount(void) const
+{
+    const unsigned charHeight = GetBaseCharHeight();
+    if (charHeight == 0)
+    {
+        return 0;
+    }
+
+    unsigned rows = m_nUsedHeight / charHeight;
+    if (rows > MaxTextRows)
+    {
+        rows = MaxTextRows;
+    }
+
+    return rows;
+}
+
+unsigned CTRenderer::GetRowIndexFromY(unsigned nPosY) const
+{
+    const unsigned charHeight = GetBaseCharHeight();
+    if (charHeight == 0)
+    {
+        return 0;
+    }
+
+    unsigned row = nPosY / charHeight;
+    const unsigned rowCount = GetRowCount();
+    if (rowCount == 0)
+    {
+        return 0;
+    }
+    if (row >= rowCount)
+    {
+        row = rowCount - 1;
+    }
+    return row;
+}
+
+CTRenderer::ELineAttribute CTRenderer::GetLineAttributeForRow(unsigned row) const
+{
+    const unsigned rowCount = GetRowCount();
+    if (rowCount == 0)
+    {
+        return LineAttributeNormal;
+    }
+    if (row >= rowCount)
+    {
+        row = rowCount - 1;
+    }
+    return m_LineAttributes[row];
+}
+
+CTRenderer::ELineAttribute CTRenderer::GetLineAttributeForY(unsigned nPosY) const
+{
+    return GetLineAttributeForRow(GetRowIndexFromY(nPosY));
+}
+
+void CTRenderer::SetLineAttributeForRow(unsigned row, ELineAttribute attribute)
+{
+    const unsigned rowCount = GetRowCount();
+    if (row >= rowCount)
+    {
+        return;
+    }
+
+    m_LineAttributes[row] = attribute;
+}
+
+void CTRenderer::ResetLineAttributes(void)
+{
+    for (unsigned row = 0; row < MaxTextRows; ++row)
+    {
+        m_LineAttributes[row] = LineAttributeNormal;
+    }
+}
+
+void CTRenderer::ShiftLineAttributesUp(unsigned startRow, unsigned endRow, unsigned count)
+{
+    if (startRow >= endRow || count == 0)
+    {
+        return;
+    }
+
+    if (count >= endRow - startRow)
+    {
+        count = endRow - startRow;
+    }
+
+    for (unsigned row = startRow; row + count < endRow; ++row)
+    {
+        m_LineAttributes[row] = m_LineAttributes[row + count];
+    }
+
+    for (unsigned row = endRow - count; row < endRow; ++row)
+    {
+        m_LineAttributes[row] = LineAttributeNormal;
+    }
+}
+
+void CTRenderer::ShiftLineAttributesDown(unsigned startRow, unsigned endRow, unsigned count)
+{
+    if (startRow >= endRow || count == 0)
+    {
+        return;
+    }
+
+    if (count >= endRow - startRow)
+    {
+        count = endRow - startRow;
+    }
+
+    for (unsigned row = endRow; row > startRow + count; --row)
+    {
+        m_LineAttributes[row - 1] = m_LineAttributes[row - 1 - count];
+    }
+
+    for (unsigned row = startRow; row < startRow + count; ++row)
+    {
+        m_LineAttributes[row] = LineAttributeNormal;
+    }
+}
+
+boolean CTRenderer::IsDoubleWidthLineAttribute(ELineAttribute attribute) const
+{
+    return attribute == LineAttributeDoubleWidth
+        || attribute == LineAttributeDoubleHeightTop
+        || attribute == LineAttributeDoubleHeightBottom;
+}
+
+unsigned CTRenderer::GetCharCellWidthForLineAttribute(ELineAttribute attribute) const
+{
+    const unsigned baseCharWidth = GetBaseCharWidth();
+    if (baseCharWidth == 0)
+    {
+        return 0;
+    }
+
+    return IsDoubleWidthLineAttribute(attribute) ? baseCharWidth * 2 : baseCharWidth;
+}
+
+unsigned CTRenderer::GetCharCellWidthForY(unsigned nPosY) const
+{
+    return GetCharCellWidthForLineAttribute(GetLineAttributeForY(nPosY));
+}
+
+unsigned CTRenderer::GetColumnsForY(unsigned nPosY) const
+{
+    const unsigned charWidth = GetCharCellWidthForY(nPosY);
+    if (charWidth == 0)
+    {
+        return 0;
+    }
+
+    return m_nUsedWidth / charWidth;
+}
+
+void CTRenderer::ClampCursorToLineWidth(void)
+{
+    const unsigned charWidth = GetCharCellWidthForY(m_nCursorY);
+    if (charWidth == 0 || m_nUsedWidth < charWidth)
+    {
+        m_nCursorX = 0;
+        return;
+    }
+
+    const unsigned lastColumnX = m_nUsedWidth - charWidth;
+    if (m_nCursorX > lastColumnX)
+    {
+        m_nCursorX = lastColumnX;
+    }
+
+    m_nCursorX = (m_nCursorX / charWidth) * charWidth;
+}
+
+boolean CTRenderer::SampleGlyphPixel(const CCharGenerator &charGen,
+                                     char chChar,
+                                     ELineAttribute attribute,
+                                     unsigned nPosX,
+                                     unsigned nPosY) const
+{
+    const unsigned baseCharWidth = charGen.GetCharWidth();
+    const unsigned baseCharHeight = charGen.GetCharHeight();
+    if (baseCharWidth == 0 || baseCharHeight == 0)
+    {
+        return FALSE;
+    }
+
+    unsigned sourceX = nPosX;
+    unsigned sourceY = nPosY;
+
+    if (attribute == LineAttributeDoubleHeightTop || attribute == LineAttributeDoubleHeightBottom)
+    {
+        const unsigned halfHeight = GetBaseCharHeight();
+        if (halfHeight == 0 || baseCharHeight < halfHeight)
+        {
+            return FALSE;
+        }
+
+        if (attribute == LineAttributeDoubleHeightTop)
+        {
+            sourceY = nPosY;
+        }
+        else
+        {
+            sourceY = nPosY + halfHeight;
+        }
+    }
+    else if (IsDoubleWidthLineAttribute(attribute))
+    {
+        sourceX >>= 1;
+    }
+
+    if (sourceX >= baseCharWidth || sourceY >= baseCharHeight)
+    {
+        return FALSE;
+    }
+
+    return charGen.GetPixel(chChar, sourceX, sourceY);
+}
+
 CTRenderer::~CTRenderer(void)
 {
     CDeviceNameService::Get()->RemoveDevice(DevicePrefix, m_nDisplayIndex + 1, FALSE);
 
+    ResetLineAttributes();
+    memset(m_AltScreenLineAttributes, 0, sizeof(m_AltScreenLineAttributes));
     delete[] m_pBuffer8;
     m_pBuffer8 = nullptr;
 
@@ -210,6 +444,12 @@ CTRenderer::~CTRenderer(void)
 
     delete m_pGraphicsCharGen;
     m_pGraphicsCharGen = nullptr;
+
+    delete m_pDoubleBothCharGen;
+    m_pDoubleBothCharGen = nullptr;
+
+    delete m_pGraphicsDoubleBothCharGen;
+    m_pGraphicsDoubleBothCharGen = nullptr;
 
     delete m_pFrameBuffer;
     m_pFrameBuffer = nullptr;
@@ -244,6 +484,7 @@ void CTRenderer::EnterAlternateScreen(void)
 
     // Save the visible framebuffer.
     memcpy(m_pAltScreenSnapshot, m_pBuffer8, m_nSize);
+    memcpy(m_AltScreenLineAttributes, m_LineAttributes, sizeof(m_LineAttributes));
 
     // Save key terminal state so we can restore a sane session on exit.
     m_AltScreenSavedState.cursorX = m_nCursorX;
@@ -270,6 +511,7 @@ void CTRenderer::EnterAlternateScreen(void)
 
     // Switch to a clean screen for full-screen apps.
     m_bAltScreenActive = TRUE;
+    ResetLineAttributes();
     SetScrollRegion(1, 0);
     CursorHome();
     ClearDisplay();
@@ -291,6 +533,7 @@ void CTRenderer::LeaveAlternateScreen(void)
     // Restore saved state (best effort).
     if (m_bAltScreenSavedValid && m_pCharGen != nullptr)
     {
+        memcpy(m_LineAttributes, m_AltScreenLineAttributes, sizeof(m_LineAttributes));
         const unsigned charWidth = m_pCharGen->GetCharWidth();
         const unsigned charHeight = m_pCharGen->GetCharHeight();
 
@@ -332,6 +575,7 @@ void CTRenderer::LeaveAlternateScreen(void)
 
             m_nCursorX = (m_nCursorX / charWidth) * charWidth;
             m_nCursorY = (m_nCursorY / charHeight) * charHeight;
+            ClampCursorToLineWidth();
         }
     }
 
@@ -496,6 +740,12 @@ bool CTRenderer::ApplyFont(const TFont &rFont,
     delete m_pGraphicsCharGen;
     m_pGraphicsCharGen = nullptr;
 
+    delete m_pDoubleBothCharGen;
+    m_pDoubleBothCharGen = nullptr;
+
+    delete m_pGraphicsDoubleBothCharGen;
+    m_pGraphicsDoubleBothCharGen = nullptr;
+
     EFontSelection gfxSelection = EFontSelection::VT100GraphicsFont10x20;
     switch (m_CurrentFontSelection)
     {
@@ -516,11 +766,32 @@ bool CTRenderer::ApplyFont(const TFont &rFont,
 
     const TFont &gfxFont = CTFontConverter::Get()->GetFont(gfxSelection);
     m_pGraphicsCharGen = new CCharGenerator(gfxFont, FontFlags);
+    m_pDoubleBothCharGen = new CCharGenerator(rFont, CCharGenerator::FontFlagsDoubleBoth);
+    m_pGraphicsDoubleBothCharGen = new CCharGenerator(gfxFont, CCharGenerator::FontFlagsDoubleBoth);
+
+    if (m_pGraphicsCharGen == nullptr || m_pDoubleBothCharGen == nullptr || m_pGraphicsDoubleBothCharGen == nullptr)
+    {
+        delete m_pCharGen;
+        m_pCharGen = nullptr;
+        delete m_pGraphicsCharGen;
+        m_pGraphicsCharGen = nullptr;
+        delete m_pDoubleBothCharGen;
+        m_pDoubleBothCharGen = nullptr;
+        delete m_pGraphicsDoubleBothCharGen;
+        m_pGraphicsDoubleBothCharGen = nullptr;
+        if (cursorWasVisible)
+        {
+            m_bCursorVisible = false;
+        }
+        m_bBlinkingCursor = blinkingWasEnabled;
+        m_SpinLock.Release();
+        return FALSE;
+    }
 
     delete[] m_pCursorPixels;
     m_pCursorPixels = nullptr;
 
-    const unsigned cursorPixelCount = m_pCharGen->GetCharWidth() * m_pCharGen->GetCharHeight();
+    const unsigned cursorPixelCount = (m_pCharGen->GetCharWidth() * 2) * m_pCharGen->GetCharHeight();
     m_pCursorPixels = new CDisplay::TRawColor[cursorPixelCount];
     if (!m_pCursorPixels)
     {
@@ -759,19 +1030,7 @@ unsigned CTRenderer::GetHeight(void) const
 
 unsigned CTRenderer::GetColumns(void) const
 {
-    if (m_pCharGen == nullptr)
-    {
-        return 0;
-    }
-
-    const unsigned charWidth = m_pCharGen->GetCharWidth();
-    if (charWidth == 0)
-    {
-        return 0;
-    }
-
-    // Use cell-aligned width to avoid reporting a column that would be partially visible.
-    return m_nUsedWidth / charWidth;
+    return GetColumnsForY(m_nCursorY);
 }
 
 unsigned CTRenderer::GetRows(void) const
@@ -793,19 +1052,9 @@ unsigned CTRenderer::GetRows(void) const
 
 unsigned CTRenderer::GetCursorColumn(void) const
 {
-    if (m_pCharGen == nullptr)
-    {
-        return 0;
-    }
-
-    const unsigned charWidth = m_pCharGen->GetCharWidth();
-    if (charWidth == 0)
-    {
-        return 0;
-    }
-
     m_SpinLock.Acquire();
-    unsigned column = m_nCursorX / charWidth;
+    const unsigned charWidth = GetCharCellWidthForY(m_nCursorY);
+    unsigned column = (charWidth != 0) ? (m_nCursorX / charWidth) : 0;
     m_SpinLock.Release();
     return column;
 }
@@ -960,7 +1209,7 @@ void CTRenderer::InsertChars(unsigned nCount)
         return;
     }
 
-    const unsigned charWidth = m_pCharGen->GetCharWidth();
+    const unsigned charWidth = GetCharCellWidthForY(m_nCursorY);
     const unsigned charHeight = m_pCharGen->GetCharHeight();
     if (charWidth == 0 || charHeight == 0)
     {
@@ -1035,6 +1284,8 @@ void CTRenderer::ResetTerminalState(boolean clearScreen)
     {
         SetFont(m_CurrentFontSelection, CCharGenerator::FontFlagsNone);
     }
+
+    ResetLineAttributes();
 
     CursorHome();
     if (clearScreen)
@@ -1767,28 +2018,23 @@ void CTRenderer::Write(char chChar)
         switch (chChar)
         {
         case '3':
-            // Double Width double Height top half -> ignore, as we do not support double height
-            ApplyFont(CTFontConverter::Get()->GetFont(m_CurrentFontSelection),
-                      CCharGenerator::FontFlagsDoubleBoth,
-                      TRUE);
+            SetLineAttributeForRow(GetRowIndexFromY(m_nCursorY), LineAttributeDoubleHeightTop);
+            ClampCursorToLineWidth();
             m_State = StateStart;
             break;
         case '4':
-            // Double Width double Height bottom half -> ignore, as we do not support double height
-            m_State = StateSkipTillCRLF;
+            SetLineAttributeForRow(GetRowIndexFromY(m_nCursorY), LineAttributeDoubleHeightBottom);
+            ClampCursorToLineWidth();
+            m_State = StateStart;
             break;
         case '5':
-            // Standard DEC font mode using currently selected VT100 font family
-            ApplyFont(CTFontConverter::Get()->GetFont(m_CurrentFontSelection),
-                      CCharGenerator::FontFlagsNone,
-                      TRUE);
+            SetLineAttributeForRow(GetRowIndexFromY(m_nCursorY), LineAttributeNormal);
+            ClampCursorToLineWidth();
             m_State = StateStart;
             break;
         case '6':
-            // Double width mode using currently selected VT100 font family
-            ApplyFont(CTFontConverter::Get()->GetFont(m_CurrentFontSelection),
-                      CCharGenerator::FontFlagsDoubleWidth,
-                      TRUE);
+            SetLineAttributeForRow(GetRowIndexFromY(m_nCursorY), LineAttributeDoubleWidth);
+            ClampCursorToLineWidth();
             m_State = StateStart;
             break;
         case '8':
@@ -2866,6 +3112,7 @@ void CTRenderer::CursorDown(void)
             m_nCursorY = m_nScrollStart;
         }
     }
+    ClampCursorToLineWidth();
 }
 
 void CTRenderer::CursorHome(void)
@@ -2880,14 +3127,22 @@ void CTRenderer::CursorLeft(void)
     m_bWrapPending = FALSE;
     if (m_nCursorX > 0)
     {
-        m_nCursorX -= m_pCharGen->GetCharWidth();
+        const unsigned charWidth = GetCharCellWidthForY(m_nCursorY);
+        if (m_nCursorX >= charWidth)
+        {
+            m_nCursorX -= charWidth;
+        }
+        else
+        {
+            m_nCursorX = 0;
+        }
     }
     else
     {
         if (m_nCursorY > m_nScrollStart)
         {
-            m_nCursorX = m_nUsedWidth - m_pCharGen->GetCharWidth();
             m_nCursorY -= m_pCharGen->GetCharHeight();
+            m_nCursorX = m_nUsedWidth - GetCharCellWidthForY(m_nCursorY);
         }
     }
 }
@@ -2910,21 +3165,10 @@ void CTRenderer::CursorMove(unsigned nRow, unsigned nColumn)
         nColumn = 1;
     }
 
-    const unsigned charWidth = m_pCharGen->GetCharWidth();
     const unsigned charHeight = m_pCharGen->GetCharHeight();
-    if (charWidth == 0 || charHeight == 0)
+    if (charHeight == 0)
     {
         return;
-    }
-
-    const unsigned maxColumns = m_nUsedWidth / charWidth;
-    if (maxColumns == 0)
-    {
-        return;
-    }
-    if (nColumn > maxColumns)
-    {
-        nColumn = maxColumns;
     }
 
     const unsigned baseY = m_bOriginMode ? m_nScrollStart : 0;
@@ -2947,8 +3191,19 @@ void CTRenderer::CursorMove(unsigned nRow, unsigned nColumn)
         }
     }
 
-    const unsigned nPosX = (nColumn - 1) * charWidth;
     const unsigned nPosY = baseY + ((row - 1) * charHeight);
+    const unsigned charWidth = GetCharCellWidthForY(nPosY);
+    const unsigned maxColumns = GetColumnsForY(nPosY);
+    if (charWidth == 0 || maxColumns == 0)
+    {
+        return;
+    }
+    if (nColumn > maxColumns)
+    {
+        nColumn = maxColumns;
+    }
+
+    const unsigned nPosX = (nColumn - 1) * charWidth;
 
     // Cursor positions are clamped to the visible grid and remain cell-aligned.
     m_nCursorX = nPosX;
@@ -2959,7 +3214,7 @@ void CTRenderer::CursorRight(void)
 {
     m_bWrapPending = FALSE;
 
-    const unsigned charWidth = m_pCharGen->GetCharWidth();
+    const unsigned charWidth = GetCharCellWidthForY(m_nCursorY);
     if (charWidth == 0 || m_nUsedWidth < charWidth)
     {
         return;
@@ -2982,6 +3237,7 @@ void CTRenderer::CursorUp(void)
     if (m_nCursorY > m_nScrollStart)
     {
         m_nCursorY -= m_pCharGen->GetCharHeight();
+        ClampCursorToLineWidth();
     }
 }
 
@@ -2992,7 +3248,7 @@ void CTRenderer::DeleteChars(unsigned nCount) // TODO
         return;
     }
 
-    const unsigned charWidth = m_pCharGen->GetCharWidth();
+    const unsigned charWidth = GetCharCellWidthForY(m_nCursorY);
     const unsigned charHeight = m_pCharGen->GetCharHeight();
     if (charWidth == 0 || charHeight == 0)
     {
@@ -3134,6 +3390,9 @@ void CTRenderer::DeleteLines(unsigned nCount) // TODO
     }
 
     SetUpdateArea(m_nCursorY, m_nScrollEnd - 1);
+    const unsigned startRow = GetRowIndexFromY(m_nCursorY);
+    const unsigned endRow = m_nScrollEnd / charHeight;
+    ShiftLineAttributesUp(startRow, endRow, nCount);
 
     if (!smoothStarted)
     {
@@ -3187,7 +3446,7 @@ void CTRenderer::DisplayChar(char chChar)
             m_pCharGen = pOriginalGen;
         }
 
-        const unsigned charWidth = m_pCharGen->GetCharWidth();
+        const unsigned charWidth = GetCharCellWidthForY(m_nCursorY);
         if (charWidth != 0 && m_nUsedWidth >= charWidth)
         {
             const unsigned lastColumnX = m_nUsedWidth - charWidth;
@@ -3225,13 +3484,14 @@ void CTRenderer::EraseChars(unsigned nCount)
         return;
     }
 
-    unsigned nEndX = m_nCursorX + nCount * m_pCharGen->GetCharWidth();
+    const unsigned charWidth = GetCharCellWidthForY(m_nCursorY);
+    unsigned nEndX = m_nCursorX + nCount * charWidth;
     if (nEndX > m_nUsedWidth)
     {
         nEndX = m_nUsedWidth;
     }
 
-    for (unsigned nPosX = m_nCursorX; nPosX < nEndX; nPosX += m_pCharGen->GetCharWidth())
+    for (unsigned nPosX = m_nCursorX; nPosX < nEndX; nPosX += charWidth)
     {
         EraseChar(nPosX, m_nCursorY);
     }
@@ -3349,6 +3609,9 @@ void CTRenderer::InsertLines(unsigned nCount) // TODO
     }
 
     SetUpdateArea(m_nCursorY, m_nScrollEnd - 1);
+    const unsigned startRow = GetRowIndexFromY(m_nCursorY);
+    const unsigned endRow = m_nScrollEnd / charHeight;
+    ShiftLineAttributesDown(startRow, endRow, nCount);
 
     if (!smoothStarted)
     {
@@ -3556,7 +3819,7 @@ void CTRenderer::Tabulator(void)
         return;
     }
 
-    const unsigned charWidth = m_pCharGen->GetCharWidth();
+    const unsigned charWidth = GetCharCellWidthForY(m_nCursorY);
     if (charWidth == 0)
     {
         return;
@@ -3593,7 +3856,7 @@ void CTRenderer::BackTabulator(void)
         return;
     }
 
-    const unsigned charWidth = m_pCharGen->GetCharWidth();
+    const unsigned charWidth = GetCharCellWidthForY(m_nCursorY);
     if (charWidth == 0)
     {
         return;
@@ -3773,6 +4036,7 @@ void CTRenderer::Scroll(void)
     }
 
     SetUpdateArea(0, m_nHeight - 1);
+    ShiftLineAttributesUp(m_nScrollStart / nLines, m_nScrollEnd / nLines, 1);
 
     if (!smoothStarted)
     {
@@ -3785,6 +4049,29 @@ void CTRenderer::Scroll(void)
 void CTRenderer::DisplayChar(char chChar, unsigned nPosX, unsigned nPosY,
                              CDisplay::TRawColor nColor)
 {
+    const ELineAttribute attribute = GetLineAttributeForY(nPosY);
+    const CCharGenerator *charGen = m_pCharGen;
+
+    if (attribute == LineAttributeDoubleHeightTop || attribute == LineAttributeDoubleHeightBottom)
+    {
+        if (m_pCharGen == m_pGraphicsCharGen && m_pGraphicsDoubleBothCharGen != nullptr)
+        {
+            charGen = m_pGraphicsDoubleBothCharGen;
+        }
+        else if (m_pDoubleBothCharGen != nullptr)
+        {
+            charGen = m_pDoubleBothCharGen;
+        }
+    }
+
+    const unsigned cellWidth = GetCharCellWidthForLineAttribute(attribute);
+    const unsigned cellHeight = GetBaseCharHeight();
+
+    if (charGen == nullptr || cellWidth == 0 || cellHeight == 0)
+    {
+        return;
+    }
+
     if (nColor != m_BackgroundColor)
     {
         if (m_bBoldAttribute)
@@ -3797,13 +4084,11 @@ void CTRenderer::DisplayChar(char chChar, unsigned nPosX, unsigned nPosY,
         }
     }
 
-    for (unsigned y = 0; y < m_pCharGen->GetCharHeight(); y++)
+    for (unsigned y = 0; y < cellHeight; y++)
     {
-        CCharGenerator::TPixelLine Line = m_pCharGen->GetPixelLine(chChar, y);
-
-        for (unsigned x = 0; x < m_pCharGen->GetCharWidth(); x++)
+        for (unsigned x = 0; x < cellWidth; x++)
         {
-            const bool isGlyphPixel = m_pCharGen->GetPixel(x, Line);
+            const bool isGlyphPixel = SampleGlyphPixel(*charGen, chChar, attribute, x, y);
             const CDisplay::TRawColor pixelColor = isGlyphPixel ? nColor : GetTextBackgroundColor();
             SetRawPixel(nPosX + x, nPosY + y, pixelColor);
         }
@@ -3812,13 +4097,11 @@ void CTRenderer::DisplayChar(char chChar, unsigned nPosX, unsigned nPosY,
     if (m_bBoldAttribute)
     {
         // Overstrike once to simulate a thick stroke
-        for (unsigned y = 0; y < m_pCharGen->GetCharHeight(); y++)
+        for (unsigned y = 0; y < cellHeight; y++)
         {
-            CCharGenerator::TPixelLine Line = m_pCharGen->GetPixelLine(chChar, y);
-
-            for (unsigned x = 1; x < m_pCharGen->GetCharWidth(); x++)
+            for (unsigned x = 1; x < cellWidth; x++)
             {
-                if (m_pCharGen->GetPixel(x - 1, Line))
+                if (SampleGlyphPixel(*charGen, chChar, attribute, x - 1, y))
                 {
                     SetRawPixel(nPosX + x, nPosY + y, nColor);
                 }
@@ -3828,30 +4111,32 @@ void CTRenderer::DisplayChar(char chChar, unsigned nPosX, unsigned nPosY,
 
     if (m_bUnderlineAttribute)
     {
-        const unsigned underlineRow = m_pCharGen->GetUnderline();
-        if (underlineRow < m_pCharGen->GetCharHeight())
+        const unsigned underlineRow = charGen->GetUnderline();
+        if (underlineRow < cellHeight)
         {
-            for (unsigned x = 0; x < m_pCharGen->GetCharWidth(); x++)
+            for (unsigned x = 0; x < cellWidth; x++)
             {
                 SetRawPixel(nPosX + x, nPosY + underlineRow, nColor);
             }
         }
     }
 
-    SetUpdateArea(nPosY, nPosY + m_pCharGen->GetCharHeight() - 1);
+    SetUpdateArea(nPosY, nPosY + cellHeight - 1);
 }
 
 void CTRenderer::EraseChar(unsigned nPosX, unsigned nPosY)
 {
-    for (unsigned y = 0; y < m_pCharGen->GetCharHeight(); y++)
+    const unsigned cellWidth = GetCharCellWidthForY(nPosY);
+    const unsigned cellHeight = GetBaseCharHeight();
+    for (unsigned y = 0; y < cellHeight; y++)
     {
-        for (unsigned x = 0; x < m_pCharGen->GetCharWidth(); x++)
+        for (unsigned x = 0; x < cellWidth; x++)
         {
             SetRawPixel(nPosX + x, nPosY + y, m_BackgroundColor);
         }
     }
 
-    SetUpdateArea(nPosY, nPosY + m_pCharGen->GetCharHeight() - 1);
+    SetUpdateArea(nPosY, nPosY + cellHeight - 1);
 }
 
 void CTRenderer::InvertCursor(void)
@@ -3862,6 +4147,8 @@ void CTRenderer::InvertCursor(void)
     }
 
     CDisplay::TRawColor *pPixelData = m_pCursorPixels;
+    const unsigned cursorWidth = GetCharCellWidthForY(m_nCursorY);
+    const unsigned cursorHeight = GetBaseCharHeight();
     unsigned y0 = m_bCursorBlock ? 0 : m_pCharGen->GetUnderline();
 
     CDisplay::TRawColor invertMask = m_ForegroundColor ^ m_BackgroundColor;
@@ -3886,9 +4173,9 @@ void CTRenderer::InvertCursor(void)
             break;
         }
     }
-    for (unsigned y = y0; y < m_pCharGen->GetCharHeight(); y++)
+    for (unsigned y = y0; y < cursorHeight; y++)
     {
-        for (unsigned x = 0; x < m_pCharGen->GetCharWidth(); x++)
+        for (unsigned x = 0; x < cursorWidth; x++)
         {
             if (!m_bCursorVisible)
             {
@@ -3909,7 +4196,7 @@ void CTRenderer::InvertCursor(void)
 
     m_bCursorVisible = !m_bCursorVisible;
 
-    SetUpdateArea(m_nCursorY + y0, m_nCursorY + m_pCharGen->GetCharHeight() - 1);
+    SetUpdateArea(m_nCursorY + y0, m_nCursorY + cursorHeight - 1);
 }
 
 void CTRenderer::doRenderTest(void)

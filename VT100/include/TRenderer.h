@@ -57,6 +57,16 @@ public:
     static constexpr TRendererColor kColorAmber = DISPLAY_COLOR(255, 176, 0);
     static constexpr TRendererColor kColorGreen = DISPLAY_COLOR(51, 255, 51);
 
+        enum ELineAttribute
+        {
+            LineAttributeNormal,
+            LineAttributeDoubleWidth,
+            LineAttributeDoubleHeightTop,
+            LineAttributeDoubleHeightBottom
+        };
+
+        static constexpr unsigned MaxTextRows = 64;
+
     struct TRendererState
     {
         const TFont *font;
@@ -302,6 +312,27 @@ private:
                       CCharGenerator::TFontFlags FontFlags,
                       boolean preservePixelCursor);
 
+        unsigned GetBaseCharWidth(void) const;
+        unsigned GetBaseCharHeight(void) const;
+        unsigned GetRowCount(void) const;
+        unsigned GetRowIndexFromY(unsigned nPosY) const;
+        ELineAttribute GetLineAttributeForRow(unsigned row) const;
+        ELineAttribute GetLineAttributeForY(unsigned nPosY) const;
+        void SetLineAttributeForRow(unsigned row, ELineAttribute attribute);
+        void ResetLineAttributes(void);
+        void ShiftLineAttributesUp(unsigned startRow, unsigned endRow, unsigned count);
+        void ShiftLineAttributesDown(unsigned startRow, unsigned endRow, unsigned count);
+        boolean IsDoubleWidthLineAttribute(ELineAttribute attribute) const;
+        unsigned GetCharCellWidthForLineAttribute(ELineAttribute attribute) const;
+        unsigned GetCharCellWidthForY(unsigned nPosY) const;
+        unsigned GetColumnsForY(unsigned nPosY) const;
+        void ClampCursorToLineWidth(void);
+        boolean SampleGlyphPixel(const CCharGenerator &charGen,
+                                 char chChar,
+                                 ELineAttribute attribute,
+                                 unsigned nPosX,
+                                 unsigned nPosY) const;
+
     /// \brief Write a single character respecting current state machine.
     void Write(char chChar);
 
@@ -447,7 +478,11 @@ private:
     CCharGenerator::TFontFlags m_FontFlags;
     CCharGenerator *m_pCharGen;
     CCharGenerator *m_pGraphicsCharGen;
+    CCharGenerator *m_pDoubleBothCharGen;
+    CCharGenerator *m_pGraphicsDoubleBothCharGen;
     EFontSelection m_CurrentFontSelection;
+        ELineAttribute m_LineAttributes[MaxTextRows];
+        ELineAttribute m_AltScreenLineAttributes[MaxTextRows];
 
     ECharacterSet m_G0CharSet;
     ECharacterSet m_G1CharSet;

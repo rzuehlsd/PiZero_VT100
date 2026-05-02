@@ -80,7 +80,7 @@ The application initialises USB keyboard input, the framebuffer, GPIO, UART, and
   - [x] VT100 10x20 CRT-style font derived from DEC VT100 ROM Font
   - [x] VT100 10x20 solid font derived from DEC VT100 ROM Font
   - [x] DEC VT100 Special Graphics Character Set support (via `ESC ( 0` and `ESC ( B`)
-  - [x] Dynamic Double-Width / Double-Height glyph scaling for all fonts
+  - [x] Dynamic Double-Width / Double-Height line attributes with DEC top/bottom-half semantics (`ESC #3/#4/#5/#6`)
   - [x] White, amber, and green on black simulate DEC monochrome terminals (VT100, VT220, VT320)
 - [x] VT100 and ANSI escape sequence parser and renderer based on the VT-parse project
 - [x] Configurable optional VT52 escape sequence support
@@ -250,7 +250,7 @@ The table below maps original VT100 SET-UP B terms to the current firmware confi
 
 #### VT100 Extended Setup Dialog (F11)
 
-Press `F11` to open the extende setup dialog. The dialog uses DEC special graphics box drawing, keeps the active terminal color/font theme, uses a centered double-width title, and shows a three-column `parameter` / `value` / `description` view for all persisted `VT100.txt` keys.
+Press `F11` to open the extende setup dialog. The dialog uses DEC special graphics box drawing, keeps the active terminal color/font theme, uses a centered double-width title, and shows a three-column `parameter` / `value` / `description` view for all persisted `VT100.txt` keys. Press `F12` for the legacy VT100 setup screens; their title now renders as a true two-line DEC double-height header with `TO EXIT PRESS "SET-UP"` directly below it, matching the original VT100 layout more closely.
 
 Controls:
 
@@ -582,8 +582,8 @@ The table below lists the escape and control sequences handled by this firmware,
 | ESC Y r c | VT52 direct cursor address | ✓ | — | — | — | — | Implemented | [PASS] |
 | ESC H | Set tab stop (HTS) | — | ✓ | ✓ | ✓ | ✓ | Implemented (ANSI mode) | [PASS] |
 | ESC < | Enter ANSI Mode | ✓ | — | — | — | — | Implemented | [PASS] |
-| ESC #3 | Double-height line (top) | — | ✓ | ✓ | ✓ | — | Partial (approximated, not true double-height) | [PASS] |
-| ESC #4 | Double-height line (bottom) | — | ✓ | ✓ | ✓ | — | Partial (approximated, not true double-height) | [PASS] |
+| ESC #3 | Double-height line (top) | — | ✓ | ✓ | ✓ | — | Implemented (renders upper half of DEC double-height glyph) | [PASS] |
+| ESC #4 | Double-height line (bottom) | — | ✓ | ✓ | ✓ | — | Implemented (renders lower half of DEC double-height glyph) | [PASS] |
 | ESC #5 | Normal line size | — | ✓ | ✓ | ✓ | — | Implemented | [PASS] |
 | ESC #6 | Double-width line | — | ✓ | ✓ | ✓ | — | Implemented | [PASS] |
 | ESC #8 | Screen test | — | ✓ | ✓ | ✓ | — | Implemented (DECALN fill) | [PASS] |
@@ -664,7 +664,7 @@ Hardware and product-scope constraints that intentionally shape this assessment:
 | Insert mode (`IRM`, `CSI 4 h/l`) | 100% | Printable characters are inserted when the mode is enabled. |
 | SGR core subset (`0`, `1`, `2`, `4`, `5`, `7`, `27`) | Partial | Supported set is limited to a subset of SGR. |
 | SGR blink text behavior | Partial | The attribute is latched, but rendered text does not visibly blink. |
-| DEC line attributes (`ESC #3`, `#4`, `#5`, `#6`) | Partial | Double-width works; double-height currently uses generic doubled rendering rather than distinct VT100 top/bottom-half semantics. |
+| DEC line attributes (`ESC #3`, `#4`, `#5`, `#6`) | 100% | Double-width and double-height line attributes now use distinct VT100 top/bottom-half semantics, with `#5` restoring normal line size. |
 | Application keypad mode (`DECKPAM`, `DECKPNM`) | Not targeted | Explicitly ignored by the parser and intentionally outside scope because the 60% keyboard has no numeric keypad. |
 | Cursor key application mode (`DECCKM`) | Not targeted | Explicitly ignored by the parser; accepted limitation for the reduced keyboard/input model. |
 | 80/132-column switching (`DECCOLM`) | Not targeted | Outside scope because the current hardware uses a fixed display geometry. |
@@ -698,7 +698,7 @@ Suggested `vttest` interpretation for the current implementation:
 | DEC special graphics | Pass | G0/G1 switching and graphics glyph selection are implemented. |
 | SGR attribute tests | Partial | Bold, dim, underline, reverse, and reset work, but only a subset of SGR is supported. |
 | Blink attribute tests | Partial | `SGR 5` is accepted, but text blink is not visibly rendered. |
-| DEC double-width / double-height line tests | Partial | Double-width is implemented; double-height is only approximated. |
+| DEC double-width / double-height line tests | Pass | Internal VTTest sequences use true `ESC #3`/`#4` top-and-bottom pairs plus `#5` reset semantics. |
 | Keypad application mode tests | Not targeted | `DECKPAM` and `DECKPNM` are outside the current product scope because the keyboard has no numeric keypad. |
 | Cursor key application mode tests | Not targeted | `DECCKM` is outside the current product scope and currently ignored. |
 | 80/132-column switching tests | Not targeted | `DECCOLM` is outside scope because the display geometry is fixed by the hardware. |

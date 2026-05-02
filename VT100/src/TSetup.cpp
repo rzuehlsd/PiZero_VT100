@@ -671,16 +671,23 @@ void CTSetup::RenderHeader(const char *pTitle, unsigned topRow, unsigned subtitl
     m_pRenderer->ClearDisplay();
     NormalizeRenderState(false);
 
-    // Render the title with ESC#3 only, then immediately return to normal font
-    // so later Goto() calls continue to use the normal row height.
+    // Render the title as a full DEC double-height pair while keeping
+    // later Goto() calls on the normal row grid.
     m_pRenderer->Goto(topRow, 0);
     m_pRenderer->SetColors(fgColor, bgColor);
     m_pRenderer->Write(kESC_3, strlen(kESC_3));
     m_pRenderer->Write(pTitle, strlen(pTitle));
     m_pRenderer->Write(kESC_5, strlen(kESC_5));
 
+    m_pRenderer->Goto(topRow + 1, 0);
+    m_pRenderer->SetColors(fgColor, bgColor);
+    static const char kESC_4[] = "\x1B#4";
+    m_pRenderer->Write(kESC_4, strlen(kESC_4));
+    m_pRenderer->Write(pTitle, strlen(pTitle));
+    m_pRenderer->Write(kESC_5, strlen(kESC_5));
+
     // Subtitle: double width
-    m_pRenderer->Goto(topRow + subtitleRowOffset, 0);
+    m_pRenderer->Goto(topRow + 2, 0);
     m_pRenderer->SetColors(fgColor, bgColor);
     m_pRenderer->Write(kESC_6, strlen(kESC_6));
     m_pRenderer->Write("TO EXIT PRESS \"SET-UP\"", strlen("TO EXIT PRESS \"SET-UP\""));

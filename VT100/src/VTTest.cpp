@@ -1290,7 +1290,6 @@ void CVTTest::ShowSummary(void)
     clearSeq.Format("\x1B#5\x1B[0m\x1B[1;%ur\x1B[2J\x1B[H", rows > 0 ? rows : 1);
     m_pRenderer->Write(clearSeq.c_str(), clearSeq.GetLength());
 
-    // Simple single-height title to save vertical space
     const unsigned dRows = m_pRenderer->GetRows();
     const unsigned dCols = m_pRenderer->GetColumns();
     const unsigned dHeight = m_pRenderer->GetHeight();
@@ -1299,21 +1298,21 @@ void CVTTest::ShowSummary(void)
     CString titleMsg;
     titleMsg.Format("VT100 Internal Test Summary (R:%u C:%u H:%u Items:%u)", dRows, dCols, dHeight, m_allCount);
     
-    // Draw Title in Double Width Double Height
-    // #3 Draws the characters 2x size (height covers 2 rows).
-    // #4 Is a dummy line to skip the space covered by the bottom of the letters.
-    
-    // Line 1: Top Half (Visual)
+    // Draw the title as a real DEC double-height pair.
+    // #3 renders the upper half of the glyphs, #4 renders the lower half,
+    // and #5 restores normal line size for the summary content below.
+
+    // Line 1: top half
     m_pRenderer->Write("\x1B[1;1H\x1B#3", 7);
     m_pRenderer->Write(titleMsg.c_str(), titleMsg.GetLength());
     m_pRenderer->Write("\r\n", 2);
-    
-    // Line 2: Bottom Half (Spacer)
+
+    // Line 2: bottom half
     m_pRenderer->Write("\x1B#4", 3);
     m_pRenderer->Write(titleMsg.c_str(), titleMsg.GetLength());
     m_pRenderer->Write("\r\n", 2);
 
-    // Reset to Normal for content
+    // Reset to normal line size for the summary content.
     m_pRenderer->Write("\x1B#5", 3);
     m_pRenderer->ResetParserState();
 

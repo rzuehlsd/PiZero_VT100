@@ -32,13 +32,17 @@ Reconstructed from git commit history and intended as a concise daily summary of
 - Added a comparison build where Setup B calls `RenderHeader()` with the same parameters as Setup A to isolate whether the remaining title offset is caused by the header call itself.
 
 ## 2026-05-01
-- Implemented features: stabilized legacy setup-header rendering by isolating parser-state carry-over, preserving cursor pixel position across DEC line-attribute font changes, clearing stale wrap state before absolute draws, and refined the documentation assessment to prioritize VT52/VT100 core compatibility over out-of-scope hardware-limited features.
-- Codebase changes: added comparison builds for Setup A/B ordering diagnostics, replaced the setup header's parsed `ESC c` with a direct renderer parser reset before drawing, split DEC font-mode switching onto a pixel-stable path for `ESC #3/#5/#6`, cleared pending wrap state on full-screen clears and absolute cursor jumps, documented the VT100 conformance matrix plus a concrete `vttest` validation plan in `README.md`, and clarified accepted hardware scope limits for `DECCOLM`, `DECKPAM/DECKPNM`, and `DECCKM`.
+- Implemented features: stabilized legacy setup-header rendering by isolating parser-state carry-over, refined the documentation assessment to prioritize VT52/VT100 core compatibility over out-of-scope hardware-limited features, and replaced the former approximated DEC double-height handling with per-line top/bottom-half rendering semantics.
+- Codebase changes: added comparison builds for Setup A/B ordering diagnostics, replaced the setup header's parsed `ESC c` with a direct renderer parser reset before drawing, moved DEC line attributes `ESC #3/#4/#5/#6` onto explicit per-row state instead of global font geometry switches, switched DEC double-height rendering to dedicated Circle `FontFlagsDoubleBoth` text and graphics generators and align the lower half to the visible glyph midpoint so `ESC #4` no longer drops the lower closure rows at the split, synchronized those attributes through scrolling and alternate-screen transitions, documented the VT100 conformance matrix plus a concrete `vttest` validation plan in `README.md`, and clarified accepted hardware scope limits for `DECCOLM`, `DECKPAM/DECKPNM`, and `DECCKM`.
 
 ## 2026-04-22
 - Implemented features: GPIO overvoltage protection design finalized for Adapter Board revision V2.3; relay swap mismatch vulnerability identified and documented.
 - Codebase changes: corrected Hardware.md — 1 kΩ only on RxD (not TxD); added relay scenario signal level analysis table; updated ToDo with null-modem vulnerability fix strategy (resistor before relay).
 - Codebase changes: improved escape-sequence parsing for text attributes and continued fixes for combined attribute-command handling.
+
+## 2026-05-02
+- Implemented features: added a setup-dialog diagnostic sample that renders DEC double-height top and bottom halves as separate test rows below the legacy footer text.
+- Codebase changes: updated `CTSetup::RenderHeader()` to render the setup title itself as a matching `ESC#3`/`ESC#4` pair, moved `TO EXIT PRESS "SET-UP"` directly below that title as on the real VT100 setup screen, removed the temporary header diagnostic test lines again, restored the lower-half renderer split to the true midpoint of the 44-pixel `DoubleBoth` glyph for direct comparison against the earlier diagnostics, and refreshed VTTest comments plus README conformance notes so the documented `ESC#3/#4/#5` behavior now matches the confirmed renderer implementation.
 
 ## 2026-01-22
 - Implemented features: integrated `TFontConverter` and `TRenderer` into kernel runtime.
