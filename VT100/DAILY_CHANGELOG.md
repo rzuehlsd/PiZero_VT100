@@ -118,6 +118,10 @@ Reconstructed from git commit history and intended as a concise daily summary of
 - Codebase changes: extended `TRenderer` with smooth-scroll state/buffers and update-loop frame rendering, wired animation scheduling into `Scroll`/`InsertLines`/`DeleteLines` for count-1 paths, prevented immediate write-path flush during active animation, corrected RI behavior to trigger at scroll-region top, and connected Setup B group 1 bit 1 (leftmost, mask `0x8`) to persisted `smooth_scroll` config plus renderer runtime apply paths.
 - Implemented features: updated the documentation set to match current smooth-scroll and Setup B behavior.
 - Codebase changes: aligned README, Configuration Guide, Architecture, and Known Issues docs with current implementation status, including persisted `smooth_scroll` key coverage and SET-UP B group 1 leftmost bit mapping.
+
+## 2026-05-02
+- Implemented features: stabilized VTTest full-screen DEC transitions and summary-title rendering on hardware, then completed the monochrome SGR model for bold, dim, underline, and reverse with explicit off-codes and matching VTTest coverage.
+- Codebase changes: added a shared VTTest full-screen reset baseline, normalized the DECOM demo and summary DWDH title logic, persisted the renderer dim attribute through save/restore and alternate-screen state, replaced the old SGR demo strings with monochrome intensity/reset sequences without adding ANSI color handling or blink changes, and synchronized the README SGR status tables with the monochrome-only attribute subset.
 - Implemented features: expanded VTTest coverage with dedicated smooth-scroll ON/OFF demo steps and an RI-at-scroll-top-margin validation scenario.
 - Codebase changes: fixed VTTest step-name dispatch mismatches so ANSI/DEC prefixed step names trigger the intended sequence handlers, and restored smooth-scroll runtime state after VTTest execution.
 - Implemented features: added a structured manual verification plan for features introduced since 2026-02-12 that are not fully covered by VTTest automation.

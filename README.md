@@ -601,11 +601,13 @@ The table below lists the escape and control sequences handled by this firmware,
 | ESC [ n M | Delete lines (DL) | — | ✓ | ✓ | ✓ | ✓ | Implemented | [PASS] |
 | ESC [ n P | Delete characters (DCH) | — | ✓ | ✓ | ✓ | ✓ | Implemented | [PASS] |
 | ESC [ 4 h / 4 l | Insert mode (IRM) | — | ✓ | ✓ | ✓ | ✓ | Implemented | [PASS] |
-| ESC [ n m | Select graphic rendition (SGR) | — | ✓ | ✓ | ✓ | ✓ | Partial (0,1,4,5,7) | [PASS] |
+| ESC [ n m | Select graphic rendition (SGR) | — | ✓ | ✓ | ✓ | ✓ | Partial (monochrome subset: 0,1,2,4,5,7,22,24,27) | [PASS] |
 | ESC [ 0 m | SGR reset (attributes/colors) | — | ✓ | ✓ | ✓ | ✓ | Implemented | [PASS] |
 | ESC [ 1 m | SGR bold/intense | — | ✓ | ✓ | ✓ | ✓ | Implemented | [PASS] |
 | ESC [ 2 m | SGR dim/half-bright | — | ✓ | ✓ | ✓ | ✓ | Implemented | [PASS] |
+| ESC [ 22 m | SGR normal intensity | — | ✓ | ✓ | ✓ | ✓ | Implemented | [PASS] |
 | ESC [ 4 m | SGR underline | — | ✓ | ✓ | ✓ | ✓ | Implemented | [PASS] |
+| ESC [ 24 m | SGR underline off | — | ✓ | ✓ | ✓ | ✓ | Implemented | [PASS] |
 | ESC [ 5 m | SGR blink | — | ✓ | ✓ | ✓ | ✓ | Partial (attribute latched, no text blink animation) | [PASS] |
 | ESC [ 7 m | SGR reverse video | — | ✓ | ✓ | ✓ | ✓ | Implemented | [PASS] |
 | ESC [ 27 m | SGR reverse off | — | ✓ | ✓ | ✓ | ✓ | Implemented | [PASS] |
@@ -621,7 +623,7 @@ The table below lists the escape and control sequences handled by this firmware,
 
 **VT52 note:** The parser supports a strict VT52 mode enabled via `ESC [ ? 2 l` and disabled via `ESC <`. `ESC H` acts as VT52 Home only in VT52 mode; in ANSI mode, it acts as HTS (Set Tab Stop).
 
-**Color note:** The firmware emulates monochrome VT100/VT220/VT320 terminals. ANSI color SGR codes are parsed but not applied; choose text/background colors in `VT100.txt` instead.
+**Color note:** The firmware emulates monochrome VT100/VT220/VT320 terminals. ANSI color SGR codes are intentionally ignored; choose text/background colors in `VT100.txt` instead.
 
 **Source-of-truth note:** The status entries above are derived from the current renderer implementation in `VT100/src/TRenderer.cpp`. When this table and older prose disagree, the code should be treated as authoritative.
 
@@ -662,7 +664,7 @@ Hardware and product-scope constraints that intentionally shape this assessment:
 | Character sets (`G0/G1`, DEC Special Graphics) | 100% | Graphics character selection and switching are implemented. |
 | Alignment test (`DECALN`, `ESC #8`) | 100% | Implemented as full-screen alignment fill. |
 | Insert mode (`IRM`, `CSI 4 h/l`) | 100% | Printable characters are inserted when the mode is enabled. |
-| SGR core subset (`0`, `1`, `2`, `4`, `5`, `7`, `27`) | Partial | Supported set is limited to a subset of SGR. |
+| SGR core subset (`0`, `1`, `2`, `4`, `5`, `7`, `22`, `24`, `27`) | Partial | Supported set is limited to monochrome attributes plus explicit off-codes. |
 | SGR blink text behavior | Partial | The attribute is latched, but rendered text does not visibly blink. |
 | DEC line attributes (`ESC #3`, `#4`, `#5`, `#6`) | 100% | Double-width and double-height line attributes now use distinct VT100 top/bottom-half semantics, with `#5` restoring normal line size. |
 | Application keypad mode (`DECKPAM`, `DECKPNM`) | Not targeted | Explicitly ignored by the parser and intentionally outside scope because the 60% keyboard has no numeric keypad. |
@@ -696,7 +698,7 @@ Suggested `vttest` interpretation for the current implementation:
 | Tab stop handling | Pass | Forward tab, set/clear tab stop, clear all, and back-tab are present. |
 | VT52 mode tests | Pass | VT52 subset and ANSI escape back to normal mode are implemented. |
 | DEC special graphics | Pass | G0/G1 switching and graphics glyph selection are implemented. |
-| SGR attribute tests | Partial | Bold, dim, underline, reverse, and reset work, but only a subset of SGR is supported. |
+| SGR attribute tests | Partial | Bold, dim, underline, reverse, reset, and the matching off-codes work, but only the monochrome SGR subset is supported. |
 | Blink attribute tests | Partial | `SGR 5` is accepted, but text blink is not visibly rendered. |
 | DEC double-width / double-height line tests | Pass | Internal VTTest sequences use true `ESC #3`/`#4` top-and-bottom pairs plus `#5` reset semantics. |
 | Keypad application mode tests | Not targeted | `DECKPAM` and `DECKPNM` are outside the current product scope because the keyboard has no numeric keypad. |

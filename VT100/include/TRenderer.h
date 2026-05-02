@@ -87,6 +87,7 @@ public:
         unsigned scrollEnd;
         boolean reverseAttribute;
         boolean boldAttribute;
+        boolean dimAttribute;
         boolean underlineAttribute;
         boolean blinkAttribute;
         boolean insertOn;

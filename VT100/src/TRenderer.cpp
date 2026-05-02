@@ -498,6 +498,7 @@ void CTRenderer::EnterAlternateScreen(void)
     m_AltScreenSavedState.autoPage = m_bAutoPage;
     m_AltScreenSavedState.reverseAttribute = m_bReverseAttribute;
     m_AltScreenSavedState.boldAttribute = m_bBoldAttribute;
+    m_AltScreenSavedState.dimAttribute = m_bDimAttribute;
     m_AltScreenSavedState.underlineAttribute = m_bUnderlineAttribute;
     m_AltScreenSavedState.blinkAttribute = m_bBlinkAttribute;
     m_AltScreenSavedState.foreground = m_ForegroundColor;
@@ -548,6 +549,7 @@ void CTRenderer::LeaveAlternateScreen(void)
 
         m_bReverseAttribute = m_AltScreenSavedState.reverseAttribute;
         m_bBoldAttribute = m_AltScreenSavedState.boldAttribute;
+    m_bDimAttribute = m_AltScreenSavedState.dimAttribute;
         m_bUnderlineAttribute = m_AltScreenSavedState.underlineAttribute;
         m_bBlinkAttribute = m_AltScreenSavedState.blinkAttribute;
         m_ForegroundColor = m_AltScreenSavedState.foreground;
@@ -3765,7 +3767,7 @@ void CTRenderer::SetScrollRegion(unsigned nStartRow, unsigned nEndRow)
     CursorHome();
 }
 
-// TODO: standout mode should be useable together with one other mode
+// Intensity modes are mutually exclusive; the remaining mono attributes may be combined.
 void CTRenderer::SetStandoutMode(unsigned nMode)
 {
     switch (nMode)
@@ -3783,15 +3785,26 @@ void CTRenderer::SetStandoutMode(unsigned nMode)
 
     case 1: // bold font - change glyph rendering
         m_bBoldAttribute = TRUE;
+        m_bDimAttribute = FALSE;
         break;
 
     case 2: // dim / half-bright
+        m_bBoldAttribute = FALSE;
         m_bDimAttribute = TRUE;
+        break;
+
+    case 22: // normal intensity
+        m_bBoldAttribute = FALSE;
+        m_bDimAttribute = FALSE;
         break;
 
     case 4: // underlined - change glyph rendering
         m_bUnderlineAttribute = TRUE;
 
+        break;
+
+    case 24: // underline off
+        m_bUnderlineAttribute = FALSE;
         break;
 
     case 5: // VT100, VT220 and VT320 support blink attribute
@@ -3905,6 +3918,7 @@ void CTRenderer::SaveCursor(void)
     m_SavedState.autoPage = m_bAutoPage;
     m_SavedState.reverseAttribute = m_bReverseAttribute;
     m_SavedState.boldAttribute = m_bBoldAttribute;
+    m_SavedState.dimAttribute = m_bDimAttribute;
     m_SavedState.underlineAttribute = m_bUnderlineAttribute;
     m_SavedState.blinkAttribute = m_bBlinkAttribute;
     m_SavedState.foreground = m_ForegroundColor;
@@ -3956,6 +3970,7 @@ void CTRenderer::RestoreCursor(void)
     // Restore attributes
     m_bReverseAttribute = m_SavedState.reverseAttribute;
     m_bBoldAttribute = m_SavedState.boldAttribute;
+    m_bDimAttribute = m_SavedState.dimAttribute;
     m_bUnderlineAttribute = m_SavedState.underlineAttribute;
     m_bBlinkAttribute = m_SavedState.blinkAttribute;
     
@@ -4368,6 +4383,7 @@ void CTRenderer::SaveState(TRendererState &state)
     state.scrollEnd = m_nScrollEnd;
     state.reverseAttribute = m_bReverseAttribute;
     state.boldAttribute = m_bBoldAttribute;
+    state.dimAttribute = m_bDimAttribute;
     state.underlineAttribute = m_bUnderlineAttribute;
     state.blinkAttribute = m_bBlinkAttribute;
     state.insertOn = m_bInsertOn;
@@ -4420,6 +4436,7 @@ void CTRenderer::RestoreState(const TRendererState &state)
     m_nScrollEnd = state.scrollEnd;
     m_bReverseAttribute = state.reverseAttribute;
     m_bBoldAttribute = state.boldAttribute;
+    m_bDimAttribute = state.dimAttribute;
     m_bUnderlineAttribute = state.underlineAttribute;
     m_bBlinkAttribute = state.blinkAttribute;
     m_bInsertOn = state.insertOn;

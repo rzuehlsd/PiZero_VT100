@@ -148,7 +148,7 @@ static const CVTTest::TVTTestStep kCoreSteps[] = {
 static const CVTTest::TVTTestStep kDecSteps[] = {
     {"DEC Line/Char Attributes",
     "",
-    "Line 4: double width+height. Line 8: double width. Line 12: normal. Line 16: bold/underline/reverse.",
+    "Line 4: double width+height. Line 8: double width. Line 12: normal. Line 16: bold/dim/underline/reverse.",
      -1, -1},
     {"DECOM Origin + Scroll Region",
     "",
@@ -162,9 +162,14 @@ static const CVTTest::TVTTestStep kDecSteps[] = {
      "\x1B#8",
      "Screen should be filled with 'E' characters in a perfect grid. Any missing/overlapping top rows indicates display cropping.",
      -1, -1},
-    {"ANSI SGR Dim + Reverse",
-        "\x1B[5;1H\x1B[K\x1B[2mDIM\x1B[0m \x1B[7mREV\x1B[27mNORM\x1B[0m",
-     "DIM should appear dimmer; REV should be reversed; NORM should return to normal video.",
+    {"SGR Mono Intensity + Reverse",
+        "\x1B[5;1H\x1B[K\x1B[1mBOLD\x1B[22m NORM \x1B[2mDIM\x1B[22m \x1B[7mREV\x1B[27mNORM\x1B[0m",
+     "BOLD should be brighter, DIM dimmer, and REV reversed. Each OFF code must return the following text to normal video.",
+     -1, -1},
+    {"SGR Mono Attribute Reset",
+        "\x1B[5;1H\x1B[K\x1B[1;4mB+U\x1B[24m BOLD \x1B[22mNORM"
+        "\x1B[6;1H\x1B[K\x1B[7mREV\x1B[27m NORM \x1B[4mUNDER\x1B[24m NORM",
+     "Row 5: B+U is bold+underlined, then only bold remains, then normal. Row 6: REV and UNDER must each stop exactly at their OFF code.",
      -1, -1},
     {"DEC Special Graphics Set",
      "",
@@ -199,7 +204,7 @@ static const char *kDecLineAttrParts[] = {
     "\x1B[4;1H\x1B#3DOUBLE WIDTH DOUBLE HEIGHT\x1B[5;1H\x1B#4DOUBLE WIDTH DOUBLE HEIGHT\x1B[6;1H\x1B#5",
     "\x1B[10;1H\x1B#6DOUBLE WIDTH\x1B[11;1H\x1B#5",
     "\x1B[14;1H\x1B#5NORMAL FONT",
-    "\x1B[18;1H\x1B[1mBOLD\x1B[0m \x1B[4mUNDERLINE\x1B[0m \x1B[7mREVERSE\x1B[0m"
+    "\x1B[18;1H\x1B[1mBOLD\x1B[22m \x1B[2mDIM\x1B[22m \x1B[4mUNDERLINE\x1B[24m \x1B[7mREVERSE\x1B[27m"
 };
 static const unsigned kDecLineAttrPartCount = sizeof(kDecLineAttrParts) / sizeof(kDecLineAttrParts[0]);
 
