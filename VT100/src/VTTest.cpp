@@ -21,267 +21,303 @@ LOGMODULE("VTTest");
 
 namespace
 {
-template <size_t N>
-constexpr unsigned len(const char (&)[N])
-{
-    return static_cast<unsigned>(N - 1);
-}
-
-static const unsigned kStepDelayMs = 5000;
-static const unsigned kCursorHideMs = 5000;
-static const unsigned kScrollLineDelayMs = 1000;
-static const unsigned kSequencePartDelayMs = 2000;
-static const unsigned kBoundaryCharDelayMs = 200;
-static const unsigned kScrollLineCount = 10;
-static const char *kScrollLines[kScrollLineCount] = {
-    "L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8", "L9", "L10"
-};
-
-void ResetFullScreenTestState(CTRenderer *pRenderer)
-{
-    if (pRenderer == nullptr)
+    template <size_t N>
+    constexpr unsigned len(const char (&)[N])
     {
-        return;
+        return static_cast<unsigned>(N - 1);
     }
 
-    // Restore the full-screen terminal baseline before each VTTest screen so
-    // scroll regions, origin mode, charsets, and DEC line attributes cannot leak.
-    static const char kResetSeq[] =
-        "\x1B#5\x1B(B\x1B)0\x0F\x1B[0m\x1B[?6l\x1B[?7h\x1B[?25h\x1B[r\x1B[2J\x1B[H";
-    pRenderer->ResetParserState();
-    pRenderer->Write(kResetSeq, len(kResetSeq));
-    pRenderer->ResetParserState();
-}
+    static const unsigned kStepDelayMs = 5000;
+    static const unsigned kCursorHideMs = 5000;
+    static const unsigned kScrollLineDelayMs = 1000;
+    static const unsigned kSequencePartDelayMs = 2000;
+    static const unsigned kBoundaryCharDelayMs = 200;
+    static const unsigned kScrollLineCount = 10;
+    static const char *kScrollLines[kScrollLineCount] = {
+        "L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8", "L9", "L10"};
 
-static const CVTTest::TVTTestStep kCoreSteps[] = {
-    {"ANSI Cursor Position", "\x1B[1;1H\x1B[5;10H", "Cursor should be at row 5, column 10.", 4, 9},
-    {"ANSI Cursor Home", "\x1B[H", "Cursor should move to home (row 1, col 1).", 0, 0},
-    {"ANSI Cursor Up", "\x1B[10;10H\x1B[A", "Cursor should move up to row 9, col 10.", 8, 9},
-    {"ANSI Cursor Down", "\x1B[10;10H\x1B[B", "Cursor should move down to row 11, col 10.", 10, 9},
-    {"ANSI Cursor Right", "\x1B[10;10H\x1B[C", "Cursor should move right to col 11.", 9, 10},
-    {"ANSI Cursor Left", "\x1B[10;10H\x1B[D", "Cursor should move left to col 9.", 9, 8},
-    {"VT52 Cursor Up", "\x1B[10;10H\x1B[?2l" "\x1B" "A" "\x1B<", "Cursor should move up to row 9, col 10 (VT52).", 8, 9},
-    {"VT52 Cursor Down", "\x1B[10;10H\x1B[?2l" "\x1B" "B" "\x1B<", "Cursor should move down to row 11, col 10 (VT52).", 10, 9},
-    {"VT52 Cursor Right", "\x1B[10;10H\x1B[?2l" "\x1B" "C" "\x1B<", "Cursor should move right to col 11 (VT52).", 9, 10},
-    {"VT52 Cursor Left", "\x1B[10;10H\x1B[?2l" "\x1B" "D" "\x1B<", "Cursor should move left to col 9 (VT52).", 9, 8},
-    {"VT52 Home", "\x1B[5;10H\x1B[?2l" "\x1B" "H" "\x1B<", "Cursor should move to home (row 1, col 1) (VT52).", 0, 0},
-    {"VT52 Clear to End", "\x1B[6;10HABC\x1B[?2l" "\x1B" "J" "\x1B<", "Everything from cursor to end should be cleared (VT52).", -1, -1},
-    {"VT52 Clear Line", "\x1B[2;10HHello\x1B[2;10H\x1B[?2l" "\x1B" "K" "\x1B<", "Line 2 (from col 10) should be cleared (VT52).", -1, -1},
-    {"VT52 Position", "\x1B[?2l" "\x1B" "Y%*\x1B<", "Cursor should move to row 5, col 10 (VT52 ESC Y).", 4, 9},
-    {"ANSI Index (IND)", "\x1B[10;10H" "\x1B" "D", "Cursor should move down to row 11, col 10 (ESC D).", 10, 9},
-    {"ANSI Next Line (NEL)", "\x1B[10;10H" "\x1B" "E", "Cursor should move to row 11, col 1 (ESC E).", 10, 0},
-    {"ANSI Rev Index (RI)", "\x1B[6;10HX\x1B[6;10H" "\x1B" "M\x1B[5;10HY", "Y should appear one line above X (ESC M).", -1, -1},
-    {"ANSI RI at Scroll Top",
+    void ResetFullScreenTestState(CTRenderer *pRenderer)
+    {
+        if (pRenderer == nullptr)
+        {
+            return;
+        }
+
+        // Restore the full-screen terminal baseline before each VTTest screen so
+        // scroll regions, origin mode, charsets, and DEC line attributes cannot leak.
+        static const char kResetSeq[] =
+            "\x1B#5\x1B(B\x1B)0\x0F\x1B[0m\x1B[?6l\x1B[?7h\x1B[?25h\x1B[r\x1B[2J\x1B[H";
+        pRenderer->ResetParserState();
+        pRenderer->Write(kResetSeq, len(kResetSeq));
+        pRenderer->ResetParserState();
+    }
+
+    static const CVTTest::TVTTestStep kCoreSteps[] = {
+        {"ANSI Cursor Position", "\x1B[1;1H\x1B[5;10H", "Cursor should be at row 5, column 10.", 4, 9},
+        {"ANSI Cursor Home", "\x1B[H", "Cursor should move to home (row 1, col 1).", 0, 0},
+        {"ANSI Cursor Up", "\x1B[10;10H\x1B[A", "Cursor should move up to row 9, col 10.", 8, 9},
+        {"ANSI Cursor Down", "\x1B[10;10H\x1B[B", "Cursor should move down to row 11, col 10.", 10, 9},
+        {"ANSI Cursor Right", "\x1B[10;10H\x1B[C", "Cursor should move right to col 11.", 9, 10},
+        {"ANSI Cursor Left", "\x1B[10;10H\x1B[D", "Cursor should move left to col 9.", 9, 8},
+        {"VT52 Cursor Up", "\x1B[10;10H\x1B[?2l"
+                           "\x1B"
+                           "A"
+                           "\x1B<",
+         "Cursor should move up to row 9, col 10 (VT52).", 8, 9},
+        {"VT52 Cursor Down", "\x1B[10;10H\x1B[?2l"
+                             "\x1B"
+                             "B"
+                             "\x1B<",
+         "Cursor should move down to row 11, col 10 (VT52).", 10, 9},
+        {"VT52 Cursor Right", "\x1B[10;10H\x1B[?2l"
+                              "\x1B"
+                              "C"
+                              "\x1B<",
+         "Cursor should move right to col 11 (VT52).", 9, 10},
+        {"VT52 Cursor Left", "\x1B[10;10H\x1B[?2l"
+                             "\x1B"
+                             "D"
+                             "\x1B<",
+         "Cursor should move left to col 9 (VT52).", 9, 8},
+        {"VT52 Home", "\x1B[5;10H\x1B[?2l"
+                      "\x1B"
+                      "H"
+                      "\x1B<",
+         "Cursor should move to home (row 1, col 1) (VT52).", 0, 0},
+        {"VT52 Clear to End", "\x1B[6;10HABC\x1B[?2l"
+                              "\x1B"
+                              "J"
+                              "\x1B<",
+         "Everything from cursor to end should be cleared (VT52).", -1, -1},
+        {"VT52 Clear Line", "\x1B[2;10HHello\x1B[2;10H\x1B[?2l"
+                            "\x1B"
+                            "K"
+                            "\x1B<",
+         "Line 2 (from col 10) should be cleared (VT52).", -1, -1},
+        {"VT52 Position", "\x1B[?2l"
+                          "\x1B"
+                          "Y%*\x1B<",
+         "Cursor should move to row 5, col 10 (VT52 ESC Y).", 4, 9},
+        {"ANSI Index (IND)", "\x1B[10;10H"
+                             "\x1B"
+                             "D",
+         "Cursor should move down to row 11, col 10 (ESC D).", 10, 9},
+        {"ANSI Next Line (NEL)", "\x1B[10;10H"
+                                 "\x1B"
+                                 "E",
+         "Cursor should move to row 11, col 1 (ESC E).", 10, 0},
+        {"ANSI Rev Index (RI)", "\x1B[6;10HX\x1B[6;10H"
+                                "\x1B"
+                                "M\x1B[5;10HY",
+         "Y should appear one line above X (ESC M).", -1, -1},
+        {"ANSI RI at Scroll Top",
+         "\x1B[6;9r"
+         "\x1B[6;1HAAAA"
+         "\x1B[7;1HBBBB"
+         "\x1B[8;1HCCCC"
+         "\x1B[9;1HDDDD"
+         "\x1B[6;1H\x1BM"
+         "\x1B[6;1HTOP!"
+         "\x1B[r",
+         "At top margin, RI should scroll region down: original line 6 shifts to line 7.", -1, -1},
+        {"ANSI Save/Restore", "\x1B[10;10H\x1B"
+                              "7\x1B[1;1H\x1B"
+                              "8",
+         "Cursor should restore to row 10, col 10 (ESC 7/8).", 9, 9},
+        {"ANSI Backspace", "\x1B[12;10HAB\bC", "Text should read 'AC' at row 12, col 10.", -1, -1},
+        {"ANSI Tab Forward",
+         "\x1B[3g"           // clear all tab stops
+         "\x1B[2;5H\x1BH"    // set tab stop at col 5
+         "\x1B[2;10H\x1BH"   // set tab stop at col 10
+         "\x1B[2;1HA\tB\tC", // should land at col 5 and 10
+         "Tabs set at col 5 and 10. B should appear at col 5, C at col 10.",
+         -1, -1},
+        {"ANSI Back Tab",
+         "\x1B[3g"
+         "\x1B[2;5H\x1BH"
+         "\x1B[2;10H\x1BH"
+         "\x1B[2;12H\x1B[ZX", // back-tab then write X
+         "Tabs at 5 and 10. Back Tab from 12 should land at 10. X at col 10.",
+         -1, -1},
+        {"ANSI Clear Tab Stop",
+         "\x1B[3g"          // clear all tab stops
+         "\x1B[2;10H\x1BH"  // set tab stop at col 10
+         "\x1B[2;1HA\tB"    // B should land at col 10
+         "\x1B[2;10H\x1B[g" // clear current tab stop
+         "\x1B[3;1HA\tB",   // B should now NOT land at 10.
+         "Clear tab at 10. On row 3, 'A TAB B' should put B at default tab (Col 9) or end.",
+         -1, -1},
+        {"ANSI Clear Screen", "", "Screen should be fully blank for 5 seconds.", -1, -1},
+        {"ANSI Erase to End", "\x1B[6;10HABC\x1B[J", "Everything from cursor to end should be cleared.", -1, -1},
+        {"ANSI Clear Line", "\x1B[2;10HHello\x1B[2;10H\x1B[K", "Line 2 (from col 10) should be cleared.", -1, -1},
+        {"ANSI Erase Chars", "", "Line 6 shows ABCDEFG, then erase runs; result should show three blanks then DEFG.", -1, -1},
+        {"ANSI Delete Chars", "", "Line 6 shows ABCDEFG, then delete runs; result should be DEFG at col 10.", -1, -1},
+        {"ANSI Insert Lines", "", "Rows 6-8 show AAA/BBB/CCC. After insert at row 7, row 7 is blank; row 8=BBB, row 9=CCC.", -1, -1},
+        {"ANSI Delete Lines", "", "Rows 6-8 show AAA/BBB/CCC. After delete at row 7, row 7=CCC; row 8 blank.", -1, -1},
+        {"ANSI Insert Mode", "\x1B[4h\x1B[4l", "No visible change expected (insert mode toggled).", -1, -1},
+        {"DEC Cursor Visible", "\x1B[?25l", "Cursor should hide for 5 seconds, then show again.", -1, -1},
+        {"DEC Scroll Region",
+         "\x1B[6;9r"       // set scroll region rows 6-9
+         "\x1B[5;1HTOP"    // marker above region (col 1)
+         "\x1B[10;1HBOT"   // marker below region (col 1)
+         "\x1B[6;1H\x1B[K" // clear line 6 from col 1
+         "\x1B[7;1H\x1B[K" // clear line 7 from col 1
+         "\x1B[8;1H\x1B[K" // clear line 8 from col 1
+         "\x1B[9;1H\x1B[K" // clear line 9 from col 1
+         "\x1B[6;1H",      // position cursor at start of scroll region
+         "TOP and BOT must stay fixed; rows 6-9 should scroll as new lines arrive.",
+         -1, -1},
+        {"Smooth Scroll ON Demo",
+         "\x1B[6;9r"
+         "\x1B[5;1HTOP"
+         "\x1B[10;1HBOT"
+         "\x1B[6;1H",
+         "Smooth scroll ON: rows 6-9 should animate single-line scrolling while L1..L10 stream.",
+         -1, -1},
+        {"Smooth Scroll OFF Demo",
+         "\x1B[6;9r"
+         "\x1B[5;1HTOP"
+         "\x1B[10;1HBOT"
+         "\x1B[6;1H",
+         "Smooth scroll OFF: rows 6-9 should jump per line (no intermediate animation).",
+         -1, -1},
+        {"Wrap Around ON", "", "Wrap ON: write at line end should continue on next line. ENTER if wrap happened, SPACE if not.", -1, -1},
+        {"Wrap Around OFF", "", "Wrap OFF: at line end extra chars overwrite last cell and cursor stays there. ENTER if correct, SPACE if not.", -1, -1},
+        {"Margin Bell Right-8", "", "Starts 5 chars before bell point and writes past it. ENTER if bell sounded, SPACE if not.", -1, -1},
+        {"Custom Auto Page Mode", "", "Region 5-10 filled A-F. WRAP should overwrite Line A without scrolling.", -1, -1},
+    };
+
+    static const CVTTest::TVTTestStep kDecSteps[] = {
+        {"DEC Line/Char Attributes",
+         "",
+         "Line 4: double width+height. Line 8: double width. Line 12: normal. Line 16: bold/dim/underline/reverse.",
+         -1, -1},
+        {"DECOM Origin + Scroll Region",
+         "",
+         "Animated demo: ABS must appear at screen row 1; ORI at row 6 (scroll top); ROW4 at row 9. Then rows 6-9 scroll L1..L10 while TOP/BOT stay fixed.",
+         -1, -1},
+        {"VT100 Geometry Markers",
+         "",
+         "Shows row/col markers and corner labels. Use this to check if row 1 is cropped/overlapping.",
+         -1, -1},
+        {"DECALN Alignment Fill (ESC # 8)",
+         "\x1B#8",
+         "Screen should be filled with 'E' characters in a perfect grid. Any missing/overlapping top rows indicates display cropping.",
+         -1, -1},
+        {"SGR Mono Intensity + Reverse",
+         "\x1B[5;1H\x1B[K\x1B[1mBOLD\x1B[22m NORM \x1B[2mDIM\x1B[22m \x1B[7mREV\x1B[27mNORM\x1B[0m",
+         "BOLD should be brighter, DIM dimmer, and REV reversed. Each OFF code must return the following text to normal video.",
+         -1, -1},
+        {"SGR Mono Attribute Reset",
+         "\x1B[5;1H\x1B[K\x1B[1;4mB+U\x1B[24m BOLD \x1B[22mNORM"
+         "\x1B[6;1H\x1B[K\x1B[7mREV\x1B[27m NORM \x1B[4mUNDER\x1B[24m NORM",
+         "Row 5: B+U is bold+underlined, then only bold remains, then normal. Row 6: REV and UNDER must each stop exactly at their OFF code.",
+         -1, -1},
+        {"DEC Special Graphics Set",
+         "",
+         "Line 6 should show line drawing characters (diamond, corners, lines).",
+         -1, -1},
+    };
+
+    static const char *kGraphicsFontParts[] = {
+        // 1. Normal Size
+        "\x1B[2J\x1B[H\x1B#5Normal Size:\r\n"
+        "Normal: `abcdefghijklmnopqrstuvwxyz{|}~\r\n"
+        "Graph : \x1B(0`abcdefghijklmnopqrstuvwxyz{|}~\x1B(B",
+
+        // 2. Double Width (Positioned below Normal)
+        "\x1B[5;1H\x1B#5Double Width:"
+        "\x1B[6;1H\x1B#6Normal: `abcdefghijklmnopqrstuvwxyz{|}~"
+        "\x1B[7;1H\x1B#6Graph : \x1B(0`abcdefghijklmnopqrstuvwxyz{|}~\x1B(B"
+        "\x1B[8;1H\x1B#5",
+
+        // 3. Double Height (Positioned below Double Width)
+        "\x1B[10;1H\x1B#5Double Height:"
+        "\x1B[11;1H\x1B#3Normal: `abcdefghijklmnopqrstuvwxyz{|}~"
+        "\x1B[12;1H\x1B#4Normal: `abcdefghijklmnopqrstuvwxyz{|}~"
+        "\x1B[14;1H\x1B#3Graph : \x1B(0`abcdefghijklmnopqrstuvwxyz{|}~\x1B(B"
+        "\x1B[15;1H\x1B#4Graph : \x1B(0`abcdefghijklmnopqrstuvwxyz{|}~\x1B(B"
+        "\x1B[24;1H\x1B#5\x1B(B" // Ensure Normal Single Width and ASCII at bottom
+    };
+    static const unsigned kGraphicsFontPartCount = sizeof(kGraphicsFontParts) / sizeof(kGraphicsFontParts[0]);
+
+    static const char *kDecLineAttrParts[] = {
+        "\x1B[2J\x1B[H",
+        "\x1B[4;1H\x1B#3DOUBLE WIDTH DOUBLE HEIGHT\x1B[5;1H\x1B#4DOUBLE WIDTH DOUBLE HEIGHT\x1B[6;1H\x1B#5",
+        "\x1B[10;1H\x1B#6DOUBLE WIDTH\x1B[11;1H\x1B#5",
+        "\x1B[14;1H\x1B#5NORMAL FONT",
+        "\x1B[18;1H\x1B[1mBOLD\x1B[22m \x1B[2mDIM\x1B[22m \x1B[4mUNDERLINE\x1B[24m \x1B[7mREVERSE\x1B[27m"};
+    static const unsigned kDecLineAttrPartCount = sizeof(kDecLineAttrParts) / sizeof(kDecLineAttrParts[0]);
+
+    static const char *kClearScreenParts[] = {
+        "\x1B[2J\x1B[H"};
+    static const unsigned kClearScreenPartCount = sizeof(kClearScreenParts) / sizeof(kClearScreenParts[0]);
+
+    static const char *kDeleteCharParts[] = {
+        "\x1B[6;1H\x1B[K\x1B[6;10HABCDEFG",
+        "\x1B[6;10H\x1B[3P"};
+    static const unsigned kDeleteCharPartCount = sizeof(kDeleteCharParts) / sizeof(kDeleteCharParts[0]);
+
+    static const char *kEraseCharParts[] = {
+        "\x1B[6;1H\x1B[K\x1B[6;10HABCDEFG",
+        "\x1B[6;10H\x1B[3X"};
+    static const unsigned kEraseCharPartCount = sizeof(kEraseCharParts) / sizeof(kEraseCharParts[0]);
+
+    static const char *kInsertLineParts[] = {
+        "\x1B[6;1H\x1B[K\x1B[7;1H\x1B[K\x1B[8;1H\x1B[K\x1B[9;1H\x1B[K\x1B[6;10HAAA\x1B[7;10HBBB\x1B[8;10HCCC",
+        "\x1B[7;10H\x1B[1L"};
+    static const unsigned kInsertLinePartCount = sizeof(kInsertLineParts) / sizeof(kInsertLineParts[0]);
+
+    static const char *kDeleteLineParts[] = {
+        "\x1B[6;1H\x1B[K\x1B[7;1H\x1B[K\x1B[8;1H\x1B[K\x1B[9;1H\x1B[K\x1B[6;10HAAA\x1B[7;10HBBB\x1B[8;10HCCC",
+        "\x1B[7;10H\x1B[1M"};
+    static const unsigned kDeleteLinePartCount = sizeof(kDeleteLineParts) / sizeof(kDeleteLineParts[0]);
+
+    static const char *kAutoPageParts[] = {
+        "\x1B[5;10r\x1B[5;1HLine A\x1B[6;1HLine B\x1B[7;1HLine C\x1B[8;1HLine D\x1B[9;1HLine E\x1B[10;1HLine F", // 1. Fill 5-10
+        "\x1B"
+        "d+",       // 2. Enable Auto Page
+        "\r\nWRAP", // 3. Newline (wraps to top) + Write
+        "\x1B"
+        "d*\x1B[r" // 4. Disable and Reset
+    };
+    static const unsigned kAutoPagePartCount = sizeof(kAutoPageParts) / sizeof(kAutoPageParts[0]);
+
+    static const char *kDecomOriginParts[] = {
+        // Use the normal VTTest frame and only prepare the demo area.
+        "\x1B#5\x1B[0m\x1B[?6l\x1B[r"
+        "\x1B[5;1H\x1B[K\x1B[6;1H\x1B[K\x1B[7;1H\x1B[K\x1B[8;1H\x1B[K\x1B[9;1H\x1B[K\x1B[10;1H\x1B[K"
         "\x1B[6;9r"
-        "\x1B[6;1HAAAA"
-        "\x1B[7;1HBBBB"
-        "\x1B[8;1HCCCC"
-        "\x1B[9;1HDDDD"
-        "\x1B[6;1H\x1BM"
-        "\x1B[6;1HTOP!"
-        "\x1B[r",
-     "At top margin, RI should scroll region down: original line 6 shifts to line 7.", -1, -1},
-    {"ANSI Save/Restore", "\x1B[10;10H\x1B" "7\x1B[1;1H\x1B" "8", "Cursor should restore to row 10, col 10 (ESC 7/8).", 9, 9},
-    {"ANSI Backspace", "\x1B[12;10HAB\bC", "Text should read 'AC' at row 12, col 10.", -1, -1},
-    {"ANSI Tab Forward",
-     "\x1B[3g"              // clear all tab stops
-     "\x1B[2;5H\x1BH"        // set tab stop at col 5
-     "\x1B[2;10H\x1BH"       // set tab stop at col 10
-     "\x1B[2;1HA\tB\tC",     // should land at col 5 and 10
-        "Tabs set at col 5 and 10. B should appear at col 5, C at col 10.",
-     -1, -1},
-    {"ANSI Back Tab",
-     "\x1B[3g"
-     "\x1B[2;5H\x1BH"
-     "\x1B[2;10H\x1BH"
-        "\x1B[2;12H\x1B[ZX",    // back-tab then write X
-      "Tabs at 5 and 10. Back Tab from 12 should land at 10. X at col 10.",
-     -1, -1},
-    {"ANSI Clear Tab Stop",
-        "\x1B[3g"              // clear all tab stops
-        "\x1B[2;10H\x1BH"       // set tab stop at col 10
-        "\x1B[2;1HA\tB"         // B should land at col 10
-        "\x1B[2;10H\x1B[g"      // clear current tab stop
-        "\x1B[3;1HA\tB",        // B should now NOT land at 10.
-        "Clear tab at 10. On row 3, 'A TAB B' should put B at default tab (Col 9) or end.",
-     -1, -1},
-    {"ANSI Clear Screen", "", "Screen should be fully blank for 5 seconds.", -1, -1},
-    {"ANSI Erase to End", "\x1B[6;10HABC\x1B[J", "Everything from cursor to end should be cleared.", -1, -1},
-    {"ANSI Clear Line", "\x1B[2;10HHello\x1B[2;10H\x1B[K", "Line 2 (from col 10) should be cleared.", -1, -1},
-    {"ANSI Erase Chars", "", "Line 6 shows ABCDEFG, then erase runs; result should show three blanks then DEFG.", -1, -1},
-    {"ANSI Delete Chars", "", "Line 6 shows ABCDEFG, then delete runs; result should be DEFG at col 10.", -1, -1},
-    {"ANSI Insert Lines", "", "Rows 6-8 show AAA/BBB/CCC. After insert at row 7, row 7 is blank; row 8=BBB, row 9=CCC.", -1, -1},
-    {"ANSI Delete Lines", "", "Rows 6-8 show AAA/BBB/CCC. After delete at row 7, row 7=CCC; row 8 blank.", -1, -1},
-    {"ANSI Insert Mode", "\x1B[4h\x1B[4l", "No visible change expected (insert mode toggled).", -1, -1},
-    {"DEC Cursor Visible", "\x1B[?25l", "Cursor should hide for 5 seconds, then show again.", -1, -1},
-    {"DEC Scroll Region",
-     "\x1B[6;9r"              // set scroll region rows 6-9
-        "\x1B[5;1HTOP"           // marker above region (col 1)
-        "\x1B[10;1HBOT"          // marker below region (col 1)
-        "\x1B[6;1H\x1B[K"        // clear line 6 from col 1
-        "\x1B[7;1H\x1B[K"        // clear line 7 from col 1
-        "\x1B[8;1H\x1B[K"        // clear line 8 from col 1
-        "\x1B[9;1H\x1B[K"        // clear line 9 from col 1
-        "\x1B[6;1H",             // position cursor at start of scroll region
-     "TOP and BOT must stay fixed; rows 6-9 should scroll as new lines arrive.",
-     -1, -1},
-     {"Smooth Scroll ON Demo",
-      "\x1B[6;9r"
-          "\x1B[5;1HTOP"
-          "\x1B[10;1HBOT"
-          "\x1B[6;1H",
-      "Smooth scroll ON: rows 6-9 should animate single-line scrolling while L1..L10 stream.",
-      -1, -1},
-     {"Smooth Scroll OFF Demo",
-      "\x1B[6;9r"
-          "\x1B[5;1HTOP"
-          "\x1B[10;1HBOT"
-          "\x1B[6;1H",
-      "Smooth scroll OFF: rows 6-9 should jump per line (no intermediate animation).",
-      -1, -1},
-    {"Wrap Around ON", "", "Wrap ON: write at line end should continue on next line. ENTER if wrap happened, SPACE if not.", -1, -1},
-    {"Wrap Around OFF", "", "Wrap OFF: at line end extra chars overwrite last cell and cursor stays there. ENTER if correct, SPACE if not.", -1, -1},
-    {"Margin Bell Right-8", "", "Starts 5 chars before bell point and writes past it. ENTER if bell sounded, SPACE if not.", -1, -1},
-    {"Custom Auto Page Mode", "", "Region 5-10 filled A-F. WRAP should overwrite Line A without scrolling.", -1, -1},
-};
+        "\x1B[5;1HTOP"
+        "\x1B[10;1HBOT",
 
-static const CVTTest::TVTTestStep kDecSteps[] = {
-    {"DEC Line/Char Attributes",
-    "",
-    "Line 4: double width+height. Line 8: double width. Line 12: normal. Line 16: bold/dim/underline/reverse.",
-     -1, -1},
-    {"DECOM Origin + Scroll Region",
-    "",
-    "Animated demo: ABS must appear at screen row 1; ORI at row 6 (scroll top); ROW4 at row 9. Then rows 6-9 scroll L1..L10 while TOP/BOT stay fixed.",
-     -1, -1},
-    {"VT100 Geometry Markers",
-     "",
-     "Shows row/col markers and corner labels. Use this to check if row 1 is cropped/overlapping.",
-     -1, -1},
-    {"DECALN Alignment Fill (ESC # 8)",
-     "\x1B#8",
-     "Screen should be filled with 'E' characters in a perfect grid. Any missing/overlapping top rows indicates display cropping.",
-     -1, -1},
-    {"SGR Mono Intensity + Reverse",
-        "\x1B[5;1H\x1B[K\x1B[1mBOLD\x1B[22m NORM \x1B[2mDIM\x1B[22m \x1B[7mREV\x1B[27mNORM\x1B[0m",
-     "BOLD should be brighter, DIM dimmer, and REV reversed. Each OFF code must return the following text to normal video.",
-     -1, -1},
-    {"SGR Mono Attribute Reset",
-        "\x1B[5;1H\x1B[K\x1B[1;4mB+U\x1B[24m BOLD \x1B[22mNORM"
-        "\x1B[6;1H\x1B[K\x1B[7mREV\x1B[27m NORM \x1B[4mUNDER\x1B[24m NORM",
-     "Row 5: B+U is bold+underlined, then only bold remains, then normal. Row 6: REV and UNDER must each stop exactly at their OFF code.",
-     -1, -1},
-    {"DEC Special Graphics Set",
-     "",
-     "Line 6 should show line drawing characters (diamond, corners, lines).",
-     -1, -1},
-};
+        // Phase 1: DECOM off -> absolute CUP
+        "\x1B[?6l\x1B[1;10HABS\x1B[K",
 
-static const char *kGraphicsFontParts[] = {
-    // 1. Normal Size
-    "\x1B[2J\x1B[H\x1B#5Normal Size:\r\n"
-    "Normal: `abcdefghijklmnopqrstuvwxyz{|}~\r\n"
-    "Graph : \x1B(0`abcdefghijklmnopqrstuvwxyz{|}~\x1B(B",
+        // Phase 2: DECOM on -> origin relative to scroll region
+        "\x1B[?6h\x1B[1;10HORI\x1B[K",
 
-    // 2. Double Width (Positioned below Normal)
-    "\x1B[5;1H\x1B#5Double Width:"
-    "\x1B[6;1H\x1B#6Normal: `abcdefghijklmnopqrstuvwxyz{|}~"
-    "\x1B[7;1H\x1B#6Graph : \x1B(0`abcdefghijklmnopqrstuvwxyz{|}~\x1B(B"
-    "\x1B[8;1H\x1B#5",
+        // Phase 3: another origin-relative position check
+        "\x1B[?6h\x1B[4;10HROW4\x1B[K",
 
-    // 3. Double Height (Positioned below Double Width)
-    "\x1B[10;1H\x1B#5Double Height:"
-    "\x1B[11;1H\x1B#3Normal: `abcdefghijklmnopqrstuvwxyz{|}~"
-    "\x1B[12;1H\x1B#4Normal: `abcdefghijklmnopqrstuvwxyz{|}~"
-    "\x1B[14;1H\x1B#3Graph : \x1B(0`abcdefghijklmnopqrstuvwxyz{|}~\x1B(B"
-    "\x1B[15;1H\x1B#4Graph : \x1B(0`abcdefghijklmnopqrstuvwxyz{|}~\x1B(B"
-    "\x1B[24;1H\x1B#5\x1B(B" // Ensure Normal Single Width and ASCII at bottom
-};
-static const unsigned kGraphicsFontPartCount = sizeof(kGraphicsFontParts) / sizeof(kGraphicsFontParts[0]);
+        // Prepare for scrolling demo inside region (with DECOM still enabled)
+        "\x1B[?6h\x1B[1;1H\x1B[K"};
+    static const unsigned kDecomOriginPartCount = sizeof(kDecomOriginParts) / sizeof(kDecomOriginParts[0]);
 
-static const char *kDecLineAttrParts[] = {
-    "\x1B[2J\x1B[H",
-    "\x1B[4;1H\x1B#3DOUBLE WIDTH DOUBLE HEIGHT\x1B[5;1H\x1B#4DOUBLE WIDTH DOUBLE HEIGHT\x1B[6;1H\x1B#5",
-    "\x1B[10;1H\x1B#6DOUBLE WIDTH\x1B[11;1H\x1B#5",
-    "\x1B[14;1H\x1B#5NORMAL FONT",
-    "\x1B[18;1H\x1B[1mBOLD\x1B[22m \x1B[2mDIM\x1B[22m \x1B[4mUNDERLINE\x1B[24m \x1B[7mREVERSE\x1B[27m"
-};
-static const unsigned kDecLineAttrPartCount = sizeof(kDecLineAttrParts) / sizeof(kDecLineAttrParts[0]);
+    struct TVTSuite
+    {
+        const char *name;
+        const CVTTest::TVTTestStep *steps;
+        unsigned count;
+    };
 
-static const char *kClearScreenParts[] = {
-    "\x1B[2J\x1B[H"
-};
-static const unsigned kClearScreenPartCount = sizeof(kClearScreenParts) / sizeof(kClearScreenParts[0]);
+    static const TVTSuite kSuites[] = {
+        {"Core VT100/ANSI", kCoreSteps, sizeof(kCoreSteps) / sizeof(kCoreSteps[0])},
+        {"DEC Enhancements", kDecSteps, sizeof(kDecSteps) / sizeof(kDecSteps[0])}};
 
-static const char *kDeleteCharParts[] = {
-    "\x1B[6;1H\x1B[K\x1B[6;10HABCDEFG",
-    "\x1B[6;10H\x1B[3P"
-};
-static const unsigned kDeleteCharPartCount = sizeof(kDeleteCharParts) / sizeof(kDeleteCharParts[0]);
-
-static const char *kEraseCharParts[] = {
-    "\x1B[6;1H\x1B[K\x1B[6;10HABCDEFG",
-    "\x1B[6;10H\x1B[3X"
-};
-static const unsigned kEraseCharPartCount = sizeof(kEraseCharParts) / sizeof(kEraseCharParts[0]);
-
-static const char *kInsertLineParts[] = {
-    "\x1B[6;1H\x1B[K\x1B[7;1H\x1B[K\x1B[8;1H\x1B[K\x1B[9;1H\x1B[K\x1B[6;10HAAA\x1B[7;10HBBB\x1B[8;10HCCC",
-    "\x1B[7;10H\x1B[1L"
-};
-static const unsigned kInsertLinePartCount = sizeof(kInsertLineParts) / sizeof(kInsertLineParts[0]);
-
-static const char *kDeleteLineParts[] = {
-    "\x1B[6;1H\x1B[K\x1B[7;1H\x1B[K\x1B[8;1H\x1B[K\x1B[9;1H\x1B[K\x1B[6;10HAAA\x1B[7;10HBBB\x1B[8;10HCCC",
-    "\x1B[7;10H\x1B[1M"
-};
-static const unsigned kDeleteLinePartCount = sizeof(kDeleteLineParts) / sizeof(kDeleteLineParts[0]);
-
-static const char *kAutoPageParts[] = {
-    "\x1B[5;10r\x1B[5;1HLine A\x1B[6;1HLine B\x1B[7;1HLine C\x1B[8;1HLine D\x1B[9;1HLine E\x1B[10;1HLine F", // 1. Fill 5-10
-    "\x1B" "d+",                           // 2. Enable Auto Page
-    "\r\nWRAP",                            // 3. Newline (wraps to top) + Write
-    "\x1B" "d*\x1B[r"                      // 4. Disable and Reset
-};
-static const unsigned kAutoPagePartCount = sizeof(kAutoPageParts) / sizeof(kAutoPageParts[0]);
-
-static const char *kDecomOriginParts[] = {
-    // Use the normal VTTest frame and only prepare the demo area.
-    "\x1B#5\x1B[0m\x1B[?6l\x1B[r"
-    "\x1B[5;1H\x1B[K\x1B[6;1H\x1B[K\x1B[7;1H\x1B[K\x1B[8;1H\x1B[K\x1B[9;1H\x1B[K\x1B[10;1H\x1B[K"
-    "\x1B[6;9r"
-    "\x1B[5;1HTOP"
-    "\x1B[10;1HBOT",
-
-    // Phase 1: DECOM off -> absolute CUP
-    "\x1B[?6l\x1B[1;10HABS\x1B[K",
-
-    // Phase 2: DECOM on -> origin relative to scroll region
-    "\x1B[?6h\x1B[1;10HORI\x1B[K",
-
-    // Phase 3: another origin-relative position check
-    "\x1B[?6h\x1B[4;10HROW4\x1B[K",
-
-    // Prepare for scrolling demo inside region (with DECOM still enabled)
-    "\x1B[?6h\x1B[1;1H\x1B[K"
-};
-static const unsigned kDecomOriginPartCount = sizeof(kDecomOriginParts) / sizeof(kDecomOriginParts[0]);
-
-struct TVTSuite
-{
-    const char *name;
-    const CVTTest::TVTTestStep *steps;
-    unsigned count;
-};
-
-static const TVTSuite kSuites[] = {
-    {"Core VT100/ANSI", kCoreSteps, sizeof(kCoreSteps) / sizeof(kCoreSteps[0])},
-    {"DEC Enhancements", kDecSteps, sizeof(kDecSteps) / sizeof(kDecSteps[0])}
-};
-
-static const unsigned kSuiteCount = sizeof(kSuites) / sizeof(kSuites[0]);
-static_assert(sizeof(kCoreSteps) / sizeof(kCoreSteps[0]) <= CVTTest::kMaxSteps, "Increase kMaxSteps");
-static_assert(sizeof(kDecSteps) / sizeof(kDecSteps[0]) <= CVTTest::kMaxSteps, "Increase kMaxSteps");
+    static const unsigned kSuiteCount = sizeof(kSuites) / sizeof(kSuites[0]);
+    static_assert(sizeof(kCoreSteps) / sizeof(kCoreSteps[0]) <= CVTTest::kMaxSteps, "Increase kMaxSteps");
+    static_assert(sizeof(kDecSteps) / sizeof(kDecSteps[0]) <= CVTTest::kMaxSteps, "Increase kMaxSteps");
 }
 
 CVTTest::CVTTest(void)
@@ -289,9 +325,9 @@ CVTTest::CVTTest(void)
       m_bActive(false),
       m_bCompleted(false),
       m_bLastEnabled(false),
-            m_bStopRequested(false),
+      m_bStopRequested(false),
       m_nStep(0),
-    m_nNextTick(0)
+      m_nNextTick(0)
 {
 }
 
@@ -659,8 +695,10 @@ void CVTTest::Tick(void)
     }
 
     // Wait for key press before advancing to next test
-    if (m_bWaitForKey) {
-        if (m_bKeyPressed) {
+    if (m_bWaitForKey)
+    {
+        if (m_bKeyPressed)
+        {
             m_bKeyPressed = false;
             m_bWaitForKey = false;
             m_nStep++;
@@ -1004,7 +1042,10 @@ void CVTTest::RunStep(const TVTTestStep &step)
         // Row 2: column ruler only (as long as it exists)
         if (rows >= 2)
         {
-            m_pRenderer->Write("\x1B[2;1H\x1B#5" "1234567890", len("\x1B[2;1H\x1B#5" "1234567890"));
+            m_pRenderer->Write("\x1B[2;1H\x1B#5"
+                               "1234567890",
+                               len("\x1B[2;1H\x1B#5"
+                                   "1234567890"));
             for (unsigned c = 11; c <= cols; c += 10)
             {
                 CString s;
@@ -1105,7 +1146,8 @@ void CVTTest::RunStep(const TVTTestStep &step)
         StartBoundaryAnimation(isWrapOnTest, false);
         return;
     }
-    else if (step.sequence != nullptr && step.sequence[0] != '\0') {
+    else if (step.sequence != nullptr && step.sequence[0] != '\0')
+    {
         m_pRenderer->ResetParserState();
         // Use escape sequences only for positioning in tests
         m_pRenderer->Write(step.sequence, strlen(step.sequence));
@@ -1117,9 +1159,7 @@ void CVTTest::RunStep(const TVTTestStep &step)
             m_bWaitForKey = false;
         }
 
-        if (strcmp(step.name, "DEC Scroll Region") == 0
-            || strcmp(step.name, "Smooth Scroll ON Demo") == 0
-            || strcmp(step.name, "Smooth Scroll OFF Demo") == 0)
+        if (strcmp(step.name, "DEC Scroll Region") == 0 || strcmp(step.name, "Smooth Scroll ON Demo") == 0 || strcmp(step.name, "Smooth Scroll OFF Demo") == 0)
         {
             CTConfig *config = CTConfig::Get();
             if (strcmp(step.name, "Smooth Scroll ON Demo") == 0)
@@ -1156,7 +1196,7 @@ void CVTTest::RunStep(const TVTTestStep &step)
         m_sequencePartIndex = 0;
         // Wait 3 seconds before clearing so user can read the test frame
         m_sequenceNextTick = CTimer::Get()->GetTicks() + MSEC2HZ(3000);
-        
+
         m_pHoldStep = &step;
         m_bShowPromptAfterSequence = false;
         m_bWaitForKey = false;
@@ -1239,8 +1279,8 @@ void CVTTest::StartBoundaryAnimation(bool wrapAroundEnabled, bool marginBellMode
     m_BoundaryChars[sizeof(m_BoundaryChars) - 1] = '\0';
 
     m_BoundaryTestMode = marginBellMode
-        ? BoundaryTestMarginBell
-        : (wrapAroundEnabled ? BoundaryTestWrapOn : BoundaryTestWrapOff);
+                             ? BoundaryTestMarginBell
+                             : (wrapAroundEnabled ? BoundaryTestWrapOn : BoundaryTestWrapOff);
     m_BoundaryRow = testRow;
     m_BoundaryStartCol = startCol + baseLen;
     m_BoundaryCharIndex = 0;
@@ -1304,7 +1344,7 @@ void CVTTest::ShowSummary(void)
     const unsigned dRows = m_pRenderer->GetRows();
     const unsigned dCols = m_pRenderer->GetColumns();
     const unsigned dHeight = m_pRenderer->GetHeight();
-    
+
     CString titleMsg("VT100 Test Summary");
     unsigned titleChars = static_cast<unsigned>(titleMsg.GetLength());
     unsigned maxTitleChars = dCols > 1 ? (dCols / 2) : dCols;
@@ -1363,11 +1403,11 @@ void CVTTest::ShowSummary(void)
 
     const unsigned columns = m_pRenderer->GetColumns();
     const unsigned colWidth = columns > 1 ? columns / 2 : columns;
-    
+
     // Calculate split across two columns
     // Force display of all items even if they might overflow (renderer clamps)
     const unsigned displayCount = m_allCount;
-    
+
     // Split: put more on the left if odd
     // But importantly, ensure we use all available rows
     const unsigned leftCount = (displayCount + 1) / 2;
@@ -1448,18 +1488,20 @@ void CVTTest::ShowSummary(void)
 
     // Position summary at the bottom
     unsigned summaryLine = dRows > 1 ? dRows - 1 : line + leftCount;
-    if (summaryLine < line + leftCount && summaryLine >= dRows) summaryLine = dRows - 1; // Adjust if overlapping
-    if (summaryLine < line + leftCount) summaryLine = line + leftCount; // Ensure it's below list if space allows or scroll...
+    if (summaryLine < line + leftCount && summaryLine >= dRows)
+        summaryLine = dRows - 1; // Adjust if overlapping
+    if (summaryLine < line + leftCount)
+        summaryLine = line + leftCount; // Ensure it's below list if space allows or scroll...
     // Actually just force bottom of screen
-    summaryLine = dRows > 0 ? dRows - 1 : 0; 
-    
+    summaryLine = dRows > 0 ? dRows - 1 : 0;
+
     // Clear the summary line area just in case
     m_pRenderer->Goto(summaryLine, 0);
     m_pRenderer->Write("\x1B[K", len("\x1B[K"));
 
     CString summary;
     summary.Format("Summary: %u total, %u passed, %u failed", m_allCount, passCount, failCount);
-    
+
     m_pRenderer->Goto(summaryLine, 0);
     CString boldSummary;
     boldSummary.Format("\x1B[1m%s\x1B[0m", summary.c_str());
@@ -1517,8 +1559,9 @@ void CVTTest::DrawTestFrame(const TVTTestStep &step)
         // Draw horizontal ruler (column numbers)
         unsigned cols = m_pRenderer->GetColumns();
         CString hRuler;
-        for (unsigned c = 0; c < cols; ++c) {
-            char digit[2] = { static_cast<char>('0' + (c % 10)), '\0' };
+        for (unsigned c = 0; c < cols; ++c)
+        {
+            char digit[2] = {static_cast<char>('0' + (c % 10)), '\0'};
             hRuler.Append(digit);
         }
         m_pRenderer->Goto(0, 0);
@@ -1529,7 +1572,8 @@ void CVTTest::DrawTestFrame(const TVTTestStep &step)
         {
             // Draw vertical ruler (row numbers)
             unsigned rows = m_pRenderer->GetRows();
-            for (unsigned r = 1; r < rows; ++r) {
+            for (unsigned r = 1; r < rows; ++r)
+            {
                 CString vRuler;
                 vRuler.Format("%02d", r + 1);
                 m_pRenderer->Goto(r, 0);
@@ -1549,7 +1593,8 @@ void CVTTest::DrawTestFrame(const TVTTestStep &step)
     CString expl;
     expl.Format("VTTest %u/%u: %s", m_nStep + 1, m_stepCount, step.name);
     m_pRenderer->Write(expl.c_str(), expl.GetLength());
-    if (step.hint != nullptr) {
+    if (step.hint != nullptr)
+    {
         m_pRenderer->Goto(hintLine, m_bShowRulers ? 10 : 0);
         m_pRenderer->Write(step.hint, strlen(step.hint));
     }

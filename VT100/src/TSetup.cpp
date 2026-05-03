@@ -22,8 +22,7 @@ namespace
     {
     public:
         explicit CScopedMarginBellMute(CTConfig *pConfig)
-        : m_pConfig(pConfig)
-        , m_bRestore(false)
+            : m_pConfig(pConfig), m_bRestore(false)
         {
             if (m_pConfig != nullptr && m_pConfig->GetMarginBellEnabled())
             {
@@ -75,7 +74,7 @@ namespace
     constexpr unsigned int kModernDialogMinRows = 12U;
     constexpr unsigned int kModernDialogMinCols = 72U;
     constexpr unsigned int kModernRowBufferSize = 192U;
-    constexpr unsigned int kModernFieldCount = 20U;
+    constexpr unsigned int kModernFieldCount = 21U;
 
     static const char *kModernFieldNames[kModernFieldCount] = {
         "line_ending",
@@ -96,6 +95,7 @@ namespace
         "repeat_rate_cps",
         "switch_txrx",
         "wlan_host_autostart",
+        "host_id",
         "log_output",
         "log_filename"};
 
@@ -118,6 +118,7 @@ namespace
         "Repeat rate 2-20 cps",
         "Swap UART TX/RX",
         "WLAN mode: Off/RemoteLog/ShellClient",
+        "Default shell target IPv4[:port]",
         "Log outputs bitmask: bit1=screen, bit2=file, bit3=wlan",
         "Log file name"};
 
@@ -1221,6 +1222,7 @@ void CTSetup::InitializeModernFromConfig()
         memset(&m_ModernConfig, 0, sizeof(m_ModernConfig));
         strncpy(m_ModernConfig.logFileName, "vt100.log", sizeof(m_ModernConfig.logFileName) - 1);
         m_ModernConfig.logFileName[sizeof(m_ModernConfig.logFileName) - 1] = '\0';
+        m_ModernConfig.hostId[0] = '\0';
         m_ModernConfig.lineEnding = 0U;
         m_ModernConfig.baudRate = 9600U;
         m_ModernConfig.serialBits = 8U;
@@ -1250,6 +1252,8 @@ void CTSetup::InitializeModernFromConfig()
     m_ModernConfig.repeatRateCps = m_pConfig->GetKeyRepeatRateCps();
     m_ModernConfig.switchTxRx = m_pConfig->GetSwitchTxRx() != 0U;
     m_ModernConfig.wlanModePolicy = m_pConfig->GetWlanHostAutoStart();
+    strncpy(m_ModernConfig.hostId, m_pConfig->GetHostId(), sizeof(m_ModernConfig.hostId) - 1);
+    m_ModernConfig.hostId[sizeof(m_ModernConfig.hostId) - 1] = '\0';
     m_ModernConfig.logOutput = m_pConfig->GetLogOutput() & 0x7U;
     strncpy(m_ModernConfig.logFileName, m_pConfig->GetLogFileName(), sizeof(m_ModernConfig.logFileName) - 1);
     m_ModernConfig.logFileName[sizeof(m_ModernConfig.logFileName) - 1] = '\0';
@@ -1280,6 +1284,7 @@ void CTSetup::ApplyModernToConfig()
     m_pConfig->SetKeyRepeatRateCps(m_ModernConfig.repeatRateCps);
     m_pConfig->SetSwitchTxRx(m_ModernConfig.switchTxRx ? TRUE : FALSE);
     m_pConfig->SetWlanHostAutoStart(m_ModernConfig.wlanModePolicy);
+    m_pConfig->SetHostId(m_ModernConfig.hostId);
     m_pConfig->SetLogOutput(m_ModernConfig.logOutput);
     m_pConfig->SetLogFileName(m_ModernConfig.logFileName);
 }
@@ -1635,6 +1640,15 @@ void CTSetup::HandleModernKeyPress(const char *pString)
         return;
     }
 
+    if (HandleModernTextEdit(pString))
+    {
+        if (!RenderModernValueDelta())
+        {
+            RenderModernDialog();
+        }
+        return;
+    }
+
     if (strcmp(pString, "\x1b[A") == 0)
     {
         const TModernField previousSelected = m_ModernSelected;
@@ -1801,6 +1815,8 @@ void CTSetup::ChangeModernValue(int delta)
     case ModernFieldWlanHostAutoStart:
         m_ModernConfig.wlanModePolicy = CycleUnsigned(m_ModernConfig.wlanModePolicy, 0U, 2U, delta);
         break;
+    case ModernFieldHostId:
+        break;
     case ModernFieldLogOutput:
     {
         static unsigned toggleBitIndex = 0;
@@ -1923,6 +1939,9 @@ void CTSetup::FormatModernValue(TModernField field, char *pBuffer, size_t buffer
     case ModernFieldWlanHostAutoStart:
         text = kWlanModeNames[m_ModernConfig.wlanModePolicy <= 2U ? m_ModernConfig.wlanModePolicy : 0U];
         break;
+    case ModernFieldHostId:
+        text = m_ModernConfig.hostId[0] != '\0' ? m_ModernConfig.hostId : "(unset)";
+        break;
     case ModernFieldLogOutput:
         text = kLogOutputNames[m_ModernConfig.logOutput <= 7U ? m_ModernConfig.logOutput : 0U];
         break;
@@ -1935,6 +1954,50 @@ void CTSetup::FormatModernValue(TModernField field, char *pBuffer, size_t buffer
 
     strncpy(pBuffer, text.c_str(), bufferSize - 1);
     pBuffer[bufferSize - 1] = '\0';
+}
+
+bool CTSetup::HandleModernTextEdit(const char *pString)
+{
+    if (pString == nullptr || pString[0] == '\0')
+    {
+        return false;
+    }
+
+    if (m_ModernSelected != ModernFieldHostId)
+    {
+        return false;
+    }
+
+    char *target = m_ModernConfig.hostId;
+    const size_t capacity = sizeof(m_ModernConfig.hostId);
+    size_t length = strlen(target);
+
+    if ((strcmp(pString, "\b") == 0 || strcmp(pString, "\x7f") == 0) && length > 0)
+    {
+        target[length - 1] = '\0';
+        return true;
+    }
+
+    if (strlen(pString) != 1)
+    {
+        return false;
+    }
+
+    const unsigned char ch = static_cast<unsigned char>(pString[0]);
+    const bool allowed =
+        (ch >= '0' && ch <= '9') ||
+        (ch >= 'A' && ch <= 'Z') ||
+        (ch >= 'a' && ch <= 'z') ||
+        ch == '.' || ch == ':' || ch == '-' || ch == '_';
+
+    if (!allowed || length + 1 >= capacity)
+    {
+        return false;
+    }
+
+    target[length] = static_cast<char>(ch);
+    target[length + 1] = '\0';
+    return true;
 }
 
 void CTSetup::UpdateTabCursor()

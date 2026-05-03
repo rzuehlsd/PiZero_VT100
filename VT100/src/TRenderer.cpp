@@ -34,28 +34,28 @@ LOGMODULE("TRenderer");
 
 namespace
 {
-static void SendHostReply(const char *data, size_t length)
-{
-    if (data == nullptr || length == 0)
+    static void SendHostReply(const char *data, size_t length)
     {
-        return;
+        if (data == nullptr || length == 0)
+        {
+            return;
+        }
+
+        CKernel *kernel = CKernel::Get();
+        if (kernel == nullptr)
+        {
+            return;
+        }
+
+        kernel->SendHostOutput(data, length);
     }
 
-    CKernel *kernel = CKernel::Get();
-    if (kernel == nullptr)
+    static void SendPrimaryDA(void)
     {
-        return;
+        // Identify as VT100 class (primary DA). Many apps (incl. vttest) expect this.
+        static const char Reply[] = "\x1B[?1;0c";
+        SendHostReply(Reply, sizeof Reply - 1);
     }
-
-    kernel->SendHostOutput(data, length);
-}
-
-static void SendPrimaryDA(void)
-{
-    // Identify as VT100 class (primary DA). Many apps (incl. vttest) expect this.
-    static const char Reply[] = "\x1B[?1;0c";
-    SendHostReply(Reply, sizeof Reply - 1);
-}
 }
 
 #define DEPTH 16
@@ -81,8 +81,8 @@ CTRenderer::CTRenderer(void)
       m_FontFlags(CCharGenerator::FontFlagsNone),
       m_pCharGen(nullptr),
       m_pGraphicsCharGen(nullptr),
-    m_pDoubleBothCharGen(nullptr),
-    m_pGraphicsDoubleBothCharGen(nullptr),
+      m_pDoubleBothCharGen(nullptr),
+      m_pGraphicsDoubleBothCharGen(nullptr),
       m_CurrentFontSelection(EFontSelection::VT100Font10x20),
       m_G0CharSet(CharSetUS),
       m_G1CharSet(CharSetGraphics),
@@ -101,9 +101,9 @@ CTRenderer::CTRenderer(void)
       m_State(StateStart),
       m_nScrollStart(0),
       m_nScrollEnd(0),
-            m_nCursorX(0),
-            m_nCursorY(0),
-            m_bWrapPending(FALSE),
+      m_nCursorX(0),
+      m_nCursorY(0),
+      m_bWrapPending(FALSE),
       m_bCursorOn(TRUE),
       m_bCursorBlock(FALSE),
       m_bBlinkingCursor(TRUE),
@@ -120,44 +120,44 @@ CTRenderer::CTRenderer(void)
       m_ReverseForegroundScaleFactor(1.6f),
       m_bReverseAttribute(FALSE),
       m_bBoldAttribute(FALSE),
-    m_bDimAttribute(FALSE),
+      m_bDimAttribute(FALSE),
       m_bUnderlineAttribute(FALSE),
       m_bBlinkAttribute(FALSE),
       m_bInsertOn(FALSE),
-    m_bVT52Mode(FALSE),
-            m_bOriginMode(FALSE),
-            m_bWrapAroundMode(TRUE),
-                        m_bNewLineMode(TRUE), // New Line Mode (LNM): when enabled, LF is treated as CR+LF.
-    m_bAltScreenActive(FALSE),
-    m_bAltScreenSavedValid(FALSE),
-    m_pAltScreenSnapshot(nullptr),
-    m_nAltScreenSnapshotSize(0),
+      m_bVT52Mode(FALSE),
+      m_bOriginMode(FALSE),
+      m_bWrapAroundMode(TRUE),
+      m_bNewLineMode(TRUE), // New Line Mode (LNM): when enabled, LF is treated as CR+LF.
+      m_bAltScreenActive(FALSE),
+      m_bAltScreenSavedValid(FALSE),
+      m_pAltScreenSnapshot(nullptr),
+      m_nAltScreenSnapshotSize(0),
       m_bAutoPage(FALSE),
-            m_bCSIPrivate(FALSE),
-            m_nCSIParamCount(0),
-            m_nCSIParamValue(0),
-            m_bCSIHaveValue(FALSE),
-            m_bCSILastWasSeparator(FALSE),
+      m_bCSIPrivate(FALSE),
+      m_nCSIParamCount(0),
+      m_nCSIParamValue(0),
+      m_bCSIHaveValue(FALSE),
+      m_bCSILastWasSeparator(FALSE),
       m_bDelayedUpdate(FALSE),
-    m_bSmoothScrollEnabled(TRUE),
-    m_bSmoothScrollActive(FALSE),
-    m_bSmoothScrollDown(FALSE),
-    m_nSmoothScrollStartY(0),
-    m_nSmoothScrollEndY(0),
-    m_nSmoothScrollOffset(0),
-    m_nSmoothScrollStep(0),
-    m_nSmoothScrollLastTick(0),
-    m_nSmoothScrollTickInterval(MSEC2HZ(8)),
-    m_pSmoothScrollSnapshot(nullptr),
-    m_pSmoothScrollCompose(nullptr),
-        m_nSmoothScrollBufferSize(0),
-        m_nSmoothScrollStartTick(0),
-                m_nSmoothScrollDebounceUntil(0),
-        m_nScrollStatsLastLogTick(0),
-        m_ScrollNormalTicksAccum(0),
-        m_ScrollSmoothTicksAccum(0),
-        m_ScrollNormalCount(0),
-        m_ScrollSmoothCount(0),
+      m_bSmoothScrollEnabled(TRUE),
+      m_bSmoothScrollActive(FALSE),
+      m_bSmoothScrollDown(FALSE),
+      m_nSmoothScrollStartY(0),
+      m_nSmoothScrollEndY(0),
+      m_nSmoothScrollOffset(0),
+      m_nSmoothScrollStep(0),
+      m_nSmoothScrollLastTick(0),
+      m_nSmoothScrollTickInterval(MSEC2HZ(8)),
+      m_pSmoothScrollSnapshot(nullptr),
+      m_pSmoothScrollCompose(nullptr),
+      m_nSmoothScrollBufferSize(0),
+      m_nSmoothScrollStartTick(0),
+      m_nSmoothScrollDebounceUntil(0),
+      m_nScrollStatsLastLogTick(0),
+      m_ScrollNormalTicksAccum(0),
+      m_ScrollSmoothTicksAccum(0),
+      m_ScrollNormalCount(0),
+      m_ScrollSmoothCount(0),
       // Initialize spinlock with TASK_LEVEL so acquiring it does NOT disable interrupts.
       // This is crucial to prevent UART FIFO overflows during heavy render ops.
       m_SpinLock(TASK_LEVEL)
@@ -173,18 +173,18 @@ CTRenderer::CTRenderer(void)
 
 namespace
 {
-inline unsigned CSIParamOrDefault(const unsigned *params, unsigned count, unsigned index, unsigned defaultValue)
-{
-    if (index >= count)
+    inline unsigned CSIParamOrDefault(const unsigned *params, unsigned count, unsigned index, unsigned defaultValue)
     {
-        return defaultValue;
+        if (index >= count)
+        {
+            return defaultValue;
+        }
+        if (params[index] == 0)
+        {
+            return defaultValue;
+        }
+        return params[index];
     }
-    if (params[index] == 0)
-    {
-        return defaultValue;
-    }
-    return params[index];
-}
 }
 
 unsigned CTRenderer::GetBaseCharWidth(void) const
@@ -321,9 +321,7 @@ void CTRenderer::ShiftLineAttributesDown(unsigned startRow, unsigned endRow, uns
 
 boolean CTRenderer::IsDoubleWidthLineAttribute(ELineAttribute attribute) const
 {
-    return attribute == LineAttributeDoubleWidth
-        || attribute == LineAttributeDoubleHeightTop
-        || attribute == LineAttributeDoubleHeightBottom;
+    return attribute == LineAttributeDoubleWidth || attribute == LineAttributeDoubleHeightTop || attribute == LineAttributeDoubleHeightBottom;
 }
 
 unsigned CTRenderer::GetCharCellWidthForLineAttribute(ELineAttribute attribute) const
@@ -549,7 +547,7 @@ void CTRenderer::LeaveAlternateScreen(void)
 
         m_bReverseAttribute = m_AltScreenSavedState.reverseAttribute;
         m_bBoldAttribute = m_AltScreenSavedState.boldAttribute;
-    m_bDimAttribute = m_AltScreenSavedState.dimAttribute;
+        m_bDimAttribute = m_AltScreenSavedState.dimAttribute;
         m_bUnderlineAttribute = m_AltScreenSavedState.underlineAttribute;
         m_bBlinkAttribute = m_AltScreenSavedState.blinkAttribute;
         m_ForegroundColor = m_AltScreenSavedState.foreground;
@@ -691,8 +689,8 @@ bool CTRenderer::SetFont(const TFont &rFont, CCharGenerator::TFontFlags FontFlag
 }
 
 bool CTRenderer::ApplyFont(const TFont &rFont,
-                          CCharGenerator::TFontFlags FontFlags,
-                          boolean preservePixelCursor)
+                           CCharGenerator::TFontFlags FontFlags,
+                           boolean preservePixelCursor)
 {
     m_SpinLock.Acquire();
 
@@ -1778,7 +1776,7 @@ void CTRenderer::Write(char chChar)
             }
             else
             {
-            CursorDown();
+                IndexDown();
             }
             break;
 
@@ -1913,7 +1911,7 @@ void CTRenderer::Write(char chChar)
 
             case 'D':
                 // IND
-                CursorDown();
+                IndexDown();
                 m_State = StateStart;
                 break;
 
@@ -3099,20 +3097,18 @@ void CTRenderer::ClearLineEnd(void)
 void CTRenderer::CursorDown(void)
 {
     m_bWrapPending = FALSE;
-    m_nCursorY += m_pCharGen->GetCharHeight();
-    if (m_nCursorY >= m_nScrollEnd)
+    const unsigned charHeight = m_pCharGen->GetCharHeight();
+    if (charHeight == 0)
     {
-        if (!m_bAutoPage)
-        {
-            Scroll();
-
-            m_nCursorY -= m_pCharGen->GetCharHeight();
-        }
-        else
-        {
-            m_nCursorY = m_nScrollStart;
-        }
+        return;
     }
+
+    const unsigned lastRowY = (m_nUsedHeight >= charHeight) ? (m_nUsedHeight - charHeight) : 0U;
+    if (m_nCursorY + charHeight <= lastRowY)
+    {
+        m_nCursorY += charHeight;
+    }
+
     ClampCursorToLineWidth();
 }
 
@@ -3136,14 +3132,6 @@ void CTRenderer::CursorLeft(void)
         else
         {
             m_nCursorX = 0;
-        }
-    }
-    else
-    {
-        if (m_nCursorY > m_nScrollStart)
-        {
-            m_nCursorY -= m_pCharGen->GetCharHeight();
-            m_nCursorX = m_nUsedWidth - GetCharCellWidthForY(m_nCursorY);
         }
     }
 }
@@ -3639,7 +3627,34 @@ void CTRenderer::SetSmoothScrollEnabled(boolean bEnable)
 void CTRenderer::NewLine(void)
 {
     CarriageReturn();
-    CursorDown();
+    IndexDown();
+}
+
+void CTRenderer::IndexDown(void)
+{
+    m_bWrapPending = FALSE;
+
+    const unsigned charHeight = m_pCharGen->GetCharHeight();
+    if (charHeight == 0)
+    {
+        return;
+    }
+
+    m_nCursorY += charHeight;
+    if (m_nCursorY >= m_nScrollEnd)
+    {
+        if (!m_bAutoPage)
+        {
+            Scroll();
+            m_nCursorY -= charHeight;
+        }
+        else
+        {
+            m_nCursorY = m_nScrollStart;
+        }
+    }
+
+    ClampCursorToLineWidth();
 }
 
 void CTRenderer::ReverseScroll(void)
@@ -3956,7 +3971,7 @@ void CTRenderer::RestoreCursor(void)
     m_G0CharSet = static_cast<ECharacterSet>(m_SavedState.g0CharSet);
     m_G1CharSet = static_cast<ECharacterSet>(m_SavedState.g1CharSet);
     m_bUseG1 = m_SavedState.useG1;
-    
+
     // Restore position, clamped to current screen dimensions
     const unsigned lastColumnX = (m_nUsedWidth >= charWidth) ? (m_nUsedWidth - charWidth) : 0U;
     const unsigned lastRowY = (m_nUsedHeight >= charHeight) ? (m_nUsedHeight - charHeight) : 0U;
@@ -3973,16 +3988,16 @@ void CTRenderer::RestoreCursor(void)
     m_bDimAttribute = m_SavedState.dimAttribute;
     m_bUnderlineAttribute = m_SavedState.underlineAttribute;
     m_bBlinkAttribute = m_SavedState.blinkAttribute;
-    
+
     m_ForegroundColor = m_SavedState.foreground;
     m_BackgroundColor = m_SavedState.background;
     m_DefaultForegroundColor = m_SavedState.defaultForeground;
     m_DefaultBackgroundColor = m_SavedState.defaultBackground;
-    
-    // Note: We don't restore the font itself, as that might require loading resources, 
+
+    // Note: We don't restore the font itself, as that might require loading resources,
     // but we can restore flags if matched. To be safe, we usually only restore
     // attributes that don't change resource allocation.
-    
+
     m_bWrapPending = FALSE;
 }
 

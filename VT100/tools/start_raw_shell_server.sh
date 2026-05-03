@@ -97,7 +97,10 @@ chmod +x "$LAUNCHER_SCRIPT"
 
 if (( KILL_EXISTING == 1 )); then
   if command -v lsof >/dev/null 2>&1; then
-    mapfile -t existing_pids < <(lsof -tiTCP:"$PORT" -sTCP:LISTEN 2>/dev/null || true)
+    existing_pids=()
+    while IFS= read -r pid; do
+      [[ -n "$pid" ]] && existing_pids+=("$pid")
+    done < <(lsof -tiTCP:"$PORT" -sTCP:LISTEN 2>/dev/null || true)
     if (( ${#existing_pids[@]} > 0 )); then
       echo "Stopping existing listener(s) on port $PORT: ${existing_pids[*]}"
       kill "${existing_pids[@]}" || true

@@ -79,6 +79,7 @@ private:
         ModernFieldRepeatRate,
         ModernFieldSwitchTxRx,
         ModernFieldWlanHostAutoStart,
+        ModernFieldHostId,
         ModernFieldLogOutput,
         ModernFieldLogFileName,
         ModernFieldCount
@@ -104,6 +105,7 @@ private:
         unsigned int repeatRateCps;
         bool switchTxRx;
         unsigned int wlanModePolicy;
+        char hostId[64];
         unsigned int logOutput;
         char logFileName[64];
     };
@@ -150,6 +152,7 @@ private:
     void MoveModernSelection(int delta);
     void ChangeModernValue(int delta);
     void FormatModernValue(TModernField field, char *pBuffer, size_t bufferSize) const;
+    bool HandleModernTextEdit(const char *pString);
 
     static void KeyPressedHandler(const char *pString);
     static void KeyStatusHandlerRaw(unsigned char ucModifiers, const unsigned char RawKeys[6]);

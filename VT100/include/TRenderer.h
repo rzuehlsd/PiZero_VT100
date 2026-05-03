@@ -9,9 +9,7 @@
 // 2026-01-18     R. Zuehlsdorff        Initial creation
 //------------------------------------------------------------------------------
 
-
 #pragma once
-
 
 // Include Circle core components
 #include <circle/sched/task.h>
@@ -57,15 +55,15 @@ public:
     static constexpr TRendererColor kColorAmber = DISPLAY_COLOR(255, 176, 0);
     static constexpr TRendererColor kColorGreen = DISPLAY_COLOR(51, 255, 51);
 
-        enum ELineAttribute
-        {
-            LineAttributeNormal,
-            LineAttributeDoubleWidth,
-            LineAttributeDoubleHeightTop,
-            LineAttributeDoubleHeightBottom
-        };
+    enum ELineAttribute
+    {
+        LineAttributeNormal,
+        LineAttributeDoubleWidth,
+        LineAttributeDoubleHeightTop,
+        LineAttributeDoubleHeightBottom
+    };
 
-        static constexpr unsigned MaxTextRows = 64;
+    static constexpr unsigned MaxTextRows = 64;
 
     struct TRendererState
     {
@@ -138,8 +136,6 @@ public:
     /// \param color Logical color selection enum value.
     /// \return Render-specific color value.
     TRendererColor MapColor(EColorSelection color);
-
-    
 
     /// \brief Query the screen width in pixels.
     /// \return Width in pixels.
@@ -223,7 +219,7 @@ public:
 
     /// \brief Periodic display maintenance invoked from the task loop.
     void Update(void);
-    
+
     /// \brief Enable or disable cursor visibility.
     /// \param bVisible TRUE to show the cursor.
     void SetCursorMode(boolean bVisible);
@@ -249,7 +245,6 @@ public:
 
     /// \brief Force-hide the cursor and restore underlying pixels.
     void ForceHideCursor(void);
-
 
     /// \brief Entry point of the rendering task.
     void Run(void) override;
@@ -285,8 +280,8 @@ public:
     /// \param reverseBackgroundFactor Scaling factor for reverse video background.
     /// \param reverseForegroundFactor Scaling factor for reverse video foreground.
     void SetBrightnessScaling(float boldFactor = 1.6f,
-        float reverseBackgroundFactor = 0.7f,
-        float reverseForegroundFactor = 1.25f);
+                              float reverseBackgroundFactor = 0.7f,
+                              float reverseForegroundFactor = 1.25f);
 
     /// \brief Conduct a rendering self-test using various attributes.
     void doRenderTest(void);
@@ -306,33 +301,32 @@ public:
     /// \brief Restore the internal pixel buffer from a caller-provided buffer.
     void RestoreScreenBuffer(const void *buffer, size_t bufferSize);
 
-
 private:
     /// \brief Apply a font using either pixel-stable or row/column-stable cursor handling.
     boolean ApplyFont(const TFont &rFont,
                       CCharGenerator::TFontFlags FontFlags,
                       boolean preservePixelCursor);
 
-        unsigned GetBaseCharWidth(void) const;
-        unsigned GetBaseCharHeight(void) const;
-        unsigned GetRowCount(void) const;
-        unsigned GetRowIndexFromY(unsigned nPosY) const;
-        ELineAttribute GetLineAttributeForRow(unsigned row) const;
-        ELineAttribute GetLineAttributeForY(unsigned nPosY) const;
-        void SetLineAttributeForRow(unsigned row, ELineAttribute attribute);
-        void ResetLineAttributes(void);
-        void ShiftLineAttributesUp(unsigned startRow, unsigned endRow, unsigned count);
-        void ShiftLineAttributesDown(unsigned startRow, unsigned endRow, unsigned count);
-        boolean IsDoubleWidthLineAttribute(ELineAttribute attribute) const;
-        unsigned GetCharCellWidthForLineAttribute(ELineAttribute attribute) const;
-        unsigned GetCharCellWidthForY(unsigned nPosY) const;
-        unsigned GetColumnsForY(unsigned nPosY) const;
-        void ClampCursorToLineWidth(void);
-        boolean SampleGlyphPixel(const CCharGenerator &charGen,
-                                 char chChar,
-                                 ELineAttribute attribute,
-                                 unsigned nPosX,
-                                 unsigned nPosY) const;
+    unsigned GetBaseCharWidth(void) const;
+    unsigned GetBaseCharHeight(void) const;
+    unsigned GetRowCount(void) const;
+    unsigned GetRowIndexFromY(unsigned nPosY) const;
+    ELineAttribute GetLineAttributeForRow(unsigned row) const;
+    ELineAttribute GetLineAttributeForY(unsigned nPosY) const;
+    void SetLineAttributeForRow(unsigned row, ELineAttribute attribute);
+    void ResetLineAttributes(void);
+    void ShiftLineAttributesUp(unsigned startRow, unsigned endRow, unsigned count);
+    void ShiftLineAttributesDown(unsigned startRow, unsigned endRow, unsigned count);
+    boolean IsDoubleWidthLineAttribute(ELineAttribute attribute) const;
+    unsigned GetCharCellWidthForLineAttribute(ELineAttribute attribute) const;
+    unsigned GetCharCellWidthForY(unsigned nPosY) const;
+    unsigned GetColumnsForY(unsigned nPosY) const;
+    void ClampCursorToLineWidth(void);
+    boolean SampleGlyphPixel(const CCharGenerator &charGen,
+                             char chChar,
+                             ELineAttribute attribute,
+                             unsigned nPosX,
+                             unsigned nPosY) const;
 
     /// \brief Write a single character respecting current state machine.
     void Write(char chChar);
@@ -349,7 +343,7 @@ private:
     void ClearDisplayEnd(void);
     /// \brief Clear the active line from cursor to end of line.
     void ClearLineEnd(void);
-    /// \brief Move cursor down handling scrolling.
+    /// \brief Move cursor down by one row without scrolling.
     void CursorDown(void);
     /// \brief Return cursor to home position.
     void CursorHome(void);
@@ -381,6 +375,8 @@ private:
     void InsertMode(boolean bBegin);
     /// \brief Advance to next line applying scroll if necessary.
     void NewLine(void);
+    /// \brief Perform VT100 index semantics, scrolling at the bottom margin.
+    void IndexDown(void);
     /// \brief Scroll content downward for reverse index.
     void ReverseScroll(void);
 
@@ -430,7 +426,6 @@ private:
     void EraseChar(unsigned nPosX, unsigned nPosY);
     /// \brief Invert current cursor pixels to show cursor state.
     void InvertCursor(void);
-
 
     // We always update entire pixel lines.
     /// \brief Expand the pending update area to include the provided rows.
@@ -482,8 +477,8 @@ private:
     CCharGenerator *m_pDoubleBothCharGen;
     CCharGenerator *m_pGraphicsDoubleBothCharGen;
     EFontSelection m_CurrentFontSelection;
-        ELineAttribute m_LineAttributes[MaxTextRows];
-        ELineAttribute m_AltScreenLineAttributes[MaxTextRows];
+    ELineAttribute m_LineAttributes[MaxTextRows];
+    ELineAttribute m_AltScreenLineAttributes[MaxTextRows];
 
     ECharacterSet m_G0CharSet;
     ECharacterSet m_G1CharSet;
@@ -568,7 +563,7 @@ private:
     u8 *m_pSmoothScrollCompose;
     size_t m_nSmoothScrollBufferSize;
     unsigned m_nSmoothScrollStartTick;
-    unsigned  m_nSmoothScrollDebounceUntil; // tick until which we suppress smooth to avoid bursts
+    unsigned m_nSmoothScrollDebounceUntil; // tick until which we suppress smooth to avoid bursts
     unsigned m_nScrollStatsLastLogTick;
     unsigned long long m_ScrollNormalTicksAccum;
     unsigned long long m_ScrollSmoothTicksAccum;
