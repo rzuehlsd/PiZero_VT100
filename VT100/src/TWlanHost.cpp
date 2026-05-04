@@ -1,6 +1,7 @@
 #include "TWlanHost.h"
 
 #include "TConfig.h"
+#include "kernel.h"
 #include "TRenderer.h"
 #include "hal.h"
 
@@ -20,6 +21,22 @@ namespace
 {
 static const char FromTerminal[] = "wlan-host";
 static const u16 DefaultRawPort = 2323;
+
+static bool IsScreenOutputBlocked()
+{
+    CKernel *kernel = CKernel::Get();
+    return kernel != nullptr && kernel->IsScreenOutputBlocked();
+}
+
+static void WriteRendererMessage(CTRenderer *pRenderer, const void *pBuffer, size_t nCount)
+{
+    if (pRenderer == nullptr || pBuffer == nullptr || nCount == 0 || IsScreenOutputBlocked())
+    {
+        return;
+    }
+
+    pRenderer->Write(pBuffer, nCount);
+}
 }
 
 CTWlanHost *CTWlanHost::s_pThis = nullptr;
@@ -160,7 +177,7 @@ void CTWlanHost::RenderPrompt()
     switch (m_PromptField)
     {
     case ShellFieldHost:
-        m_pRenderer->Write("Host: ", 6);
+        WriteRendererMessage(m_pRenderer, "Host: ", 6);
         break;
     case ShellFieldDone:
     default:
@@ -215,8 +232,8 @@ void CTWlanHost::DisplayPromptIfReady()
             {
                 CString summary;
                 summary.Format("\r\nShell target from host_id: host=%s\r\n", (const char *)m_HostToken);
-                m_pRenderer->Write(summary.c_str(), summary.GetLength());
-                m_pRenderer->Write("Starting outbound shell-client connection...\r\n", 45);
+                WriteRendererMessage(m_pRenderer, summary.c_str(), summary.GetLength());
+                WriteRendererMessage(m_pRenderer, "Starting outbound shell-client connection...\r\n", 45);
             }
             return;
         }
@@ -227,7 +244,7 @@ void CTWlanHost::DisplayPromptIfReady()
         static const char Msg[] =
             "\r\nShell Client mode selected (wlan_host_autostart=2).\r\n"
             "Enter target host (IPv4[:port], default 2323).\r\n";
-        m_pRenderer->Write(Msg, sizeof Msg - 1);
+        WriteRendererMessage(m_pRenderer, Msg, sizeof Msg - 1);
         RenderPrompt();
     }
 }
@@ -255,7 +272,7 @@ bool CTWlanHost::HandleKey(const char *pString)
             {
                 if (m_pRenderer != nullptr)
                 {
-                    m_pRenderer->Write("\r\nInput required. Please retry.\r\n", 34);
+                    WriteRendererMessage(m_pRenderer, "\r\nInput required. Please retry.\r\n", 34);
                     RenderPrompt();
                 }
                 continue;
@@ -278,7 +295,7 @@ bool CTWlanHost::HandleKey(const char *pString)
 
             if (m_pRenderer != nullptr)
             {
-                m_pRenderer->Write("\r\n", 2);
+                WriteRendererMessage(m_pRenderer, "\r\n", 2);
 
                 if (m_PromptField != ShellFieldDone)
                 {
@@ -288,8 +305,8 @@ bool CTWlanHost::HandleKey(const char *pString)
                 {
                     CString summary;
                     summary.Format("Shell target captured: host=%s\r\n", (const char *)m_HostToken);
-                    m_pRenderer->Write(summary.c_str(), summary.GetLength());
-                    m_pRenderer->Write("Starting outbound shell-client connection...\r\n", 45);
+                    WriteRendererMessage(m_pRenderer, summary.c_str(), summary.GetLength());
+                    WriteRendererMessage(m_pRenderer, "Starting outbound shell-client connection...\r\n", 45);
                 }
             }
 
@@ -310,7 +327,7 @@ bool CTWlanHost::HandleKey(const char *pString)
                 m_InputBuffer = truncated.c_str();
                 if (m_pRenderer != nullptr)
                 {
-                    m_pRenderer->Write("\b \b", 3);
+                    WriteRendererMessage(m_pRenderer, "\b \b", 3);
                 }
             }
             continue;
@@ -325,7 +342,7 @@ bool CTWlanHost::HandleKey(const char *pString)
 
         if (m_pRenderer != nullptr)
         {
-            m_pRenderer->Write(&ch, 1);
+            WriteRendererMessage(m_pRenderer, &ch, 1);
         }
     }
 
@@ -440,7 +457,7 @@ void CTWlanHost::RequestConnectIfReady()
         if (m_pRenderer != nullptr)
         {
             static const char Msg[] = "\r\nShell-client requires numeric IPv4 host (e.g. 192.168.2.10[:2323]).\r\n";
-            m_pRenderer->Write(Msg, sizeof Msg - 1);
+            WriteRendererMessage(m_pRenderer, Msg, sizeof Msg - 1);
             RenderPrompt();
         }
         m_RetryBackoff = 200U;

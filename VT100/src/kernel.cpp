@@ -50,6 +50,34 @@ static const unsigned TerminalPort = 2323;
 static const char StartupBannerPrefix[] = "VT100 Terminal Emulation with Circle on Pi zero V0.9";
 static const unsigned StartupBannerDelayMs = 2000;
 
+class CSetupScreenGateDevice : public CDevice
+{
+public:
+    CSetupScreenGateDevice(CKernel *pKernel, CDevice *pTarget)
+    : m_pKernel(pKernel), m_pTarget(pTarget)
+    {
+    }
+
+    int Write(const void *pBuffer, size_t nCount) override
+    {
+        if (m_pKernel != nullptr && m_pKernel->IsScreenOutputBlocked())
+        {
+            return static_cast<int>(nCount);
+        }
+
+        if (m_pTarget == nullptr)
+        {
+            return static_cast<int>(nCount);
+        }
+
+        return m_pTarget->Write(pBuffer, nCount);
+    }
+
+private:
+    CKernel *m_pKernel;
+    CDevice *m_pTarget;
+};
+
 static const char *GetWlanModeName(unsigned int mode)
 {
     switch (mode)
@@ -155,7 +183,7 @@ static void onKeyPressed(const char *pString)
         if (kernel->IsLocalModeEnabled())
         {
             CTRenderer *renderer = CTRenderer::Get();
-            if (renderer != nullptr)
+            if (renderer != nullptr && !kernel->IsScreenOutputBlocked())
             {
                 renderer->Write(pString, strlen(pString));
             }
@@ -245,6 +273,7 @@ CKernel::CKernel(void)
             m_pSetup(nullptr),
             m_pVTTest(nullptr),
             m_pLogTarget(nullptr),
+            m_pScreenLogGate(nullptr),
             m_pNullLog(nullptr),
             m_bWlanLoggerEnabled(FALSE),
             m_bMDNSAdvertised(FALSE),
@@ -300,7 +329,7 @@ void CKernel::ToggleLocalMode()
         static const char LocalOffMsg[] = "\r\nVT100 local mode OFF\r\n";
         const char *msg = m_bLocalModeEnabled ? LocalOnMsg : LocalOffMsg;
         const size_t len = m_bLocalModeEnabled ? (sizeof LocalOnMsg - 1) : (sizeof LocalOffMsg - 1);
-        m_pRenderer->Write(msg, len);
+        WriteScreenMessage(msg, len);
     }
 
     LOGNOTE("Local mode %s", m_bLocalModeEnabled ? "enabled" : "disabled");
@@ -308,6 +337,22 @@ void CKernel::ToggleLocalMode()
 
 CKernel::~CKernel(void)
 {
+    delete m_pScreenLogGate;
+}
+
+bool CKernel::IsScreenOutputBlocked() const
+{
+    return m_pSetup != nullptr && m_pSetup->IsVisible();
+}
+
+void CKernel::WriteScreenMessage(const char *pData, size_t nLength)
+{
+    if (pData == nullptr || nLength == 0 || m_pRenderer == nullptr || IsScreenOutputBlocked())
+    {
+        return;
+    }
+
+    m_pRenderer->Write(pData, nLength);
 }
 
 void CKernel::EnsureSerialTaskStarted()
@@ -448,6 +493,15 @@ boolean CKernel::Initialize(void)
         if (pTarget == 0)
         {
             pTarget = &m_Screen;
+        }
+
+        if (pTarget == &m_Screen)
+        {
+            if (m_pScreenLogGate == nullptr)
+            {
+                m_pScreenLogGate = new CSetupScreenGateDevice(this, &m_Screen);
+            }
+            pTarget = m_pScreenLogGate;
         }
 
         m_pLogTarget = pTarget;
@@ -609,7 +663,7 @@ boolean CKernel::Initialize(void)
 
         if (m_pRenderer != nullptr)
         {
-            m_pRenderer->Write(banner.c_str(), banner.GetLength());
+            WriteScreenMessage(banner.c_str(), banner.GetLength());
         }
 
         LOGNOTE("Startup: %s", (const char *)banner);
@@ -620,7 +674,7 @@ boolean CKernel::Initialize(void)
             CString wlanStatus;
             const unsigned int wlanModePolicy = m_pConfig->GetWlanHostAutoStart();
             wlanStatus.Format("\r\nConfig loaded: %s mode active\r\n", GetWlanModeName(wlanModePolicy));
-            m_pRenderer->Write(wlanStatus.c_str(), wlanStatus.GetLength());
+            WriteScreenMessage(wlanStatus.c_str(), wlanStatus.GetLength());
             LOGNOTE("Config loaded: %s mode active", GetWlanModeName(wlanModePolicy));
         }
     }
@@ -723,7 +777,7 @@ void CKernel::MarkTelnetReady()
     if (m_bWlanLoggerEnabled && m_pRenderer != nullptr)
     {
         static const char ReadyMsg[] = "\r\nTelnet client connected - enabling local output\r\n";
-        m_pRenderer->Write(ReadyMsg, sizeof ReadyMsg - 1);
+        WriteScreenMessage(ReadyMsg, sizeof ReadyMsg - 1);
     }
 
     EnsureSerialTaskStarted();
@@ -803,7 +857,7 @@ void CKernel::HandleWlanHostRx(const char *pData, size_t nLength)
 
     if (m_pRenderer != nullptr)
     {
-        m_pRenderer->Write(pData, nLength);
+        WriteScreenMessage(pData, nLength);
     }
 }
 
@@ -833,7 +887,7 @@ void CKernel::ProcessSerial()
 
         if (m_pRenderer != nullptr)
         {
-            m_pRenderer->Write(buffer, (size_t)nBytes);
+            WriteScreenMessage(buffer, (size_t)nBytes);
         }
     }
     else if (nBytes < 0)
@@ -943,7 +997,7 @@ void CKernel::MarkTelnetWaiting()
 
         waitingMsg += connectHint;
 
-        m_pRenderer->Write(waitingMsg.c_str(), waitingMsg.GetLength());
+        WriteScreenMessage(waitingMsg.c_str(), waitingMsg.GetLength());
         m_bWaitingMessageShowsIP = haveIP;
     }
 }

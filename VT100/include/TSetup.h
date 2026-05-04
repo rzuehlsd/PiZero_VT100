@@ -194,6 +194,7 @@ private:
     unsigned m_TabEditCol;
     TModernField m_ModernSelected;
     TModernConfigState m_ModernConfig;
+    bool m_ModernHostIdOverwriteOnEdit;
     bool m_ModernLayoutValid;
     TModernLayoutState m_ModernLayout;
 };

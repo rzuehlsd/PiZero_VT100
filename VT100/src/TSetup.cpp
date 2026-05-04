@@ -206,7 +206,7 @@ CTSetup *CTSetup::Get(void)
 }
 
 CTSetup::CTSetup()
-    : CTask(), m_pRenderer(nullptr), m_pConfig(nullptr), m_pKeyboard(nullptr), m_pPrevKeyPressed(nullptr), m_pPrevKeyStatusRaw(nullptr), m_Snapshot{nullptr, 0, false, false, {}}, m_Visible(false), m_ExitRequested(false), m_SaveRequested(false), m_KeyPending(false), m_F12Down(false), m_F11Down(false), m_KeyBuffer{0}, m_DialogMode(DialogModeLegacy), m_Page(SetupPageA), m_SetupBToggle{0, 0, 0, 0}, m_SetupBTxSpeed(9600), m_SetupBRxSpeed(9600), m_SetupBField(SetupBFieldToggle1), m_SetupBBitIndex(0), m_TabRow(0), m_TabCols(0), m_TabEditCol(0), m_ModernSelected(ModernFieldLineEnding), m_ModernConfig{}, m_ModernLayoutValid(false), m_ModernLayout{}
+    : CTask(), m_pRenderer(nullptr), m_pConfig(nullptr), m_pKeyboard(nullptr), m_pPrevKeyPressed(nullptr), m_pPrevKeyStatusRaw(nullptr), m_Snapshot{nullptr, 0, false, false, {}}, m_Visible(false), m_ExitRequested(false), m_SaveRequested(false), m_KeyPending(false), m_F12Down(false), m_F11Down(false), m_KeyBuffer{0}, m_DialogMode(DialogModeLegacy), m_Page(SetupPageA), m_SetupBToggle{0, 0, 0, 0}, m_SetupBTxSpeed(9600), m_SetupBRxSpeed(9600), m_SetupBField(SetupBFieldToggle1), m_SetupBBitIndex(0), m_TabRow(0), m_TabCols(0), m_TabEditCol(0), m_ModernSelected(ModernFieldLineEnding), m_ModernConfig{}, m_ModernHostIdOverwriteOnEdit(false), m_ModernLayoutValid(false), m_ModernLayout{}
 {
     SetName("Setup");
     Suspend();
@@ -279,6 +279,7 @@ void CTSetup::ShowModern()
     m_ExitRequested = false;
     m_ModernSelected = ModernFieldLineEnding;
     InitializeModernFromConfig();
+    m_ModernHostIdOverwriteOnEdit = false;
     m_ModernLayoutValid = false;
     Render();
 }
@@ -621,6 +622,7 @@ void CTSetup::OnRawKeyStatus(unsigned char ucModifiers, const unsigned char RawK
         m_DialogMode = DialogModeModern;
         m_ModernSelected = ModernFieldLineEnding;
         InitializeModernFromConfig();
+        m_ModernHostIdOverwriteOnEdit = false;
         Render();
     }
 
@@ -1718,6 +1720,7 @@ void CTSetup::MoveModernSelection(int delta)
         selected = 0;
     }
     m_ModernSelected = static_cast<TModernField>(selected);
+    m_ModernHostIdOverwriteOnEdit = (m_ModernSelected == ModernFieldHostId);
 }
 
 void CTSetup::ChangeModernValue(int delta)
@@ -1975,6 +1978,7 @@ bool CTSetup::HandleModernTextEdit(const char *pString)
     if ((strcmp(pString, "\b") == 0 || strcmp(pString, "\x7f") == 0) && length > 0)
     {
         target[length - 1] = '\0';
+        m_ModernHostIdOverwriteOnEdit = false;
         return true;
     }
 
@@ -1990,6 +1994,13 @@ bool CTSetup::HandleModernTextEdit(const char *pString)
         (ch >= 'a' && ch <= 'z') ||
         ch == '.' || ch == ':' || ch == '-' || ch == '_';
 
+    if (m_ModernHostIdOverwriteOnEdit)
+    {
+        target[0] = '\0';
+        length = 0;
+        m_ModernHostIdOverwriteOnEdit = false;
+    }
+
     if (!allowed || length + 1 >= capacity)
     {
         return false;
@@ -1997,6 +2008,7 @@ bool CTSetup::HandleModernTextEdit(const char *pString)
 
     target[length] = static_cast<char>(ch);
     target[length + 1] = '\0';
+    m_ModernHostIdOverwriteOnEdit = false;
     return true;
 }
 

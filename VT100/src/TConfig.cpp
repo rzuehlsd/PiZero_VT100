@@ -543,8 +543,8 @@ boolean CTConfig::SaveToFile(void)
     kv[19].value.Format("%u", m_SwitchTxRx);
     kv[20].value.Format("%u", m_MarginBellEnabled);
     kv[21].value.Format("%u", m_WlanHostAutoStart);
-    kv[22].value.Format("%u", m_LogOutput);
-    kv[23].value.Format("%s", m_HostId);
+    kv[22].value.Format("%s", m_HostId);
+    kv[23].value.Format("%u", m_LogOutput);
     kv[24].value.Format("%s", m_LogFileName);
 
     // Attempt to load existing content to preserve comments/order

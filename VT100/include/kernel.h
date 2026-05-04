@@ -105,6 +105,8 @@ public:
     bool IsLocalModeEnabled() const;
     /// \brief Toggle local keyboard loopback mode.
     void ToggleLocalMode();
+    /// \brief Check whether visible screen output is currently suppressed.
+    bool IsScreenOutputBlocked() const;
 
     /// \brief Forward a key press to the VT test runner (manual confirmation).
     bool HandleVTTestKey(const char *pString);
@@ -128,6 +130,8 @@ private:
     void EnsureSerialTaskStarted();
     /// \brief Drain the buffered UART input and pass to renderer.
     void ProcessSerial();
+    /// \brief Write a visible message unless a setup dialog currently owns the screen.
+    void WriteScreenMessage(const char *pData, size_t nLength);
 
     // do not change this order - some members depend on others
     CKernelOptions m_Options;
@@ -159,6 +163,7 @@ private:
     CTSetup *m_pSetup;
     CVTTest *m_pVTTest;
     CDevice *m_pLogTarget;
+    CDevice *m_pScreenLogGate;
     CNullDevice *m_pNullLog;
 
     boolean m_bWlanLoggerEnabled;

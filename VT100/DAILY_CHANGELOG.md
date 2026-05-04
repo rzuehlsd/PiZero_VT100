@@ -10,6 +10,10 @@ Reconstructed from git commit history and intended as a concise daily summary of
 	- `Codebase changes: ...`
 - Keep entries concise and based on completed, merged work.
 
+## 2026-05-04
+- Implemented features: made the modern setup dialog replace the current `host_id` value on the first typed character after selecting the remote shell target row while keeping backspace editing available.
+- Codebase changes: added a small `CTSetup` edit-state flag for `host_id`, reset it on modern-dialog entry and row changes, kept the edited remote shell target visible when navigating to other config items, gated screen logger plus direct kernel/WLAN-host status output while setup dialogs are visible so no messages are painted over configuration screens, including the shell-client IPv4 validation warning, and fixed `SaveToFile()` so `host_id` and `log_output` persist to the correct keys.
+
 ## 2026-01-12
 - Implemented features: integrated `CScheduler` periodic/background tasks, added scheduler demo task, and moved keyboard/serial handling toward task-based processing.
 - Codebase changes: refactored font selection and greeting rendering logic into renderer-focused code, added kernel/scheduler accessors, fixed build/link issues, and updated scope/docs.
