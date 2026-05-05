@@ -641,9 +641,13 @@ This is still not a claim of full original-hardware fidelity. If you need near-c
 
 Hardware and product-scope constraints that intentionally shape this assessment:
 
-- `DECCOLM` (`80/132 columns`) is outside the target because the current framebuffer/display geometry is fixed by the hardware design.
+- `DECCOLM` (`80/132 columns`) is outside the target because the current framebuffer/display geometry is fixed by the hardware design. With the default `VT100Font10x20` on the current 1024-pixel-wide framebuffer, the renderer can show only about 102 text columns, not 132. As a result, the second `vttest` cursor-movement screen, which is intentionally built against a 132-column layout, cannot be displayed correctly on this hardware.
 - `DECKPAM` and `DECKPNM` are outside the target because the reduced 60% keyboard has no numeric keypad block.
 - `DECCKM` is lower priority for the same reason: it only changes which escape sequences dedicated cursor keys send to host applications.
+
+For local `vttest` runs this also means: the second movement-test screen is only avoided if `vttest` itself is started with a reduced `max_cols` value such as `24x80.80`. If that run still draws a 132-column second pass, the geometry override was not actually applied to the running `vttest` process.
+
+Current `vttest` status for the first VT100 section: with the fixes in this repository, the 80-column tests in the first section now pass, including cursor movements, autowrap, and cursor-control characters inside escape sequences. The remaining visible mismatch in that section is limited to the 132-column `DECCOLM` passes, which stay outside the hardware-supported display geometry.
 
 `DECCKM` explained briefly: in normal cursor-key mode the arrow keys typically send `ESC [ A/B/C/D`; in application cursor-key mode they send `ESC O A/B/C/D`. Some full-screen host applications care about that distinction.
 
@@ -661,7 +665,7 @@ Hardware and product-scope constraints that intentionally shape this assessment:
 | Save and restore cursor (`DECSC`, `DECRC`, `CSI s/u`) | 100% | Position, modes, and key attributes are restored. |
 | Tab handling (`HT`, `HTS`, `TBC`, `CBT`) | 100% | Forward tab, set/clear stop, clear-all, and back-tab are implemented. |
 | Device reports (`DA`, `DSR 5`, `DSR 6`) | 100% | The terminal replies to identity and status queries. |
-| Character sets (`G0/G1`, DEC Special Graphics) | 100% | Graphics character selection and switching are implemented. |
+| Character sets (`G0/G1`, DEC Special Graphics) | Partial | Standard DEC ASCII plus DEC Special Graphics switching are implemented, and `vttest` Character Sets test 3 passes on that basis, but there is no DEC Alternate Character Set implementation. |
 | Alignment test (`DECALN`, `ESC #8`) | 100% | Implemented as full-screen alignment fill. |
 | Insert mode (`IRM`, `CSI 4 h/l`) | 100% | Printable characters are inserted when the mode is enabled. |
 | SGR core subset (`0`, `1`, `2`, `4`, `5`, `7`, `22`, `24`, `27`) | Partial | Supported set is limited to monochrome attributes plus explicit off-codes. |
@@ -697,9 +701,9 @@ Suggested `vttest` interpretation for the current implementation:
 | Device attributes and status reports | Pass | Primary `DA`, `DSR 5`, and `DSR 6` replies are implemented. |
 | Tab stop handling | Pass | Forward tab, set/clear tab stop, clear all, and back-tab are present. |
 | VT52 mode tests | Pass | VT52 subset and ANSI escape back to normal mode are implemented. |
-| DEC special graphics | Pass | G0/G1 switching and graphics glyph selection are implemented. |
-| SGR attribute tests | Partial | Bold, dim, underline, reverse, reset, and the matching off-codes work, but only the monochrome SGR subset is supported. |
-| Blink attribute tests | Partial | `SGR 5` is accepted, but text blink is not visibly rendered. |
+| DEC special graphics | Partial | Standard DEC ASCII plus DEC Special Graphics switching work, which is sufficient for `vttest` Character Sets test 3, but there is no DEC Alternate Character Set implementation. |
+| SGR attribute tests | Partial | Bold, dim, underline, reverse, reset, and the matching off-codes work, and the second `vttest` screen-features test now passes apart from visible blink rendering, but only the monochrome SGR subset is supported. |
+| Blink attribute tests | Partial | `SGR 5` is accepted, but the blinking text attribute is still not visibly rendered. |
 | DEC double-width / double-height line tests | Pass | Internal VTTest sequences use true `ESC #3`/`#4` top-and-bottom pairs plus `#5` reset semantics. |
 | Keypad application mode tests | Not targeted | `DECKPAM` and `DECKPNM` are outside the current product scope because the keyboard has no numeric keypad. |
 | Cursor key application mode tests | Not targeted | `DECCKM` is outside the current product scope and currently ignored. |

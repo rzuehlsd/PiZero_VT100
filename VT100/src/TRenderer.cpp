@@ -97,6 +97,7 @@ CTRenderer::CTRenderer(void)
       m_nHeight(0),
       m_nUsedWidth(0),
       m_nUsedHeight(0),
+      m_nColumnModeColumns(0),
       m_nDepth(0),
       m_State(StateStart),
       m_nScrollStart(0),
@@ -127,7 +128,7 @@ CTRenderer::CTRenderer(void)
       m_bVT52Mode(FALSE),
       m_bOriginMode(FALSE),
       m_bWrapAroundMode(TRUE),
-      m_bNewLineMode(TRUE), // New Line Mode (LNM): when enabled, LF is treated as CR+LF.
+      m_bNewLineMode(FALSE), // VT100 default: LF is IND unless ANSI New Line Mode is enabled.
       m_bAltScreenActive(FALSE),
       m_bAltScreenSavedValid(FALSE),
       m_pAltScreenSnapshot(nullptr),
@@ -349,6 +350,84 @@ unsigned CTRenderer::GetColumnsForY(unsigned nPosY) const
     }
 
     return m_nUsedWidth / charWidth;
+}
+
+void CTRenderer::ApplyColumnMode(unsigned nColumns, boolean clearScreen)
+{
+    if (m_pCharGen == nullptr)
+    {
+        m_nColumnModeColumns = nColumns;
+        return;
+    }
+
+    const unsigned charWidth = m_pCharGen->GetCharWidth();
+    if (charWidth == 0)
+    {
+        m_nColumnModeColumns = nColumns;
+        return;
+    }
+
+    const unsigned physicalColumns = m_nWidth / charWidth;
+    unsigned effectiveColumns = nColumns;
+    if (effectiveColumns == 0 || effectiveColumns > physicalColumns)
+    {
+        effectiveColumns = physicalColumns;
+    }
+
+    m_nColumnModeColumns = effectiveColumns;
+
+    unsigned columns = physicalColumns;
+    if (m_nColumnModeColumns != 0 && columns > m_nColumnModeColumns)
+    {
+        columns = m_nColumnModeColumns;
+    }
+
+    m_nUsedWidth = columns * charWidth;
+
+    if (clearScreen)
+    {
+        // DECCOLM starts a fresh full-screen page on VT100-class terminals.
+        // Reapply the baseline state that affects cursor motion and wrapping
+        // before starting the fresh full-screen page.
+        m_State = StateStart;
+        m_nParam1 = 0;
+        m_nParam2 = 0;
+        m_bCSIPrivate = FALSE;
+        m_nCSIParamCount = 0;
+        m_nCSIParamValue = 0;
+        m_bCSIHaveValue = FALSE;
+        m_bCSILastWasSeparator = FALSE;
+
+        m_bVT52Mode = FALSE;
+        m_bOriginMode = FALSE;
+        m_bInsertOn = FALSE;
+        m_bNewLineMode = FALSE;
+        m_bAutoPage = FALSE;
+        SetWrapAroundMode(TRUE);
+
+        m_G0CharSet = CharSetUS;
+        m_G1CharSet = CharSetGraphics;
+        m_bUseG1 = FALSE;
+
+        SetStandoutMode(0);
+        SetCursorMode(TRUE);
+
+        if (m_pCharGen != nullptr)
+        {
+            SetFont(m_CurrentFontSelection, CCharGenerator::FontFlagsNone);
+        }
+
+        ResetLineAttributes();
+        m_bWrapPending = FALSE;
+        SetScrollRegion(1, 0);
+        ClearDisplay();
+    }
+    else
+    {
+        ClampCursorToLineWidth();
+        // Reapply the terminal baseline that affects cursor motion and wrapping
+        // before starting the fresh full-screen page.
+    }
 }
 
 void CTRenderer::ClampCursorToLineWidth(void)
@@ -814,7 +893,7 @@ bool CTRenderer::ApplyFont(const TFont &rFont,
     m_pFont = &rFont;
     m_FontFlags = FontFlags;
 
-    m_nUsedWidth = m_nWidth / m_pCharGen->GetCharWidth() * m_pCharGen->GetCharWidth();
+    ApplyColumnMode(m_nColumnModeColumns, FALSE);
     m_nUsedHeight = m_nHeight / m_pCharGen->GetCharHeight() * m_pCharGen->GetCharHeight();
     m_nScrollEnd = m_nUsedHeight;
 
@@ -1269,6 +1348,7 @@ void CTRenderer::ResetTerminalState(boolean clearScreen)
     m_bVT52Mode = FALSE;
     m_bOriginMode = FALSE;
     m_bInsertOn = FALSE;
+    m_bNewLineMode = FALSE;
     m_bAutoPage = FALSE;
     SetWrapAroundMode(TRUE);
 
@@ -1300,6 +1380,8 @@ void CTRenderer::ScreenAlignmentTest(void)
     {
         return;
     }
+
+    ResetLineAttributes();
 
     const unsigned savedX = m_nCursorX;
     const unsigned savedY = m_nCursorY;
@@ -1744,6 +1826,19 @@ void CTRenderer::RenderSmoothScrollFrame(void)
 
 void CTRenderer::Write(char chChar)
 {
+    if (m_State != StateStart && chChar == '\x1b')
+    {
+        m_State = StateEscape;
+        m_nParam1 = 0;
+        m_nParam2 = 0;
+        m_bCSIPrivate = FALSE;
+        m_nCSIParamCount = 0;
+        m_nCSIParamValue = 0;
+        m_bCSIHaveValue = FALSE;
+        m_bCSILastWasSeparator = FALSE;
+        return;
+    }
+
     switch (m_State)
     {
     case StateSkipTillCRLF: // skip processing of second double height line
@@ -2070,6 +2165,50 @@ void CTRenderer::Write(char chChar)
         break;
 
     case StateCSI:
+        switch (chChar)
+        {
+        case '\b':
+            CursorLeft();
+            break;
+
+        case '\t':
+            Tabulator();
+            break;
+
+        case '\v':
+        case '\f':
+        case '\n':
+            if (m_bNewLineMode)
+            {
+                NewLine();
+            }
+            else
+            {
+                IndexDown();
+            }
+            break;
+
+        case '\r':
+            CarriageReturn();
+            break;
+
+        case '\x0E':
+            m_bUseG1 = TRUE;
+            break;
+
+        case '\x0F':
+            m_bUseG1 = FALSE;
+            break;
+
+        default:
+            break;
+        }
+
+        if (static_cast<unsigned char>(chChar) < 0x20U && chChar != '\x1B')
+        {
+            break;
+        }
+
         if (chChar == '?')
         {
             m_bCSIPrivate = TRUE;
@@ -2366,7 +2505,7 @@ void CTRenderer::Write(char chChar)
                     }
                     else if (mode == 3)
                     {
-                        // DECCOLM 80/132 columns: ignore (fixed framebuffer).
+                        ApplyColumnMode(enable ? 132U : 80U, TRUE);
                     }
                     else if (mode == 1)
                     {
@@ -2841,6 +2980,10 @@ void CTRenderer::Write(char chChar)
             {
                 SetCursorMode(TRUE);
             }
+            else if (m_nParam1 == 3)
+            {
+                ApplyColumnMode(132U, TRUE);
+            }
             else if (m_nParam1 == 6)
             {
                 m_bOriginMode = TRUE;
@@ -2866,6 +3009,10 @@ void CTRenderer::Write(char chChar)
             if (m_nParam1 == 25)
             {
                 SetCursorMode(FALSE);
+            }
+            else if (m_nParam1 == 3)
+            {
+                ApplyColumnMode(80U, TRUE);
             }
             else if (m_nParam1 == 2)
             {
@@ -2973,6 +3120,7 @@ void CTRenderer::ClearDisplayStart(void)
         m_nCursorX = 0;
         m_nCursorY = y;
         ClearLineEnd();
+        SetLineAttributeForRow(GetRowIndexFromY(y), LineAttributeNormal);
     }
 
     // Clear from start of line to cursor on the cursor line.
@@ -3020,6 +3168,7 @@ void CTRenderer::ClearLine(void)
     const unsigned savedX = m_nCursorX;
     m_nCursorX = 0;
     ClearLineEnd();
+    SetLineAttributeForRow(GetRowIndexFromY(m_nCursorY), LineAttributeNormal);
     m_nCursorX = savedX;
 }
 
@@ -3072,6 +3221,17 @@ void CTRenderer::ClearDisplayEnd(void)
         }
     }
     break;
+    }
+
+    const unsigned charHeight = m_pCharGen->GetCharHeight();
+    if (charHeight != 0)
+    {
+        const unsigned startRow = GetRowIndexFromY(m_nCursorY + charHeight);
+        const unsigned rowCount = GetRowCount();
+        for (unsigned row = startRow; row < rowCount; ++row)
+        {
+            SetLineAttributeForRow(row, LineAttributeNormal);
+        }
     }
 
     SetUpdateArea(m_nCursorY, m_nHeight - 1);
@@ -3659,9 +3819,30 @@ void CTRenderer::IndexDown(void)
 
 void CTRenderer::ReverseScroll(void)
 {
+    m_bWrapPending = FALSE;
+
+    if (m_pCharGen == nullptr)
+    {
+        return;
+    }
+
+    const unsigned charHeight = m_pCharGen->GetCharHeight();
+    if (charHeight == 0)
+    {
+        return;
+    }
+
+    if (m_nCursorY > m_nScrollStart)
+    {
+        m_nCursorY -= charHeight;
+        ClampCursorToLineWidth();
+        return;
+    }
+
     if (m_nCursorY == m_nScrollStart)
     {
         InsertLines(1);
+        ClampCursorToLineWidth();
     }
 }
 
@@ -3872,7 +4053,7 @@ void CTRenderer::Tabulator(void)
     m_nCursorX = ((m_nCursorX + nTabWidth) / nTabWidth) * nTabWidth;
     if (m_nCursorX >= m_nUsedWidth)
     {
-        NewLine();
+        m_nCursorX = (m_nUsedWidth >= charWidth) ? (m_nUsedWidth - charWidth) : 0;
     }
 }
 
