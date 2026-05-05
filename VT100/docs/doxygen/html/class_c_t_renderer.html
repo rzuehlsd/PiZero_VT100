@@ -126,6 +126,14 @@ Inheritance diagram for CTRenderer:</div>
 Classes</h2></td></tr>
 <tr class="memitem:TRendererState" id="r_TRendererState"><td class="memItemLeft">struct &#160;</td><td class="memItemRight"><a class="el" href="struct_c_t_renderer_1_1_t_renderer_state.html">TRendererState</a></td></tr>
 </table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 id="header-pub-types" class="groupheader"><a id="pub-types" name="pub-types"></a>
+Public Types</h2></td></tr>
+<tr class="memitem:afb8847cd62a6b93bd74dbc2afe1b3052" id="r_afb8847cd62a6b93bd74dbc2afe1b3052"><td class="memItemLeft"><a id="afb8847cd62a6b93bd74dbc2afe1b3052" name="afb8847cd62a6b93bd74dbc2afe1b3052"></a>enum &#160;</td><td class="memItemRight"><b>ELineAttribute</b> { <b>LineAttributeNormal</b>
+, <b>LineAttributeDoubleWidth</b>
+, <b>LineAttributeDoubleHeightTop</b>
+, <b>LineAttributeDoubleHeightBottom</b>
+ }</td></tr>
+</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 id="header-pub-methods" class="groupheader"><a id="pub-methods" name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
 <tr class="memitem:a958b04d64c50511ab3069ad6bdef3fd9" id="r_a958b04d64c50511ab3069ad6bdef3fd9"><td class="memItemLeft">&#160;</td><td class="memItemRight"><a class="el" href="#a958b04d64c50511ab3069ad6bdef3fd9">CTRenderer</a> (void)</td></tr>
@@ -142,8 +150,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memdesc:ad124729fb684ec164457d67e737ed3b4"><td class="mdescLeft">&#160;</td><td class="mdescRight">Translate a configured color selection into the renderer palette.  <br /></td></tr>
 <tr class="memitem:a837e9a0524dce73f6f20af4f42bb0c4c" id="r_a837e9a0524dce73f6f20af4f42bb0c4c"><td class="memItemLeft">unsigned&#160;</td><td class="memItemRight"><a class="el" href="#a837e9a0524dce73f6f20af4f42bb0c4c">GetWidth</a> (void) const</td></tr>
 <tr class="memdesc:a837e9a0524dce73f6f20af4f42bb0c4c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Query the screen width in pixels.  <br /></td></tr>
-<tr class="memitem:a3adb635f67ca4f5bf75c54d65c7c6060" id="r_a3adb635f67ca4f5bf75c54d65c7c6060"><td class="memItemLeft">unsigned&#160;</td><td class="memItemRight"><a class="el" href="#a3adb635f67ca4f5bf75c54d65c7c6060">GetHeight</a> (void) const</td></tr>
-<tr class="memdesc:a3adb635f67ca4f5bf75c54d65c7c6060"><td class="mdescLeft">&#160;</td><td class="mdescRight">Query the screen height in pixels.  <br /></td></tr>
+<tr class="memitem:a3adb635f67ca4f5bf75c54d65c7c6060" id="r_a3adb635f67ca4f5bf75c54d65c7c6060"><td class="memItemLeft"><a id="a3adb635f67ca4f5bf75c54d65c7c6060" name="a3adb635f67ca4f5bf75c54d65c7c6060"></a>
+unsigned&#160;</td><td class="memItemRight"><b>GetHeight</b> (void) const</td></tr>
+<tr class="memdesc:a3adb635f67ca4f5bf75c54d65c7c6060"><td class="mdescLeft">&#160;</td><td class="mdescRight">Query the screen height in pixels. <br /></td></tr>
 <tr class="memitem:a56204fc4edbc1cfdaa0d719ef33ccfd4" id="r_a56204fc4edbc1cfdaa0d719ef33ccfd4"><td class="memItemLeft">unsigned&#160;</td><td class="memItemRight"><a class="el" href="#a56204fc4edbc1cfdaa0d719ef33ccfd4">GetColumns</a> (void) const</td></tr>
 <tr class="memdesc:a56204fc4edbc1cfdaa0d719ef33ccfd4"><td class="mdescLeft">&#160;</td><td class="mdescRight">Query the screen width in characters.  <br /></td></tr>
 <tr class="memitem:ac79b96192b9e0333cd403c9a9f68c462" id="r_ac79b96192b9e0333cd403c9a9f68c462"><td class="memItemLeft">unsigned&#160;</td><td class="memItemRight"><a class="el" href="#ac79b96192b9e0333cd403c9a9f68c462">GetRows</a> (void) const</td></tr>
@@ -187,6 +196,9 @@ void&#160;</td><td class="memItemRight"><b>Update</b> (void)</td></tr>
 <tr class="memdesc:af3cc474f37b23d9cb22e9103566e118d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Enable or disable cursor visibility.  <br /></td></tr>
 <tr class="memitem:a14d0856fbe4221f33c79337e7738a236" id="r_a14d0856fbe4221f33c79337e7738a236"><td class="memItemLeft">void&#160;</td><td class="memItemRight"><a class="el" href="#a14d0856fbe4221f33c79337e7738a236">SetVT52Mode</a> (boolean bEnable)</td></tr>
 <tr class="memdesc:a14d0856fbe4221f33c79337e7738a236"><td class="mdescLeft">&#160;</td><td class="mdescRight">Enable or disable VT52 emulation mode.  <br /></td></tr>
+<tr class="memitem:a5ed77f4fc892cf08852125713394230f" id="r_a5ed77f4fc892cf08852125713394230f"><td class="memItemLeft"><a id="a5ed77f4fc892cf08852125713394230f" name="a5ed77f4fc892cf08852125713394230f"></a>
+void&#160;</td><td class="memItemRight"><b>SetWrapAroundMode</b> (boolean bEnable)</td></tr>
+<tr class="memdesc:a5ed77f4fc892cf08852125713394230f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Enable or disable DECAWM automatic wrap mode (ESC[?7h/l). <br /></td></tr>
 <tr class="memitem:acb7c0d1fd980fce7d9447d6ca868a865" id="r_acb7c0d1fd980fce7d9447d6ca868a865"><td class="memItemLeft">void&#160;</td><td class="memItemRight"><a class="el" href="#acb7c0d1fd980fce7d9447d6ca868a865">SetAutoPageMode</a> (boolean bEnable)</td></tr>
 <tr class="memdesc:acb7c0d1fd980fce7d9447d6ca868a865"><td class="mdescLeft">&#160;</td><td class="mdescRight">Enable or disable automatic page mode (cursor wrap to top).  <br /></td></tr>
 <tr class="memitem:a6abc018f99385881a810c0946e1ff183" id="r_a6abc018f99385881a810c0946e1ff183"><td class="memItemLeft">void&#160;</td><td class="memItemRight"><a class="el" href="#a6abc018f99385881a810c0946e1ff183">SetSmoothScrollEnabled</a> (boolean bEnable)</td></tr>
@@ -243,6 +255,8 @@ static constexpr TRendererColor&#160;</td><td class="memItemRight"><b>kColorWhit
 static constexpr TRendererColor&#160;</td><td class="memItemRight"><b>kColorAmber</b> = DISPLAY_COLOR(255, 176, 0)</td></tr>
 <tr class="memitem:a0944e4c9e97cab0fadaf09eec53c9a7a" id="r_a0944e4c9e97cab0fadaf09eec53c9a7a"><td class="memItemLeft"><a id="a0944e4c9e97cab0fadaf09eec53c9a7a" name="a0944e4c9e97cab0fadaf09eec53c9a7a"></a>
 static constexpr TRendererColor&#160;</td><td class="memItemRight"><b>kColorGreen</b> = DISPLAY_COLOR(51, 255, 51)</td></tr>
+<tr class="memitem:aae0cf9ae1e9e0888e782df5940b45208" id="r_aae0cf9ae1e9e0888e782df5940b45208"><td class="memItemLeft"><a id="aae0cf9ae1e9e0888e782df5940b45208" name="aae0cf9ae1e9e0888e782df5940b45208"></a>
+static constexpr unsigned&#160;</td><td class="memItemRight"><b>MaxTextRows</b> = 64</td></tr>
 </table>
 <a name="details" id="details"></a><h2 id="header-details" class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Combines Circle framebuffer access with a VT100-aware state machine. </p>
@@ -394,26 +408,6 @@ static constexpr TRendererColor&#160;</td><td class="memItemRight"><b>kColorGree
 
 <p>Access the underlying framebuffer device. </p>
 <dl class="section return"><dt>Returns</dt><dd>Pointer to the framebuffer. </dd></dl>
-
-</div>
-</div>
-<a id="a3adb635f67ca4f5bf75c54d65c7c6060" name="a3adb635f67ca4f5bf75c54d65c7c6060"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a3adb635f67ca4f5bf75c54d65c7c6060">&#9670;&#160;</a></span>GetHeight()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">unsigned CTRenderer::GetHeight </td>
-          <td>(</td>
-          <td class="paramtype">void</td>          <td class="paramname"><span class="paramname"><em></em></span></td><td>)</td>
-          <td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Query the screen height in pixels. </p>
-<dl class="section return"><dt>Returns</dt><dd>Height in pixels. </dd></dl>
 
 </div>
 </div>

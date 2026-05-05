@@ -7,5 +7,6 @@ var searchData=
   ['tkeyboard_2eh_4',['TKeyboard.h',['../_t_keyboard_8h.html',1,'']]],
   ['trenderer_2eh_5',['TRenderer.h',['../_t_renderer_8h.html',1,'']]],
   ['tuart_2eh_6',['TUART.h',['../_t_u_a_r_t_8h.html',1,'']]],
-  ['twlanlog_2eh_7',['TWlanLog.h',['../_t_wlan_log_8h.html',1,'']]]
+  ['twlanhost_2eh_7',['TWlanHost.h',['../_t_wlan_host_8h.html',1,'']]],
+  ['twlanlog_2eh_8',['TWlanLog.h',['../_t_wlan_log_8h.html',1,'']]]
 ];

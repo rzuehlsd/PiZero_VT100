@@ -42,63 +42,61 @@ LOGMODULE("CKernel");
 
 namespace
 {
-static const char DriveRoot[] = "SD:";
-static const char FirmwarePath[] = "SD:/firmware/";
-static const char SupplicantConfig[] = "SD:/wpa_supplicant.conf";
-static const char DefaultHostname[] = "PiVT100";
-static const unsigned TerminalPort = 2323;
-static const char StartupBannerPrefix[] = "VT100 Terminal Emulation with Circle on Pi zero V0.9";
-static const unsigned StartupBannerDelayMs = 2000;
+    static const char DriveRoot[] = "SD:";
+    static const char FirmwarePath[] = "SD:/firmware/";
+    static const char SupplicantConfig[] = "SD:/wpa_supplicant.conf";
+    static const char DefaultHostname[] = "PiVT100";
+    static const unsigned TerminalPort = 2323;
+    static const char StartupBannerPrefix[] = "VT100 Terminal Emulation with Circle on Pi zero V0.9";
+    static const unsigned StartupBannerDelayMs = 2000;
 
-class CSetupScreenGateDevice : public CDevice
-{
-public:
-    CSetupScreenGateDevice(CKernel *pKernel, CDevice *pTarget)
-    : m_pKernel(pKernel), m_pTarget(pTarget)
+    class CSetupScreenGateDevice : public CDevice
     {
-    }
-
-    int Write(const void *pBuffer, size_t nCount) override
-    {
-        if (m_pKernel != nullptr && m_pKernel->IsScreenOutputBlocked())
+    public:
+        CSetupScreenGateDevice(CKernel *pKernel, CDevice *pTarget)
+            : m_pKernel(pKernel), m_pTarget(pTarget)
         {
-            return static_cast<int>(nCount);
         }
 
-        if (m_pTarget == nullptr)
+        int Write(const void *pBuffer, size_t nCount) override
         {
-            return static_cast<int>(nCount);
+            if (m_pKernel != nullptr && m_pKernel->IsScreenOutputBlocked())
+            {
+                return static_cast<int>(nCount);
+            }
+
+            if (m_pTarget == nullptr)
+            {
+                return static_cast<int>(nCount);
+            }
+
+            return m_pTarget->Write(pBuffer, nCount);
         }
 
-        return m_pTarget->Write(pBuffer, nCount);
-    }
+    private:
+        CKernel *m_pKernel;
+        CDevice *m_pTarget;
+    };
 
-private:
-    CKernel *m_pKernel;
-    CDevice *m_pTarget;
-};
-
-static const char *GetWlanModeName(unsigned int mode)
-{
-    switch (mode)
+    static const char *GetWlanModeName(unsigned int mode)
     {
-    case 1U:
-        return "WLAN remote log";
-    case 2U:
-        return "WLAN shell client";
-    case 0U:
-    default:
-        return "WLAN disabled";
+        switch (mode)
+        {
+        case 1U:
+            return "WLAN remote log";
+        case 2U:
+            return "WLAN shell client";
+        case 0U:
+        default:
+            return "WLAN disabled";
+        }
     }
-}
 
 }
 
 static volatile unsigned s_f12PressCount = 0;
 static volatile unsigned s_f11PressCount = 0;
 static volatile unsigned s_f10PressCount = 0;
-
-
 
 // Singleton instance creation and access
 // teardown handled by runtime
@@ -247,42 +245,42 @@ static void onKeyPressedRaw(unsigned char ucModifiers, const unsigned char RawKe
 static CPeriodicTask *s_pPeriodicTask = nullptr;
 
 CKernel::CKernel(void)
-        : m_Options(),
-            m_DeviceNameService(),
-            m_Screen(m_Options.GetWidth(), m_Options.GetHeight()),
-            m_Interrupt(),
-            m_Logger(m_Options.GetLogLevel()),
-            m_Timer(&m_Interrupt),
-            m_Scheduler(),
-            m_USBHCI(&m_Interrupt, &m_Timer, TRUE),
-            m_ExceptionHandler(),
-            m_EMMC(&m_Interrupt, &m_Timer),
-            m_FileSystem(),
-            m_HAL(&m_Interrupt, &m_Timer),
-            m_WLAN(FirmwarePath),
-            m_Net(nullptr, nullptr, nullptr, nullptr, DefaultHostname, NetDeviceTypeWLAN),
-            m_WpaSupplicant(SupplicantConfig),
-            m_pRenderer(nullptr),
-            m_pFontConverter(nullptr),
-            m_pKeyboard(nullptr),
-            m_pConfig(nullptr),
-            m_pUART(nullptr),
-            m_pFileLog(nullptr),
-            m_pWlanLog(nullptr),
-            m_pWlanHost(nullptr),
-            m_pSetup(nullptr),
-            m_pVTTest(nullptr),
-            m_pLogTarget(nullptr),
-            m_pScreenLogGate(nullptr),
-            m_pNullLog(nullptr),
-            m_bWlanLoggerEnabled(FALSE),
-            m_bMDNSAdvertised(FALSE),
-            m_bSerialTaskStarted(false),
-            m_bTelnetReady(false),
-            m_bWaitingMessageActive(false),
-            m_bWaitingMessageShowsIP(false),
-            m_bScreenLoggerEnabled(true),
-            m_bLocalModeEnabled(false)
+    : m_Options(),
+      m_DeviceNameService(),
+      m_Screen(m_Options.GetWidth(), m_Options.GetHeight()),
+      m_Interrupt(),
+      m_Logger(m_Options.GetLogLevel()),
+      m_Timer(&m_Interrupt),
+      m_Scheduler(),
+      m_USBHCI(&m_Interrupt, &m_Timer, TRUE),
+      m_ExceptionHandler(),
+      m_EMMC(&m_Interrupt, &m_Timer),
+      m_FileSystem(),
+      m_HAL(&m_Interrupt, &m_Timer),
+      m_WLAN(FirmwarePath),
+      m_Net(nullptr, nullptr, nullptr, nullptr, DefaultHostname, NetDeviceTypeWLAN),
+      m_WpaSupplicant(SupplicantConfig),
+      m_pRenderer(nullptr),
+      m_pFontConverter(nullptr),
+      m_pKeyboard(nullptr),
+      m_pConfig(nullptr),
+      m_pUART(nullptr),
+      m_pFileLog(nullptr),
+      m_pWlanLog(nullptr),
+      m_pWlanHost(nullptr),
+      m_pSetup(nullptr),
+      m_pVTTest(nullptr),
+      m_pLogTarget(nullptr),
+      m_pScreenLogGate(nullptr),
+      m_pNullLog(nullptr),
+      m_bWlanLoggerEnabled(FALSE),
+      m_bMDNSAdvertised(FALSE),
+      m_bSerialTaskStarted(false),
+      m_bTelnetReady(false),
+      m_bWaitingMessageActive(false),
+      m_bWaitingMessageShowsIP(false),
+      m_bScreenLoggerEnabled(true),
+      m_bLocalModeEnabled(false)
 {
     s_pThis = this;
 
@@ -425,7 +423,6 @@ boolean CKernel::initFilesystem(void)
         {
             LOGNOTE("Filesystem mounted successfully");
         }
-
     }
     else
     {
@@ -438,7 +435,8 @@ boolean CKernel::Initialize(void)
 {
     boolean bOK = TRUE;
 
-    auto configureLogOutputs = [&](bool logToScreen, bool logToFile, bool wlanEnabled) {
+    auto configureLogOutputs = [&](bool logToScreen, bool logToFile, bool wlanEnabled)
+    {
         m_bWlanLoggerEnabled = wlanEnabled ? TRUE : FALSE;
         m_bScreenLoggerEnabled = logToScreen;
 
@@ -536,7 +534,7 @@ boolean CKernel::Initialize(void)
     {
         bOK = m_HAL.Initialize();
         if (bOK)
-            LOGNOTE("HAL initialized");  
+            LOGNOTE("HAL initialized");
     }
 
     if (!initFilesystem())
@@ -544,7 +542,6 @@ boolean CKernel::Initialize(void)
         LOGERR("Failed to initialize filesystem");
         bOK = FALSE;
     }
-
 
     if (m_pConfig == nullptr || !m_pConfig->Initialize())
     {
@@ -573,10 +570,8 @@ boolean CKernel::Initialize(void)
         m_bTelnetReady = false;
         m_bWaitingMessageActive = false;
         m_bWaitingMessageShowsIP = false;
-
-
     }
-   
+
     if (m_pFontConverter == nullptr || !m_pFontConverter->Initialize())
     {
         LOGERR("Failed to initialize font converter module");
@@ -611,7 +606,6 @@ boolean CKernel::Initialize(void)
         m_pVTTest->Initialize(m_pRenderer);
     }
 
-
     if (m_pKeyboard != nullptr)
     {
         unsigned repeatDelayMs = 500U;
@@ -623,7 +617,7 @@ boolean CKernel::Initialize(void)
         }
 
         m_pKeyboard->Configure(&onKeyPressed, &onKeyPressedRaw, &m_USBHCI, repeatDelayMs, repeatRateCps);
-        if(!m_pKeyboard->Initialize())
+        if (!m_pKeyboard->Initialize())
         {
             LOGERR("Failed to initialize keyboard module");
             bOK = FALSE;
@@ -635,13 +629,11 @@ boolean CKernel::Initialize(void)
         bOK = FALSE;
     }
 
-
-    if (m_pUART == nullptr || !m_pUART->Initialize(&m_Interrupt, nullptr)) 
+    if (m_pUART == nullptr || !m_pUART->Initialize(&m_Interrupt, nullptr))
     {
         LOGERR("Failed to initialize UART module");
         bOK = FALSE;
     }
-
 
     if (m_bWlanLoggerEnabled)
     {
@@ -651,7 +643,6 @@ boolean CKernel::Initialize(void)
             m_bWlanLoggerEnabled = FALSE;
         }
     }
-
 
     if (bOK)
     {
@@ -714,7 +705,6 @@ TShutdownMode CKernel::Run(void)
     {
         MarkTelnetWaiting();
     }
-
 
     while (1)
     {
@@ -895,7 +885,7 @@ void CKernel::ProcessSerial()
         // Only log specific errors if needed, to avoid flooding
         if (nBytes == -SERIAL_ERROR_OVERRUN)
         {
-             LOGWARN("UART input buffer overrun - data lost");
+            LOGWARN("UART input buffer overrun - data lost");
         }
     }
 }

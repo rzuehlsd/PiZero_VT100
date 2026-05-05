@@ -101,7 +101,7 @@ mirror ([1,0,0])
             
             
             // Power connector x = 8, y=0, w = 9, h = 9
-            rect_hole(8,0,9,9);
+            rect_hole(8,0,9,12);
             
             // DB9 Stecker x = 20, y = 0, w = 30, h = 17
             rect_hole(20,3,31,14);

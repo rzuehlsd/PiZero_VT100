@@ -10,6 +10,7 @@ var dir_d44c64559bbebec7f509842c48db8b23 =
     [ "TRenderer.h", "_t_renderer_8h.html", "_t_renderer_8h" ],
     [ "TSetup.h", "_t_setup_8h_source.html", null ],
     [ "TUART.h", "_t_u_a_r_t_8h.html", "_t_u_a_r_t_8h" ],
+    [ "TWlanHost.h", "_t_wlan_host_8h.html", "_t_wlan_host_8h" ],
     [ "TWlanLog.h", "_t_wlan_log_8h.html", "_t_wlan_log_8h" ],
     [ "VT100_FontConverter.h", "_v_t100___font_converter_8h.html", "_v_t100___font_converter_8h" ],
     [ "VTTest.h", "_v_t_test_8h_source.html", null ]

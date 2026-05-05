@@ -12,9 +12,21 @@ The carrier board can be mounted directly in the rear panel of a terminal enclos
 - Switch (relay) to swap RxD and TxD for RS-232
 - 800 Hz buzzer (optional)
 
-The Pi Zero GPIO pins are not 5 V tolerant. Therefore, all incoming signals (here: RxD only) must be level‑shifted from 5 V to 3.3 V. This applies to the Mini DIN6 connector to the MBC2-Z80. The RxD level shifting is implemented with a resistor divider: 820 Ω and 1.5 kΩ. No issues have been observed even at 115200 baud.
+The Pi Zero GPIO pins are not 5 V tolerant. A 1 kΩ series resistor is placed on the RxD signal path directly before the GPIO pin. When the host sends 5V TTL, the internal GPIO protection diode clamps the voltage to ~3.6 V, resulting in a safe injection current of ~1.4 mA. No series resistor is used on TxD: the Pi drives TxD actively at 3.3V and a series resistor would reduce the output level below the minimum TTL HIGH threshold recognized by the host.
 
-To provide the RS-232 connection I use a MAX3232 board with Vcc connected to the 3.3V output of the Pi zero which solves this compatibility problem, as all in and outgoing signals are 3.3V.
+The MAX3232 board with Vcc connected to the 3.3V output of the Pi Zero handles the RS-232 compatibility for the host interface, as all signals on the Pi side remain 3.3V.
+
+### Signal level analysis: relay swap scenarios
+
+| Relay state | Host TxD → Pi | Pi TxD → Host | GPIO RxD protected? | GPIO TxD protected? |
+|-------------|--------------|---------------|---------------------|---------------------|
+| Normal (TxD↔RxD, RxD↔TxD) | Host TxD → Pi RxD GPIO | Pi TxD GPIO → Host RxD | ✅ 1kΩ + clamp | ✅ Pi drives, no danger |
+| Null-modem before relay switch | Host TxD → Pi **TxD** GPIO | Pi RxD GPIO → Host RxD | — | ❌ **5V unprotected on TxD GPIO!** |
+| Null-modem after relay switch | Host TxD → Pi RxD GPIO | Pi TxD GPIO → Host RxD | ✅ 1kΩ + clamp | ✅ Pi drives, no danger |
+
+**Known limitation (V2.2):** In a null-modem cable scenario the host's 5V TxD signal reaches the unprotected Pi TxD GPIO pin until the relay is switched. This is a **brief but real risk** if a null-modem cable is connected without immediate relay switching.
+
+**Recommended fix for V2.3:** Place the 1 kΩ protection resistor on the DIN connector side **before the relay**, not after. This protects any incoming 5V signal regardless of relay position. The outgoing Pi TxD signal passes through the relay without a series resistor, preserving signal integrity toward the host.
 
 <div style="text-align: center;">
   <img src="images/Schematic_V22.png" alt="Schematic Adapterboard" width="60%" height="auto"/>

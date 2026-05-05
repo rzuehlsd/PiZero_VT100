@@ -10,6 +10,7 @@ var annotated_dup =
     [ "CTRenderer", "class_c_t_renderer.html", "class_c_t_renderer" ],
     [ "CTSetup", "class_c_t_setup.html", null ],
     [ "CTUART", "class_c_t_u_a_r_t.html", "class_c_t_u_a_r_t" ],
+    [ "CTWlanHost", "class_c_t_wlan_host.html", null ],
     [ "CTWlanLog", "class_c_t_wlan_log.html", "class_c_t_wlan_log" ],
     [ "CVTTest", "class_c_v_t_test.html", "class_c_v_t_test" ],
     [ "TConfigParam", "struct_t_config_param.html", null ]

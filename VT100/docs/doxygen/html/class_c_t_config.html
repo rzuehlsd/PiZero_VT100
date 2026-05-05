@@ -199,6 +199,11 @@ void&#160;</td><td class="memItemRight"><b>Run</b> () override</td></tr>
 <tr class="memdesc:a8b8af17a7c744e68bd8667299faa93a8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Retrieve WLAN session mode policy.  <br /></td></tr>
 <tr class="memitem:a42e44f7245782d721d7bf19060657832" id="r_a42e44f7245782d721d7bf19060657832"><td class="memItemLeft">void&#160;</td><td class="memItemRight"><a class="el" href="#a42e44f7245782d721d7bf19060657832">SetWlanHostAutoStart</a> (unsigned int mode)</td></tr>
 <tr class="memdesc:a42e44f7245782d721d7bf19060657832"><td class="mdescLeft">&#160;</td><td class="mdescRight">Set WLAN session mode policy.  <br /></td></tr>
+<tr class="memitem:a6c407f0625c4ea8b6e3aab7b7cd3968d" id="r_a6c407f0625c4ea8b6e3aab7b7cd3968d"><td class="memItemLeft">const char *&#160;</td><td class="memItemRight"><a class="el" href="#a6c407f0625c4ea8b6e3aab7b7cd3968d">GetHostId</a> (void) const</td></tr>
+<tr class="memdesc:a6c407f0625c4ea8b6e3aab7b7cd3968d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Retrieve the configured default shell-client target (IPv4[:port]).  <br /></td></tr>
+<tr class="memitem:afbe471c445c1d48e98aebb51c792f031" id="r_afbe471c445c1d48e98aebb51c792f031"><td class="memItemLeft"><a id="afbe471c445c1d48e98aebb51c792f031" name="afbe471c445c1d48e98aebb51c792f031"></a>
+void&#160;</td><td class="memItemRight"><b>SetHostId</b> (const char *pHostId)</td></tr>
+<tr class="memdesc:afbe471c445c1d48e98aebb51c792f031"><td class="mdescLeft">&#160;</td><td class="mdescRight">Set the configured default shell-client target (IPv4[:port]). <br /></td></tr>
 <tr class="memitem:ae1b39497800323fa98ba4bd2431109f7" id="r_ae1b39497800323fa98ba4bd2431109f7"><td class="memItemLeft">unsigned int&#160;</td><td class="memItemRight"><a class="el" href="#ae1b39497800323fa98ba4bd2431109f7">GetKeyRepeatDelayMs</a> (void) const</td></tr>
 <tr class="memdesc:ae1b39497800323fa98ba4bd2431109f7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Retrieve key repeat delay in milliseconds.  <br /></td></tr>
 <tr class="memitem:a572df3095fe3f66d6e09029c54cee81d" id="r_a572df3095fe3f66d6e09029c54cee81d"><td class="memItemLeft">boolean&#160;</td><td class="memItemRight"><a class="el" href="#a572df3095fe3f66d6e09029c54cee81d">GetKeyAutoRepeatEnabled</a> (void) const</td></tr>
@@ -460,6 +465,34 @@ static constexpr unsigned int&#160;</td><td class="memItemRight"><b>TabStopsMax<
 
 <p>Retrieve the configured font selection. </p>
 <dl class="section return"><dt>Returns</dt><dd>Current font selection value. </dd></dl>
+
+</div>
+</div>
+<a id="a6c407f0625c4ea8b6e3aab7b7cd3968d" name="a6c407f0625c4ea8b6e3aab7b7cd3968d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6c407f0625c4ea8b6e3aab7b7cd3968d">&#9670;&#160;</a></span>GetHostId()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">const char * CTConfig::GetHostId </td>
+          <td>(</td>
+          <td class="paramtype">void</td>          <td class="paramname"><span class="paramname"><em></em></span></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel inline">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Retrieve the configured default shell-client target (IPv4[:port]). </p>
+<dl class="section return"><dt>Returns</dt><dd>Pointer to the host_id string (may be empty). </dd></dl>
 
 </div>
 </div>

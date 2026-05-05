@@ -19,24 +19,24 @@ LOGMODULE("TWlanHost");
 
 namespace
 {
-static const char FromTerminal[] = "wlan-host";
-static const u16 DefaultRawPort = 2323;
+    static const char FromTerminal[] = "wlan-host";
+    static const u16 DefaultRawPort = 2323;
 
-static bool IsScreenOutputBlocked()
-{
-    CKernel *kernel = CKernel::Get();
-    return kernel != nullptr && kernel->IsScreenOutputBlocked();
-}
-
-static void WriteRendererMessage(CTRenderer *pRenderer, const void *pBuffer, size_t nCount)
-{
-    if (pRenderer == nullptr || pBuffer == nullptr || nCount == 0 || IsScreenOutputBlocked())
+    static bool IsScreenOutputBlocked()
     {
-        return;
+        CKernel *kernel = CKernel::Get();
+        return kernel != nullptr && kernel->IsScreenOutputBlocked();
     }
 
-    pRenderer->Write(pBuffer, nCount);
-}
+    static void WriteRendererMessage(CTRenderer *pRenderer, const void *pBuffer, size_t nCount)
+    {
+        if (pRenderer == nullptr || pBuffer == nullptr || nCount == 0 || IsScreenOutputBlocked())
+        {
+            return;
+        }
+
+        pRenderer->Write(pBuffer, nCount);
+    }
 }
 
 CTWlanHost *CTWlanHost::s_pThis = nullptr;
@@ -51,32 +51,7 @@ CTWlanHost *CTWlanHost::Get()
 }
 
 CTWlanHost::CTWlanHost()
-    : CTask()
-    , m_pWlan(nullptr)
-    , m_pNet(nullptr)
-    , m_pSupplicant(nullptr)
-    , m_pLogger(nullptr)
-    , m_pRenderer(nullptr)
-    , m_pHal(nullptr)
-    , m_Initialized(false)
-    , m_Enabled(false)
-    , m_NetworkingReady(false)
-    , m_StateLock()
-    , m_InputActive(false)
-    , m_PromptShown(false)
-    , m_PromptField(ShellFieldDone)
-    , m_InputBuffer()
-    , m_HostToken()
-    , m_pSocket(nullptr)
-    , m_Connected(false)
-    , m_ConnectInProgress(false)
-    , m_ConnectRequested(false)
-    , m_SshDetected(false)
-    , m_RemoteIp()
-    , m_RemotePort(0)
-    , m_RetryBackoff(0U)
-    , m_PromptPending(false)
-    , m_PromptSkipReported(false)
+    : CTask(), m_pWlan(nullptr), m_pNet(nullptr), m_pSupplicant(nullptr), m_pLogger(nullptr), m_pRenderer(nullptr), m_pHal(nullptr), m_Initialized(false), m_Enabled(false), m_NetworkingReady(false), m_StateLock(), m_InputActive(false), m_PromptShown(false), m_PromptField(ShellFieldDone), m_InputBuffer(), m_HostToken(), m_pSocket(nullptr), m_Connected(false), m_ConnectInProgress(false), m_ConnectRequested(false), m_SshDetected(false), m_RemoteIp(), m_RemotePort(0), m_RetryBackoff(0U), m_PromptPending(false), m_PromptSkipReported(false)
 {
     SetName("wlan-host");
     Suspend();
@@ -129,7 +104,6 @@ void CTWlanHost::SetEnabled(bool enabled)
     }
 
     ResetSessionState();
-
 }
 
 bool CTWlanHost::IsEnabled() const
@@ -580,10 +554,7 @@ bool CTWlanHost::ParseIPv4Address(const char *text, CIPAddress &outIp)
         }
     }
 
-    const u32 ip = (static_cast<u32>(octets[3]) << 24)
-                 | (static_cast<u32>(octets[2]) << 16)
-                 | (static_cast<u32>(octets[1]) << 8)
-                 | static_cast<u32>(octets[0]);
+    const u32 ip = (static_cast<u32>(octets[3]) << 24) | (static_cast<u32>(octets[2]) << 16) | (static_cast<u32>(octets[1]) << 8) | static_cast<u32>(octets[0]);
     outIp.Set(ip);
     return true;
 }

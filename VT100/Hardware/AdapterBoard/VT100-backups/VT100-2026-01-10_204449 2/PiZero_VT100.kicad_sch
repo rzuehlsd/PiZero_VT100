@@ -6509,7 +6509,7 @@
 		)
 		(uuid "0d5f5e9f-5c22-40eb-b22a-3116621a8214")
 	)
-	(text "Version 2.2 (Fehlerbehebungen)\n- 40V 2A DIP Gleichrichter verwenden\n- Hinweise auf Verwendung von LM2576-5.0 statt LM2576-adj\n- Pads bei SMD Widerständen anpassen für 1206 und 0805\n- MAX3232 verwenden für 3.3V Kompatibilität\n- RX Level Shifter mit R2 u. R3 nur für DIN6"
+	(text "Version 2.1 (Fehlerbehebungen)\n- 40V 2A DIP Gleichrichter verwenden\n- Hinweise auf Verwendung von LM2576-5.0 statt LM2576-adj\n- Pads bei SMD Widerständen anpassen für 1206 und 0805"
 		(exclude_from_sim no)
 		(at 180.086 174.244 0)
 		(effects
@@ -6541,17 +6541,7 @@
 		)
 		(uuid "4371de39-be6d-4ed7-9885-4dfece9fbeb2")
 	)
-	(text "Level shifted \nto 3.3V"
-		(exclude_from_sim no)
-		(at 189.738 90.17 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-		)
-		(uuid "4c052463-7aed-477d-856a-1e10dae53c37")
-	)
-	(text "MAX3232 mit DB9 Stecker\nauf PCB"
+	(text "MAX232 mit DB9 Stecker\nauf PCB"
 		(exclude_from_sim no)
 		(at 217.17 30.48 0)
 		(effects
@@ -6661,12 +6651,6 @@
 		(uuid "2138e2a2-14d1-4d9a-88c4-3d8c39a6fd9c")
 	)
 	(junction
-		(at 171.45 74.93)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "49f6c079-3e1f-4d5a-a044-97a79a962b64")
-	)
-	(junction
 		(at 142.24 57.15)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -6715,10 +6699,22 @@
 		(uuid "741bc091-ffe1-4cf2-b31d-b6478d6af631")
 	)
 	(junction
+		(at 113.03 34.29)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "79a5ed6f-e3ca-47ae-87db-51e89739316c")
+	)
+	(junction
 		(at 97.79 179.07)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "7aed22f7-4d7d-458e-a9be-4b44a1b1ed95")
+	)
+	(junction
+		(at 203.2 82.55)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "85dbd122-4a1d-41eb-8fba-4f1ca58f8e79")
 	)
 	(junction
 		(at 73.66 113.03)
@@ -6731,12 +6727,6 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "965e6fcc-f9dd-48c2-a0c4-a878518c35db")
-	)
-	(junction
-		(at 179.07 99.06)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "97c0502e-4671-4bbe-9748-8df4f433c7fe")
 	)
 	(junction
 		(at 43.18 113.03)
@@ -6791,12 +6781,6 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "bfaf2549-7f18-43c8-af51-2a8155784e65")
-	)
-	(junction
-		(at 203.2 82.55)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "c48de2f5-28f1-4c74-bbc8-8c73f6c50120")
 	)
 	(junction
 		(at 156.21 146.05)
@@ -7028,16 +7012,6 @@
 	)
 	(wire
 		(pts
-			(xy 113.03 24.13) (xy 113.03 34.29)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "04cb3c01-8529-4c4d-ba5e-9d549ce64a27")
-	)
-	(wire
-		(pts
 			(xy 60.96 40.64) (xy 31.75 40.64)
 		)
 		(stroke
@@ -7148,16 +7122,6 @@
 	)
 	(wire
 		(pts
-			(xy 170.18 74.93) (xy 171.45 74.93)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "1074a2ba-8eb8-47f7-bb8d-e6414f10ea63")
-	)
-	(wire
-		(pts
 			(xy 73.66 35.56) (xy 82.55 35.56)
 		)
 		(stroke
@@ -7228,6 +7192,16 @@
 	)
 	(wire
 		(pts
+			(xy 113.03 26.67) (xy 113.03 24.13)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "23e7c4c9-e64a-4f4f-8911-fa7ff7fa1241")
+	)
+	(wire
+		(pts
 			(xy 85.09 105.41) (xy 88.9 105.41)
 		)
 		(stroke
@@ -7238,6 +7212,16 @@
 	)
 	(wire
 		(pts
+			(xy 113.03 34.29) (xy 113.03 38.1)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "26602728-65fa-4611-8b7a-65534a6be756")
+	)
+	(wire
+		(pts
 			(xy 227.33 82.55) (xy 223.52 82.55)
 		)
 		(stroke
@@ -7245,26 +7229,6 @@
 			(type default)
 		)
 		(uuid "26a9cde0-a334-4709-a7d3-dc7d01c1201c")
-	)
-	(wire
-		(pts
-			(xy 171.45 74.93) (xy 171.45 78.74)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "2b7b5bcf-5151-45ed-98f7-f9429519151a")
-	)
-	(wire
-		(pts
-			(xy 179.07 96.52) (xy 179.07 99.06)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "2ba36978-3b96-466d-b272-9870a4227a88")
 	)
 	(wire
 		(pts
@@ -7295,16 +7259,6 @@
 			(type default)
 		)
 		(uuid "30728140-911b-4a97-916b-c925659ee4ad")
-	)
-	(wire
-		(pts
-			(xy 171.45 86.36) (xy 171.45 87.63)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "31b3ec4b-0c4c-49d3-8947-f06d6183cfd8")
 	)
 	(wire
 		(pts
@@ -7395,16 +7349,6 @@
 			(type default)
 		)
 		(uuid "3f4e7486-5e4a-4289-b6dc-2aa5a0533617")
-	)
-	(wire
-		(pts
-			(xy 179.07 82.55) (xy 203.2 82.55)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "421fae76-4b9c-4e9a-a0b9-93011c25e794")
 	)
 	(wire
 		(pts
@@ -7998,6 +7942,16 @@
 	)
 	(wire
 		(pts
+			(xy 113.03 45.72) (xy 113.03 46.99)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "85353972-dae0-4920-ae44-776aa699175d")
+	)
+	(wire
+		(pts
 			(xy 31.75 35.56) (xy 60.96 35.56)
 		)
 		(stroke
@@ -8088,16 +8042,6 @@
 	)
 	(wire
 		(pts
-			(xy 179.07 88.9) (xy 179.07 82.55)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "8e630d73-bae1-4bc7-9d0d-1324ff6a7556")
-	)
-	(wire
-		(pts
 			(xy 120.65 34.29) (xy 120.65 21.59)
 		)
 		(stroke
@@ -8138,16 +8082,6 @@
 	)
 	(wire
 		(pts
-			(xy 179.07 107.95) (xy 179.07 109.22)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "97d612e6-70be-4847-a7d0-30233d0944f2")
-	)
-	(wire
-		(pts
 			(xy 148.59 36.83) (xy 148.59 74.93)
 		)
 		(stroke
@@ -8165,16 +8099,6 @@
 			(type solid)
 		)
 		(uuid "98a1aa7c-68bd-4966-834d-f673bb2b8d39")
-	)
-	(wire
-		(pts
-			(xy 179.07 99.06) (xy 179.07 100.33)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "9a0d1b3f-ca2e-49f4-8abd-fcdb939dd45e")
 	)
 	(wire
 		(pts
@@ -8438,6 +8362,16 @@
 	)
 	(wire
 		(pts
+			(xy 154.94 82.55) (xy 203.2 82.55)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "bdf0f655-fcfb-4d43-b751-dd3d4d6100c9")
+	)
+	(wire
+		(pts
 			(xy 58.42 113.03) (xy 60.96 113.03)
 		)
 		(stroke
@@ -8528,16 +8462,6 @@
 	)
 	(wire
 		(pts
-			(xy 171.45 74.93) (xy 203.2 74.93)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "cfe21ff2-e1e2-496e-bebe-308b51d517cb")
-	)
-	(wire
-		(pts
 			(xy 208.28 90.17) (xy 224.79 90.17)
 		)
 		(stroke
@@ -8548,7 +8472,7 @@
 	)
 	(wire
 		(pts
-			(xy 154.94 33.02) (xy 154.94 99.06)
+			(xy 154.94 33.02) (xy 154.94 82.55)
 		)
 		(stroke
 			(width 0)
@@ -8645,16 +8569,6 @@
 			(type default)
 		)
 		(uuid "dbd60615-851f-40b0-bac9-2e8c55329c63")
-	)
-	(wire
-		(pts
-			(xy 154.94 99.06) (xy 179.07 99.06)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "deaa0702-92f4-4e4d-ad4b-bc7152548388")
 	)
 	(wire
 		(pts
@@ -8878,7 +8792,7 @@
 	)
 	(wire
 		(pts
-			(xy 148.59 74.93) (xy 162.56 74.93)
+			(xy 148.59 74.93) (xy 203.2 74.93)
 		)
 		(stroke
 			(width 0)
@@ -9725,7 +9639,7 @@
 			(uuid "c9e5e74c-d979-4e2a-a937-995b39e6ff98")
 		)
 		(instances
-			(project "VT100"
+			(project "PiZero_VT100"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
 					(reference "D6")
 					(unit 1)
@@ -9793,7 +9707,7 @@
 			(uuid "60838477-f0a3-4996-be59-59362c0846bf")
 		)
 		(instances
-			(project "VT100"
+			(project "PiZero_VT100"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
 					(reference "L1")
 					(unit 1)
@@ -9860,7 +9774,7 @@
 			(uuid "4c7e4a32-363f-4767-89a9-f98dea6b4103")
 		)
 		(instances
-			(project "VT100"
+			(project "PiZero_VT100"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
 					(reference "R7")
 					(unit 1)
@@ -9998,7 +9912,7 @@
 			(uuid "892ca830-4aa7-4b06-af94-2fc5d1d83b7d")
 		)
 		(instances
-			(project "VT100"
+			(project "PiZero_VT100"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
 					(reference "#PWR019")
 					(unit 1)
@@ -10061,7 +9975,7 @@
 			(uuid "7d458532-1247-4a9a-bd73-283a9a5b414d")
 		)
 		(instances
-			(project "VT100"
+			(project "PiZero_VT100"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
 					(reference "#PWR09")
 					(unit 1)
@@ -10215,7 +10129,7 @@
 			(uuid "5106c015-7ab0-405f-a5cb-72266b906dae")
 		)
 		(instances
-			(project "VT100"
+			(project "PiZero_VT100"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
 					(reference "D2")
 					(unit 1)
@@ -10279,7 +10193,7 @@
 			)
 		)
 		(instances
-			(project "VT100"
+			(project "PiZero_VT100"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
 					(reference "H4")
 					(unit 1)
@@ -10346,7 +10260,7 @@
 			(uuid "f83e0883-8edf-4bda-8012-904c894d4d24")
 		)
 		(instances
-			(project "VT100"
+			(project "PiZero_VT100"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
 					(reference "R9")
 					(unit 1)
@@ -10409,7 +10323,7 @@
 			(uuid "91e6bf39-66c1-4cf1-aed1-9a9e1581f2a0")
 		)
 		(instances
-			(project "VT100"
+			(project "PiZero_VT100"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
 					(reference "#PWR016")
 					(unit 1)
@@ -10553,7 +10467,7 @@
 			(uuid "7ef07b19-6dab-4fc6-964b-98e18f810f27")
 		)
 		(instances
-			(project "VT100"
+			(project "PiZero_VT100"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
 					(reference "J7")
 					(unit 1)
@@ -10636,73 +10550,6 @@
 			(project ""
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
 					(reference "J4")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Device:R")
-		(at 166.37 74.93 270)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "5799a950-2d60-4e97-bbbf-ae911940f80c")
-		(property "Reference" "R11"
-			(at 166.37 72.39 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "820"
-			(at 166.624 77.216 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal"
-			(at 166.37 73.152 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 166.37 74.93 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Resistor"
-			(at 166.37 74.93 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "2"
-			(uuid "42c8dec3-cfa7-43a5-ba0f-86b2d4a8ffa8")
-		)
-		(pin "1"
-			(uuid "57bd12e8-7b62-449b-ae17-437f399e266d")
-		)
-		(instances
-			(project "VT100"
-				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
-					(reference "R11")
 					(unit 1)
 				)
 			)
@@ -10830,7 +10677,7 @@
 			(uuid "8b78f26a-8000-4ccf-99d1-98e3a44b237b")
 		)
 		(instances
-			(project "VT100"
+			(project "PiZero_VT100"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
 					(reference "#PWR012")
 					(unit 1)
@@ -10894,7 +10741,7 @@
 			)
 		)
 		(instances
-			(project "VT100"
+			(project "PiZero_VT100"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
 					(reference "H3")
 					(unit 1)
@@ -11027,7 +10874,7 @@
 			(uuid "85be21b1-fb5f-44b6-a9b6-74a53f792d94")
 		)
 		(instances
-			(project "VT100"
+			(project "PiZero_VT100"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
 					(reference "#PWR017")
 					(unit 1)
@@ -11212,7 +11059,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 179.07 109.22 0)
+		(at 113.03 46.99 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -11220,7 +11067,7 @@
 		(dnp no)
 		(uuid "66d3600e-48ea-426e-b8c1-c4655082d60d")
 		(property "Reference" "#PWR06"
-			(at 179.07 115.57 0)
+			(at 113.03 53.34 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -11229,7 +11076,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 179.1843 113.5444 0)
+			(at 113.1443 51.3144 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -11237,7 +11084,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 179.07 109.22 0)
+			(at 113.03 46.99 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -11245,7 +11092,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 179.07 109.22 0)
+			(at 113.03 46.99 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -11253,7 +11100,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 179.07 109.22 0)
+			(at 113.03 46.99 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -11265,7 +11112,7 @@
 			(uuid "fb3b9894-3b57-4344-acb8-a5743dbbaac3")
 		)
 		(instances
-			(project "VT100"
+			(project "PiZero_VT100"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
 					(reference "#PWR06")
 					(unit 1)
@@ -11344,7 +11191,7 @@
 			(uuid "fc7a6ec8-c5d2-495f-bb38-9c51323cec39")
 		)
 		(instances
-			(project "VT100"
+			(project "PiZero_VT100"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
 					(reference "U1")
 					(unit 1)
@@ -11413,7 +11260,7 @@
 			(uuid "b78d4073-eb09-4a19-b196-bdf3f46592a7")
 		)
 		(instances
-			(project "VT100"
+			(project "PiZero_VT100"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
 					(reference "C2")
 					(unit 1)
@@ -11483,7 +11330,7 @@
 			(uuid "dce6fc85-cb52-4c66-9d87-8e96e637b80d")
 		)
 		(instances
-			(project "VT100"
+			(project "PiZero_VT100"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
 					(reference "R5")
 					(unit 1)
@@ -11627,7 +11474,7 @@
 			(uuid "595aff03-6188-4e71-a966-0386bb5ff4a7")
 		)
 		(instances
-			(project "VT100"
+			(project "PiZero_VT100"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
 					(reference "R4")
 					(unit 1)
@@ -11845,7 +11692,7 @@
 			(uuid "566790fb-0508-4453-af50-c9e4dfee6e67")
 		)
 		(instances
-			(project "VT100"
+			(project "PiZero_VT100"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
 					(reference "#PWR08")
 					(unit 1)
@@ -11974,7 +11821,7 @@
 			(uuid "75c2da13-8db6-45dc-b316-8af9d3749fbc")
 		)
 		(instances
-			(project "VT100"
+			(project "PiZero_VT100"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
 					(reference "#PWR05")
 					(unit 1)
@@ -12060,7 +11907,7 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 179.07 104.14 180)
+		(at 113.03 41.91 180)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -12068,7 +11915,7 @@
 		(dnp no)
 		(uuid "a38265e5-23a4-4aba-a043-0742f4b719d1")
 		(property "Reference" "R3"
-			(at 181.61 104.14 90)
+			(at 110.744 39.116 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12076,7 +11923,7 @@
 			)
 		)
 		(property "Value" "1.5k"
-			(at 176.784 104.394 90)
+			(at 110.744 42.164 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12084,7 +11931,7 @@
 			)
 		)
 		(property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal"
-			(at 180.848 104.14 90)
+			(at 114.808 41.91 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12093,7 +11940,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 179.07 104.14 0)
+			(at 113.03 41.91 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12102,7 +11949,7 @@
 			)
 		)
 		(property "Description" "Resistor"
-			(at 179.07 104.14 0)
+			(at 113.03 41.91 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12117,7 +11964,7 @@
 			(uuid "a1632c63-b32b-4356-8e8a-a39710c0ccd2")
 		)
 		(instances
-			(project "VT100"
+			(project "PiZero_VT100"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
 					(reference "R3")
 					(unit 1)
@@ -12250,7 +12097,7 @@
 			(uuid "3f38b8d1-8e24-45bf-b15e-3948eccc68c7")
 		)
 		(instances
-			(project "VT100"
+			(project "PiZero_VT100"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
 					(reference "#PWR013")
 					(unit 1)
@@ -12320,7 +12167,7 @@
 			(uuid "4c48552c-d54b-4851-b158-9d640fee42f9")
 		)
 		(instances
-			(project "VT100"
+			(project "PiZero_VT100"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
 					(reference "J8")
 					(unit 1)
@@ -12387,7 +12234,7 @@
 			(uuid "b73be72b-f020-47e0-a972-6fdea462fca0")
 		)
 		(instances
-			(project "VT100"
+			(project "PiZero_VT100"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
 					(reference "R8")
 					(unit 1)
@@ -12454,7 +12301,7 @@
 			(uuid "176d247f-1ec4-4000-81c0-2c3eb35fb976")
 		)
 		(instances
-			(project "VT100"
+			(project "PiZero_VT100"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
 					(reference "R10")
 					(unit 1)
@@ -12464,7 +12311,7 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 179.07 92.71 180)
+		(at 113.03 30.48 180)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -12472,7 +12319,7 @@
 		(dnp no)
 		(uuid "b134cd3b-9772-4b94-a24c-46c49c60cf30")
 		(property "Reference" "R2"
-			(at 181.61 92.71 90)
+			(at 110.744 27.686 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12480,7 +12327,7 @@
 			)
 		)
 		(property "Value" "820"
-			(at 176.784 92.964 90)
+			(at 110.744 30.734 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12488,7 +12335,7 @@
 			)
 		)
 		(property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal"
-			(at 180.848 92.71 90)
+			(at 114.808 30.48 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12497,7 +12344,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 179.07 92.71 0)
+			(at 113.03 30.48 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12506,7 +12353,7 @@
 			)
 		)
 		(property "Description" "Resistor"
-			(at 179.07 92.71 0)
+			(at 113.03 30.48 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12521,72 +12368,9 @@
 			(uuid "f9ff7c67-1e9b-4424-9fda-1a8d47a73b79")
 		)
 		(instances
-			(project "VT100"
+			(project "PiZero_VT100"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
 					(reference "R2")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:+3.3V")
-		(at 182.88 25.4 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "b1d6f38d-85d2-4250-ac3a-3e1100a9ef05")
-		(property "Reference" "#PWR07"
-			(at 182.88 29.21 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Value" "+3V3"
-			(at 183.2483 21.0756 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 182.88 25.4 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 182.88 25.4 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "Power symbol creates a global label with name \"+3.3V\""
-			(at 182.88 25.4 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "a200fe90-42ee-450d-ba0d-4ba6e310e141")
-		)
-		(instances
-			(project "VT100"
-				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
-					(reference "#PWR07")
 					(unit 1)
 				)
 			)
@@ -12647,76 +12431,9 @@
 			(uuid "560d8447-42cc-4860-b94a-30dbdbbfb8c5")
 		)
 		(instances
-			(project "VT100"
+			(project "PiZero_VT100"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
 					(reference "#PWR010")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Device:R")
-		(at 171.45 82.55 180)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "bdd06c9b-8a0c-4e77-9a57-7b707595aa76")
-		(property "Reference" "R12"
-			(at 173.99 82.55 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "1.5k"
-			(at 169.164 82.804 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal"
-			(at 173.228 82.55 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 171.45 82.55 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Resistor"
-			(at 171.45 82.55 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "2"
-			(uuid "9ea569ca-2541-471c-8af9-eb463f21597a")
-		)
-		(pin "1"
-			(uuid "b404da8a-fbc9-4f1e-a0f9-4eac5aa4f833")
-		)
-		(instances
-			(project "VT100"
-				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
-					(reference "R12")
 					(unit 1)
 				)
 			)
@@ -12784,7 +12501,7 @@
 			(uuid "05418584-d1c7-4baa-94df-8778a6c90f17")
 		)
 		(instances
-			(project "VT100"
+			(project "PiZero_VT100"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
 					(reference "R6")
 					(unit 1)
@@ -12992,7 +12709,7 @@
 			(uuid "bec51f63-7436-4073-afdd-6deabfbe1000")
 		)
 		(instances
-			(project "VT100"
+			(project "PiZero_VT100"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
 					(reference "C1")
 					(unit 1)
@@ -13055,72 +12772,9 @@
 			(uuid "e79fce73-582f-4adc-9e21-6d977f1554ad")
 		)
 		(instances
-			(project "VT100"
+			(project "PiZero_VT100"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
 					(reference "#PWR018")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:GND")
-		(at 171.45 87.63 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "d975c527-8624-4cac-9faa-c5af0599b720")
-		(property "Reference" "#PWR011"
-			(at 171.45 93.98 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Value" "GND"
-			(at 171.5643 91.9544 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 171.45 87.63 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 171.45 87.63 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 171.45 87.63 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "baa811e5-8a38-440f-9e91-6ac73547b07b")
-		)
-		(instances
-			(project "VT100"
-				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
-					(reference "#PWR011")
 					(unit 1)
 				)
 			)
@@ -13191,7 +12845,7 @@
 			(uuid "0ffe9c10-0d86-440e-ba1f-5811798363ee")
 		)
 		(instances
-			(project "VT100"
+			(project "PiZero_VT100"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
 					(reference "D1")
 					(unit 1)
@@ -13255,7 +12909,7 @@
 			)
 		)
 		(instances
-			(project "VT100"
+			(project "PiZero_VT100"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
 					(reference "H2")
 					(unit 1)
@@ -13318,7 +12972,7 @@
 			(uuid "deb2543d-c629-4c88-a5ee-b2b53d76eb91")
 		)
 		(instances
-			(project "VT100"
+			(project "PiZero_VT100"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
 					(reference "#PWR015")
 					(unit 1)
@@ -13390,6 +13044,69 @@
 			(project ""
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
 					(reference "C5")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:+5V")
+		(at 182.88 25.4 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "f81ad1cd-1923-4f72-96f4-fd82bbaa1758")
+		(property "Reference" "#PWR07"
+			(at 182.88 29.21 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "+5V"
+			(at 183.2483 21.0756 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 182.88 25.4 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 182.88 25.4 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+5V\""
+			(at 182.88 25.4 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "0ced5626-01bd-42ee-bfa8-96244556ce0b")
+		)
+		(instances
+			(project "PiZero_VT100"
+				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
+					(reference "#PWR07")
 					(unit 1)
 				)
 			)
@@ -13522,7 +13239,7 @@
 			(uuid "e25f12fb-7b88-4715-9c8c-a4b17f8b2e0a")
 		)
 		(instances
-			(project "VT100"
+			(project "PiZero_VT100"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
 					(reference "J5")
 					(unit 1)

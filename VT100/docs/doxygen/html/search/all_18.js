@@ -12,9 +12,10 @@ var searchData=
   ['pi_20zero_20vt100_20terminal_9',['Carrier Board for Pi Zero VT100 Terminal',['../md_docs_2_hardware.html',1,'']]],
   ['pi_20zero_20w_20with_20circle_20bare_20metal_20framework_10',['VT100 Terminal Emulation on Raspberry Pi Zero W with Circle Bare Metal Framework',['../index.html',1,'']]],
   ['placement_20recommended_11',['Helper tooling placement (recommended)',['../index.html#helper-tooling-placement-recommended',1,'']]],
-  ['plan_12',['Initial Implementation Plan',['../index.html#initial-implementation-plan',1,'']]],
+  ['plan_12',['Plan',['../index.html#initial-implementation-plan',1,'Initial Implementation Plan'],['../index.html#practical-vttest-plan',1,'Practical vttest Plan']]],
   ['plan_13',['B6) WLAN migration and implementation plan',['../md_docs_2_configuration___guide.html#b6-wlan-migration-and-implementation-plan',1,'']]],
   ['planned_20implementation_20phases_14',['8.3.4 Planned implementation phases',['../md_docs_2_v_t100___architecture.html#autotoc_md834-planned-implementation-phases',1,'']]],
   ['policy_15',['Documentation Policy',['../index.html#documentation-policy',1,'']]],
-  ['processline_16',['ProcessLine',['../class_c_t_wlan_log.html#a3c39100794fd2ced641ea094958a2850',1,'CTWlanLog']]]
+  ['practical_20vttest_20plan_16',['Practical vttest Plan',['../index.html#practical-vttest-plan',1,'']]],
+  ['processline_17',['ProcessLine',['../class_c_t_wlan_log.html#a3c39100794fd2ced641ea094958a2850',1,'CTWlanLog']]]
 ];

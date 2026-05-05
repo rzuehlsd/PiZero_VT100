@@ -10,6 +10,7 @@ var searchData=
   ['ctrenderer_7',['CTRenderer',['../class_c_t_renderer.html',1,'']]],
   ['ctsetup_8',['CTSetup',['../class_c_t_setup.html',1,'']]],
   ['ctuart_9',['CTUART',['../class_c_t_u_a_r_t.html',1,'']]],
-  ['ctwlanlog_10',['CTWlanLog',['../class_c_t_wlan_log.html',1,'']]],
-  ['cvttest_11',['CVTTest',['../class_c_v_t_test.html',1,'']]]
+  ['ctwlanhost_10',['CTWlanHost',['../class_c_t_wlan_host.html',1,'']]],
+  ['ctwlanlog_11',['CTWlanLog',['../class_c_t_wlan_log.html',1,'']]],
+  ['cvttest_12',['CVTTest',['../class_c_v_t_test.html',1,'']]]
 ];

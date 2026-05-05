@@ -30,8 +30,6 @@
 // Include application components
 #include "TRenderer.h"
 
-
-
 LOGMODULE("TConfig");
 
 // Singleton instance creation and access
@@ -287,11 +285,11 @@ void CTConfig::logConfig(void) const
     LOGNOTE("Pi VT100 020: Config Settings");
     LOGNOTE("Screen: %ux%u", CTRenderer::Get()->GetWidth(), CTRenderer::Get()->GetHeight());
     LOGNOTE("Serial: %u baud", GetBaudRate());
-        LOGNOTE("Serial framing: %u data bits, parity=%s",
+    LOGNOTE("Serial framing: %u data bits, parity=%s",
             GetSerialDataBits(),
             GetSerialParityMode() == 0 ? "none" : (GetSerialParityMode() == 1 ? "even" : "odd"));
     LOGNOTE("Serial flow: software XON/XOFF %s", GetSoftwareFlowControl() ? "enabled" : "disabled");
-            LOGNOTE("Margin bell: %s", GetMarginBellEnabled() ? "enabled" : "disabled");
+    LOGNOTE("Margin bell: %s", GetMarginBellEnabled() ? "enabled" : "disabled");
     LOGNOTE("Line endings: %s", GetLineEndingModeString());
     LOGNOTE("Cursor: %s, %s", GetCursorBlock() ? "block" : "underline", GetCursorBlinking() ? "blinking" : "solid");
     LOGNOTE("VT test: %s", GetVTTestEnabled() ? "enabled" : "disabled");
@@ -320,12 +318,12 @@ void CTConfig::logConfig(void) const
     bool logFile = false;
     bool logWlan = false;
     ResolveLogOutputs(logScreen, logFile, logWlan);
-        LOGNOTE("Logging: outputs -> screen=%s, file=%s, wlan=%s (mode %u)",
+    LOGNOTE("Logging: outputs -> screen=%s, file=%s, wlan=%s (mode %u)",
             logScreen ? "on" : "off",
             logFile ? "on" : "off",
             logWlan ? "on" : "off",
             GetLogOutput());
-        LOGNOTE("Logging: active file=%s", GetLogFileName());
+    LOGNOTE("Logging: active file=%s", GetLogFileName());
 }
 
 CTConfig::CTConfig(void) : CTask()
@@ -344,8 +342,8 @@ CTConfig::CTConfig(void) : CTask()
         {"vt_test", &m_VTTestEnabled, 0, "VT test runner (0=off, 1=on)"},
         {"vt52_mode", &m_VT52Mode, 0, "Terminal mode (0=ANSI, 1=VT52)"},
         {"log_output", &m_LogOutput, 0, "Log output (0=off, 1=screen, 2=file, 3=wlan, 4=screen+file, 5=screen+wlan, 6=file+wlan, 7=screen+file+wlan)"},
-        {"text_color", (unsigned int*)&m_TextColorIndex, 1, "Text color index (0=black,1=white,2=amber,3=green)"},
-        {"background_color", (unsigned int*)&m_BackgroundColorIndex, 0, "Background color index (0=black,1=white,2=amber,3=green)"},
+        {"text_color", (unsigned int *)&m_TextColorIndex, 1, "Text color index (0=black,1=white,2=amber,3=green)"},
+        {"background_color", (unsigned int *)&m_BackgroundColorIndex, 0, "Background color index (0=black,1=white,2=amber,3=green)"},
         {"font_selection", &m_FontSelection, FontSelectionDefault, "Font selection (1=8x20,2=10x20,3=10x20Solid)"},
         {"buzzer_volume", &m_BuzzerVolume, 50, "Buzzer volume (0-100 percent duty cycle)"},
         {"key_click", &m_KeyClick, 1, "Key click feedback (0=off, 1=on)"},
@@ -372,7 +370,6 @@ CTConfig::CTConfig(void) : CTask()
 CTConfig::~CTConfig(void)
 {
 }
-
 
 boolean CTConfig::Initialize(void)
 {
@@ -819,9 +816,10 @@ boolean CTConfig::ParseConfigLine(const char *pLine)
                 return FALSE;
             }
 
-            if (param->variable == (unsigned int*)&m_TextColorIndex || param->variable == (unsigned int*)&m_BackgroundColorIndex)
+            if (param->variable == (unsigned int *)&m_TextColorIndex || param->variable == (unsigned int *)&m_BackgroundColorIndex)
             {
-                if (parsedValue > 3) {
+                if (parsedValue > 3)
+                {
                     LOGWARN("Config: Invalid color index %lu for %s, clamping to 0", parsedValue, keyword);
                     parsedValue = 0;
                 }

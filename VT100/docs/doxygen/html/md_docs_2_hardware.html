@@ -120,8 +120,22 @@ $(function(){initNavTree('md_docs_2_hardware.html','',''); });
 <li>Switch (relay) to swap RxD and TxD for RS-232</li>
 <li>800 Hz buzzer (optional)</li>
 </ul>
-<p>The Pi Zero GPIO pins are not 5 V tolerant. Therefore, all incoming signals (here: RxD only) must be level‑shifted from 5 V to 3.3 V. This applies to the Mini DIN6 connector to the MBC2-Z80. The RxD level shifting is implemented with a resistor divider: 820 Ω and 1.5 kΩ. No issues have been observed even at 115200 baud.</p>
-<p>To provide the RS-232 connection I use a MAX3232 board with Vcc connected to the 3.3V output of the Pi zero which solves this compatibility problem, as all in and outgoing signals are 3.3V.</p>
+<p>The Pi Zero GPIO pins are not 5 V tolerant. A 1 kΩ series resistor is placed on the RxD signal path directly before the GPIO pin. When the host sends 5V TTL, the internal GPIO protection diode clamps the voltage to ~3.6 V, resulting in a safe injection current of ~1.4 mA. No series resistor is used on TxD: the Pi drives TxD actively at 3.3V and a series resistor would reduce the output level below the minimum TTL HIGH threshold recognized by the host.</p>
+<p>The MAX3232 board with Vcc connected to the 3.3V output of the Pi Zero handles the RS-232 compatibility for the host interface, as all signals on the Pi side remain 3.3V.</p>
+<h2 class="doxsection"><a class="anchor" id="signal-level-analysis-relay-swap-scenarios"></a>
+Signal level analysis: relay swap scenarios</h2>
+<table class="markdownTable">
+<tr class="markdownTableHead">
+<th class="markdownTableHeadNone">Relay state  </th><th class="markdownTableHeadNone">Host TxD → Pi  </th><th class="markdownTableHeadNone">Pi TxD → Host  </th><th class="markdownTableHeadNone">GPIO RxD protected?  </th><th class="markdownTableHeadNone">GPIO TxD protected?  </th></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone">Normal (TxD↔RxD, RxD↔TxD)  </td><td class="markdownTableBodyNone">Host TxD → Pi RxD GPIO  </td><td class="markdownTableBodyNone">Pi TxD GPIO → Host RxD  </td><td class="markdownTableBodyNone">✅ 1kΩ + clamp  </td><td class="markdownTableBodyNone">✅ Pi drives, no danger  </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone">Null-modem before relay switch  </td><td class="markdownTableBodyNone">Host TxD → Pi <b>TxD</b> GPIO  </td><td class="markdownTableBodyNone">Pi RxD GPIO → Host RxD  </td><td class="markdownTableBodyNone">—  </td><td class="markdownTableBodyNone">❌ <b>5V unprotected on TxD GPIO!</b>  </td></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone">Null-modem after relay switch  </td><td class="markdownTableBodyNone">Host TxD → Pi RxD GPIO  </td><td class="markdownTableBodyNone">Pi TxD GPIO → Host RxD  </td><td class="markdownTableBodyNone">✅ 1kΩ + clamp  </td><td class="markdownTableBodyNone">✅ Pi drives, no danger  </td></tr>
+</table>
+<p><b>Known limitation (V2.2):</b> In a null-modem cable scenario the host's 5V TxD signal reaches the unprotected Pi TxD GPIO pin until the relay is switched. This is a <b>brief but real risk</b> if a null-modem cable is connected without immediate relay switching.</p>
+<p><b>Recommended fix for V2.3:</b> Place the 1 kΩ protection resistor on the DIN connector side <b>before the relay</b>, not after. This protects any incoming 5V signal regardless of relay position. The outgoing Pi TxD signal passes through the relay without a series resistor, preserving signal integrity toward the host.</p>
 <div style="text-align: center;"> <img src="images/Schematic_V22.png" alt="Schematic Adapterboard" width="60%" height="auto" class="inline"/> <img src="images/Layout_V22.png" alt="Layout Adapterboard" width="60%" height="auto" class="inline"/> </div><p>The images above show the schematic and the layout of the last version which uses a LM2576 switching regulator to provide the 5V 2A power line for the display controller and the MBC2 connected through DIN6 connector. If a LM2576-adj is used both smd resitors can be used to select a voltage slighthly above 5V (eg. 5.1 - 5.2V) as I discovered sometimes some flickering of the screen when background ist reversed (white), which may be related to power fluctuations. If you use a LM2576-5V just one resitor has to be bridged (0R).</p>
 <p>The usb keyboard input is wired to 2 testpoints below the usb C connector of the Pi. Klick and Bell sounds are generated via 800 Hz PWM signals from GPIO and a small buzzer. Switching of the Tx/Rx lines of the RS232 connector are done by a relay which is triggered by a GPIO pin.</p>
 <p>All changes have been reflected in the schematic and layout.</p>

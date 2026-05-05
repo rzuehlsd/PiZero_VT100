@@ -121,6 +121,9 @@ Motivation</h1>
 <tr>
 <td><img src="VT100/docs/images/DEC_Font_test.jpeg" alt="VT100 original" width="80%" class="inline"/></td><td><img src="VT100/docs/images/DEC_Graphics_Font.jpeg" alt="60% replica" width="80%" class="inline"/></td></tr>
 </table>
+<p>The follwing link gives a very good view of the original VT100 from 1079:</p><ul>
+<li><a href="https://www.artstation.com/artwork/d05JgW">Pictures of a VT100 from 1979</a></li>
+</ul>
 <p>The current VT100 terminal firmware turns a Raspberry Pi Zero W into a self-contained ANSI/VT100-compatible console. It boots straight into the terminal without Linux, using the Circle bare-metal framework for deterministic hardware access. The design targets headless benches and retro workstations that need a physical keyboard and display front-end for serial hosts.</p>
 <p>This project also includes a PCB design to support enhanced features such as a buzzer, an RS-232 adapter, a Mini-DIN-6 adapter for MBC2-Z80, and power distribution for the Pi Zero, MBC2, and display, plus a backplate to mount the board inside a 60% VT100 replica designed by megardi.</p>
 <p>My aim was to replicate the behaivior of a true VT100 as close as possible (vttest will show the final result ;-) ) and be able to mimic a VT52, VT220 and my favorite the VT320 in amber, also I did not replicate the small deviations of the VT220 or VT320 font sets. I got the original font definitions for a VT100 font from the ROM data used by Lard Brinkhoff to simulate a VT100 terminal in software on a Pi.</p>
@@ -193,7 +196,7 @@ Main Features</h2>
 <li class="checked">DEC VT100 Special Graphics Character Set support (via <span class="tt">ESC ( 0</span> and <span class="tt">ESC ( B</span>)</li>
 </ul>
 <ul class="check">
-<li class="checked">Dynamic Double-Width / Double-Height glyph scaling for all fonts</li>
+<li class="checked">Dynamic Double-Width / Double-Height line attributes with DEC top/bottom-half semantics (<span class="tt">ESC #3/#4/#5/#6</span>)</li>
 </ul>
 <ul class="check">
 <li class="checked">White, amber, and green on black simulate DEC monochrome terminals (VT100, VT220, VT320)</li>
@@ -417,7 +420,7 @@ VT100 SETUP Screen B Parameter Mapping (current status)</h4>
 </table>
 <h4 class="doxsection"><a class="anchor" id="vt100-extended-setup-dialog-f11"></a>
 VT100 Extended Setup Dialog (F11)</h4>
-<p>Press <span class="tt">F11</span> to open the extende setup dialog. The dialog uses DEC special graphics box drawing, keeps the active terminal color/font theme, uses a centered double-width title, and shows a three-column <span class="tt">parameter</span> / <span class="tt">value</span> / <span class="tt">description</span> view for all persisted <span class="tt">VT100.txt</span> keys.</p>
+<p>Press <span class="tt">F11</span> to open the extende setup dialog. The dialog uses DEC special graphics box drawing, keeps the active terminal color/font theme, uses a centered double-width title, and shows a three-column <span class="tt">parameter</span> / <span class="tt">value</span> / <span class="tt">description</span> view for all persisted <span class="tt">VT100.txt</span> keys. Press <span class="tt">F12</span> for the legacy VT100 setup screens; their title now renders as a true two-line DEC double-height header with <span class="tt">TO EXIT PRESS "SET-UP"</span> directly below it, matching the original VT100 layout more closely.</p>
 <p>Controls:</p>
 <ul>
 <li><span class="tt">Up</span> / <span class="tt">Down</span>: select parameter row</li>
@@ -783,15 +786,15 @@ Overview on Escape Sequence Coverage</h2>
 <tr class="markdownTableRowEven">
 <td class="markdownTableBodyNone">ESC &lt;  </td><td class="markdownTableBodyNone">Enter ANSI Mode  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">—  </td><td class="markdownTableBodyNone">—  </td><td class="markdownTableBodyNone">—  </td><td class="markdownTableBodyNone">—  </td><td class="markdownTableBodyNone">Implemented  </td><td class="markdownTableBodyNone">[PASS]  </td></tr>
 <tr class="markdownTableRowOdd">
-<td class="markdownTableBodyNone">ESC #3  </td><td class="markdownTableBodyNone">Double-height line (top)  </td><td class="markdownTableBodyNone">—  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">—  </td><td class="markdownTableBodyNone">Implemented  </td><td class="markdownTableBodyNone">[PASS]  </td></tr>
+<td class="markdownTableBodyNone">ESC #3  </td><td class="markdownTableBodyNone">Double-height line (top)  </td><td class="markdownTableBodyNone">—  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">—  </td><td class="markdownTableBodyNone">Implemented (renders upper half of DEC double-height glyph)  </td><td class="markdownTableBodyNone">[PASS]  </td></tr>
 <tr class="markdownTableRowEven">
-<td class="markdownTableBodyNone">ESC #4  </td><td class="markdownTableBodyNone">Double-height line (bottom)  </td><td class="markdownTableBodyNone">—  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">—  </td><td class="markdownTableBodyNone">Implemented  </td><td class="markdownTableBodyNone">[PASS]  </td></tr>
+<td class="markdownTableBodyNone">ESC #4  </td><td class="markdownTableBodyNone">Double-height line (bottom)  </td><td class="markdownTableBodyNone">—  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">—  </td><td class="markdownTableBodyNone">Implemented (renders lower half of DEC double-height glyph)  </td><td class="markdownTableBodyNone">[PASS]  </td></tr>
 <tr class="markdownTableRowOdd">
 <td class="markdownTableBodyNone">ESC #5  </td><td class="markdownTableBodyNone">Normal line size  </td><td class="markdownTableBodyNone">—  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">—  </td><td class="markdownTableBodyNone">Implemented  </td><td class="markdownTableBodyNone">[PASS]  </td></tr>
 <tr class="markdownTableRowEven">
 <td class="markdownTableBodyNone">ESC #6  </td><td class="markdownTableBodyNone">Double-width line  </td><td class="markdownTableBodyNone">—  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">—  </td><td class="markdownTableBodyNone">Implemented  </td><td class="markdownTableBodyNone">[PASS]  </td></tr>
 <tr class="markdownTableRowOdd">
-<td class="markdownTableBodyNone">ESC #8  </td><td class="markdownTableBodyNone">Screen test  </td><td class="markdownTableBodyNone">—  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">—  </td><td class="markdownTableBodyNone">Parsed (ignored)  </td><td class="markdownTableBodyNone">[PASS]  </td></tr>
+<td class="markdownTableBodyNone">ESC #8  </td><td class="markdownTableBodyNone">Screen test  </td><td class="markdownTableBodyNone">—  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">—  </td><td class="markdownTableBodyNone">Implemented (DECALN fill)  </td><td class="markdownTableBodyNone">[PASS]  </td></tr>
 <tr class="markdownTableRowEven">
 <td class="markdownTableBodyNone">ESC [ A  </td><td class="markdownTableBodyNone">Cursor up (CUU)  </td><td class="markdownTableBodyNone">—  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">Implemented  </td><td class="markdownTableBodyNone">[PASS]  </td></tr>
 <tr class="markdownTableRowOdd">
@@ -819,9 +822,9 @@ Overview on Escape Sequence Coverage</h2>
 <tr class="markdownTableRowEven">
 <td class="markdownTableBodyNone">ESC [ n P  </td><td class="markdownTableBodyNone">Delete characters (DCH)  </td><td class="markdownTableBodyNone">—  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">Implemented  </td><td class="markdownTableBodyNone">[PASS]  </td></tr>
 <tr class="markdownTableRowOdd">
-<td class="markdownTableBodyNone">ESC [ 4 h / 4 l  </td><td class="markdownTableBodyNone">Insert mode (IRM)  </td><td class="markdownTableBodyNone">—  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">Parsed (not supported)  </td><td class="markdownTableBodyNone">[PASS]  </td></tr>
+<td class="markdownTableBodyNone">ESC [ 4 h / 4 l  </td><td class="markdownTableBodyNone">Insert mode (IRM)  </td><td class="markdownTableBodyNone">—  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">Implemented  </td><td class="markdownTableBodyNone">[PASS]  </td></tr>
 <tr class="markdownTableRowEven">
-<td class="markdownTableBodyNone">ESC [ n m  </td><td class="markdownTableBodyNone">Select graphic rendition (SGR)  </td><td class="markdownTableBodyNone">—  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">Partial (0,1,4,5,7)  </td><td class="markdownTableBodyNone">[PASS]  </td></tr>
+<td class="markdownTableBodyNone">ESC [ n m  </td><td class="markdownTableBodyNone">Select graphic rendition (SGR)  </td><td class="markdownTableBodyNone">—  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">Partial (monochrome subset: 0,1,2,4,5,7,22,24,27)  </td><td class="markdownTableBodyNone">[PASS]  </td></tr>
 <tr class="markdownTableRowOdd">
 <td class="markdownTableBodyNone">ESC [ 0 m  </td><td class="markdownTableBodyNone">SGR reset (attributes/colors)  </td><td class="markdownTableBodyNone">—  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">Implemented  </td><td class="markdownTableBodyNone">[PASS]  </td></tr>
 <tr class="markdownTableRowEven">
@@ -829,17 +832,21 @@ Overview on Escape Sequence Coverage</h2>
 <tr class="markdownTableRowOdd">
 <td class="markdownTableBodyNone">ESC [ 2 m  </td><td class="markdownTableBodyNone">SGR dim/half-bright  </td><td class="markdownTableBodyNone">—  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">Implemented  </td><td class="markdownTableBodyNone">[PASS]  </td></tr>
 <tr class="markdownTableRowEven">
-<td class="markdownTableBodyNone">ESC [ 4 m  </td><td class="markdownTableBodyNone">SGR underline  </td><td class="markdownTableBodyNone">—  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">Implemented  </td><td class="markdownTableBodyNone">[PASS]  </td></tr>
+<td class="markdownTableBodyNone">ESC [ 22 m  </td><td class="markdownTableBodyNone">SGR normal intensity  </td><td class="markdownTableBodyNone">—  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">Implemented  </td><td class="markdownTableBodyNone">[PASS]  </td></tr>
 <tr class="markdownTableRowOdd">
-<td class="markdownTableBodyNone">ESC [ 5 m  </td><td class="markdownTableBodyNone">SGR blink  </td><td class="markdownTableBodyNone">—  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">Implemented  </td><td class="markdownTableBodyNone">[PASS]  </td></tr>
+<td class="markdownTableBodyNone">ESC [ 4 m  </td><td class="markdownTableBodyNone">SGR underline  </td><td class="markdownTableBodyNone">—  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">Implemented  </td><td class="markdownTableBodyNone">[PASS]  </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone">ESC [ 24 m  </td><td class="markdownTableBodyNone">SGR underline off  </td><td class="markdownTableBodyNone">—  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">Implemented  </td><td class="markdownTableBodyNone">[PASS]  </td></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone">ESC [ 5 m  </td><td class="markdownTableBodyNone">SGR blink  </td><td class="markdownTableBodyNone">—  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">Partial (attribute latched, no text blink animation)  </td><td class="markdownTableBodyNone">[PASS]  </td></tr>
 <tr class="markdownTableRowEven">
 <td class="markdownTableBodyNone">ESC [ 7 m  </td><td class="markdownTableBodyNone">SGR reverse video  </td><td class="markdownTableBodyNone">—  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">Implemented  </td><td class="markdownTableBodyNone">[PASS]  </td></tr>
 <tr class="markdownTableRowOdd">
 <td class="markdownTableBodyNone">ESC [ 27 m  </td><td class="markdownTableBodyNone">SGR reverse off  </td><td class="markdownTableBodyNone">—  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">Implemented  </td><td class="markdownTableBodyNone">[PASS]  </td></tr>
 <tr class="markdownTableRowEven">
-<td class="markdownTableBodyNone">ESC [ 30-37 / 90-97 m  </td><td class="markdownTableBodyNone">Set foreground color  </td><td class="markdownTableBodyNone">—  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">Set in VT100.txt  </td><td class="markdownTableBodyNone">[PASS]  </td></tr>
+<td class="markdownTableBodyNone">ESC [ 30-37 / 90-97 m  </td><td class="markdownTableBodyNone">Set foreground color  </td><td class="markdownTableBodyNone">—  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">Not implemented as ANSI color rendering  </td><td class="markdownTableBodyNone">[PASS]  </td></tr>
 <tr class="markdownTableRowOdd">
-<td class="markdownTableBodyNone">ESC [ 40-47 / 100-107 m  </td><td class="markdownTableBodyNone">Set background color  </td><td class="markdownTableBodyNone">—  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">Set in VT100.txt  </td><td class="markdownTableBodyNone">[PASS]  </td></tr>
+<td class="markdownTableBodyNone">ESC [ 40-47 / 100-107 m  </td><td class="markdownTableBodyNone">Set background color  </td><td class="markdownTableBodyNone">—  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">Not implemented as ANSI color rendering  </td><td class="markdownTableBodyNone">[PASS]  </td></tr>
 <tr class="markdownTableRowEven">
 <td class="markdownTableBodyNone">ESC [ ? 2 l  </td><td class="markdownTableBodyNone">Enter VT52 Mode  </td><td class="markdownTableBodyNone">—  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">✓  </td><td class="markdownTableBodyNone">—  </td><td class="markdownTableBodyNone">Implemented  </td><td class="markdownTableBodyNone">[PASS]  </td></tr>
 <tr class="markdownTableRowOdd">
@@ -856,7 +863,125 @@ Overview on Escape Sequence Coverage</h2>
 <td class="markdownTableBodyNone">ESC d + / d *  </td><td class="markdownTableBodyNone">Auto page mode on/off  </td><td class="markdownTableBodyNone">—  </td><td class="markdownTableBodyNone">—  </td><td class="markdownTableBodyNone">—  </td><td class="markdownTableBodyNone">—  </td><td class="markdownTableBodyNone">—  </td><td class="markdownTableBodyNone">Implemented (local)  </td><td class="markdownTableBodyNone">[PASS]  </td></tr>
 </table>
 <p><b>VT52 note:</b> The parser supports a strict VT52 mode enabled via <span class="tt">ESC [ ? 2 l</span> and disabled via <span class="tt">ESC &lt;</span>. <span class="tt">ESC H</span> acts as VT52 Home only in VT52 mode; in ANSI mode, it acts as HTS (Set Tab Stop).</p>
-<p><b>Color note:</b> The firmware emulates monochrome VT100/VT220/VT320 terminals. ANSI color SGR codes are parsed but not applied; choose text/background colors in <span class="tt">VT100.txt</span> instead.</p>
+<p><b>Color note:</b> The firmware emulates monochrome VT100/VT220/VT320 terminals. ANSI color SGR codes are intentionally ignored; choose text/background colors in <span class="tt">VT100.txt</span> instead.</p>
+<p><b>Source-of-truth note:</b> The status entries above are derived from the current renderer implementation in <span class="tt">VT100/src/TRenderer.cpp</span>. When this table and older prose disagree, the code should be treated as authoritative.</p>
+<h2 class="doxsection"><a class="anchor" id="vt100-conformance-assessment"></a>
+VT100 Conformance Assessment</h2>
+<p>The primary compatibility goal for this project is VT52 plus the core VT100 behavior set. Later DEC/xterm-style extensions and features that conflict with the reduced 60% hardware are secondary.</p>
+<p>The table below groups the current implementation into three buckets for practical conformance work:</p>
+<ul>
+<li><span class="tt">100%</span>: implemented in the current parser/renderer without an explicit known limitation in code.</li>
+<li><span class="tt">Partial</span>: implemented only as a subset, approximation, or with visible behavioral limits.</li>
+<li><span class="tt">Not met</span>: explicitly ignored or absent in the current implementation.</li>
+</ul>
+<p>This is still not a claim of full original-hardware fidelity. If you need near-complete hardware-level VT100 behavior, see the recommendation near the top of this README.</p>
+<p>Hardware and product-scope constraints that intentionally shape this assessment:</p>
+<ul>
+<li><span class="tt">DECCOLM</span> (<span class="tt">80/132 columns</span>) is outside the target because the current framebuffer/display geometry is fixed by the hardware design.</li>
+<li><span class="tt">DECKPAM</span> and <span class="tt">DECKPNM</span> are outside the target because the reduced 60% keyboard has no numeric keypad block.</li>
+<li><span class="tt">DECCKM</span> is lower priority for the same reason: it only changes which escape sequences dedicated cursor keys send to host applications.</li>
+</ul>
+<p><span class="tt">DECCKM</span> explained briefly: in normal cursor-key mode the arrow keys typically send <span class="tt">ESC [ A/B/C/D</span>; in application cursor-key mode they send <span class="tt">ESC O A/B/C/D</span>. Some full-screen host applications care about that distinction.</p>
+<table class="markdownTable">
+<tr class="markdownTableHead">
+<th class="markdownTableHeadNone">VT100 property  </th><th class="markdownTableHeadNone">Fulfillment  </th><th class="markdownTableHeadNone">Notes  </th></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone">VT52 compatibility mode  </td><td class="markdownTableBodyNone">100%  </td><td class="markdownTableBodyNone">VT52 control subset and mode switching are implemented and are a primary target.  </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone">Basic cursor control (<span class="tt">BS</span>, <span class="tt">CR</span>, <span class="tt">LF</span>, <span class="tt">CUU</span>, <span class="tt">CUD</span>, <span class="tt">CUF</span>, <span class="tt">CUB</span>, <span class="tt">CUP</span>, <span class="tt">HVP</span>)  </td><td class="markdownTableBodyNone">100%  </td><td class="markdownTableBodyNone">Implemented in the parser and dedicated cursor helpers.  </td></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone">Screen and line erase (<span class="tt">ED</span>, <span class="tt">EL</span>)  </td><td class="markdownTableBodyNone">100%  </td><td class="markdownTableBodyNone">Variants <span class="tt">0</span>, <span class="tt">1</span>, and <span class="tt">2</span> are implemented.  </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone">Character edits (<span class="tt">ICH</span>, <span class="tt">DCH</span>, <span class="tt">ECH</span>)  </td><td class="markdownTableBodyNone">100%  </td><td class="markdownTableBodyNone">Insert, delete, and erase-char behavior is present.  </td></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone">Line edits (<span class="tt">IL</span>, <span class="tt">DL</span>)  </td><td class="markdownTableBodyNone">100%  </td><td class="markdownTableBodyNone">Works within the active scroll region.  </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone">Scroll semantics (<span class="tt">IND</span>, <span class="tt">NEL</span>, <span class="tt">RI</span>)  </td><td class="markdownTableBodyNone">100%  </td><td class="markdownTableBodyNone">Forward and reverse scrolling behavior is implemented.  </td></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone">Scroll region (<span class="tt">DECSTBM</span>)  </td><td class="markdownTableBodyNone">100%  </td><td class="markdownTableBodyNone">Includes VT100-style clamping for oversized parameters.  </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone">Wraparound mode (<span class="tt">DECAWM</span>)  </td><td class="markdownTableBodyNone">100%  </td><td class="markdownTableBodyNone">Uses VT100-style wrap-pending behavior at the last column.  </td></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone">Origin mode (<span class="tt">DECOM</span>)  </td><td class="markdownTableBodyNone">100%  </td><td class="markdownTableBodyNone">Cursor addressing is relative to the active scroll region.  </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone">Save and restore cursor (<span class="tt">DECSC</span>, <span class="tt">DECRC</span>, <span class="tt">CSI s/u</span>)  </td><td class="markdownTableBodyNone">100%  </td><td class="markdownTableBodyNone">Position, modes, and key attributes are restored.  </td></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone">Tab handling (<span class="tt">HT</span>, <span class="tt">HTS</span>, <span class="tt">TBC</span>, <span class="tt">CBT</span>)  </td><td class="markdownTableBodyNone">100%  </td><td class="markdownTableBodyNone">Forward tab, set/clear stop, clear-all, and back-tab are implemented.  </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone">Device reports (<span class="tt">DA</span>, <span class="tt">DSR 5</span>, <span class="tt">DSR 6</span>)  </td><td class="markdownTableBodyNone">100%  </td><td class="markdownTableBodyNone">The terminal replies to identity and status queries.  </td></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone">Character sets (<span class="tt">G0/G1</span>, DEC Special Graphics)  </td><td class="markdownTableBodyNone">100%  </td><td class="markdownTableBodyNone">Graphics character selection and switching are implemented.  </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone">Alignment test (<span class="tt">DECALN</span>, <span class="tt">ESC #8</span>)  </td><td class="markdownTableBodyNone">100%  </td><td class="markdownTableBodyNone">Implemented as full-screen alignment fill.  </td></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone">Insert mode (<span class="tt">IRM</span>, <span class="tt">CSI 4 h/l</span>)  </td><td class="markdownTableBodyNone">100%  </td><td class="markdownTableBodyNone">Printable characters are inserted when the mode is enabled.  </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone">SGR core subset (<span class="tt">0</span>, <span class="tt">1</span>, <span class="tt">2</span>, <span class="tt">4</span>, <span class="tt">5</span>, <span class="tt">7</span>, <span class="tt">22</span>, <span class="tt">24</span>, <span class="tt">27</span>)  </td><td class="markdownTableBodyNone">Partial  </td><td class="markdownTableBodyNone">Supported set is limited to monochrome attributes plus explicit off-codes.  </td></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone">SGR blink text behavior  </td><td class="markdownTableBodyNone">Partial  </td><td class="markdownTableBodyNone">The attribute is latched, but rendered text does not visibly blink.  </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone">DEC line attributes (<span class="tt">ESC #3</span>, <span class="tt">#4</span>, <span class="tt">#5</span>, <span class="tt">#6</span>)  </td><td class="markdownTableBodyNone">100%  </td><td class="markdownTableBodyNone">Double-width and double-height line attributes now use distinct VT100 top/bottom-half semantics, with <span class="tt">#5</span> restoring normal line size.  </td></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone">Application keypad mode (<span class="tt">DECKPAM</span>, <span class="tt">DECKPNM</span>)  </td><td class="markdownTableBodyNone">Not targeted  </td><td class="markdownTableBodyNone">Explicitly ignored by the parser and intentionally outside scope because the 60% keyboard has no numeric keypad.  </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone">Cursor key application mode (<span class="tt">DECCKM</span>)  </td><td class="markdownTableBodyNone">Not targeted  </td><td class="markdownTableBodyNone">Explicitly ignored by the parser; accepted limitation for the reduced keyboard/input model.  </td></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone">80/132-column switching (<span class="tt">DECCOLM</span>)  </td><td class="markdownTableBodyNone">Not targeted  </td><td class="markdownTableBodyNone">Outside scope because the current hardware uses a fixed display geometry.  </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone">ANSI color rendering via SGR  </td><td class="markdownTableBodyNone">Not met  </td><td class="markdownTableBodyNone">Terminal remains monochrome; colors are selected via configuration instead.  </td></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone">Full original VT100 hardware fidelity  </td><td class="markdownTableBodyNone">Not met  </td><td class="markdownTableBodyNone">The project emulates behavior, not the complete DEC hardware stack.  </td></tr>
+</table>
+<h2 class="doxsection"><a class="anchor" id="practical-vttest-plan"></a>
+Practical vttest Plan</h2>
+<p>The most reliable way to turn the matrix above into an evidence-based report is to run <span class="tt">vttest</span> from a Unix host against the firmware and record each section as <span class="tt">pass</span>, <span class="tt">partial</span>, or <span class="tt">fail</span>.</p>
+<p>Recommended workflow:</p>
+<ol type="1">
+<li>Start with the built-in <span class="tt">VTTest</span> for a quick on-device sanity check of cursoring, scrolling, wraparound, DEC graphics, and line attributes.</li>
+<li>Connect from a Unix host in raw character mode. Avoid telnet line mode, otherwise control-key and cursor tests become misleading.</li>
+<li>Run <span class="tt">vttest</span> and keep a simple report sheet with these columns: <span class="tt">section</span>, <span class="tt">expected result</span>, <span class="tt">observed result</span>, <span class="tt">status</span>, <span class="tt">notes</span>.</li>
+<li>Treat the code-based matrix in this README as the expected baseline before you begin. Any mismatch between <span class="tt">vttest</span> and the matrix is worth investigating.</li>
+</ol>
+<p>Suggested <span class="tt">vttest</span> interpretation for the current implementation:</p>
+<table class="markdownTable">
+<tr class="markdownTableHead">
+<th class="markdownTableHeadNone">vttest area  </th><th class="markdownTableHeadNone">Expected result  </th><th class="markdownTableHeadNone">Why  </th></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone">Cursor movement and direct cursor addressing  </td><td class="markdownTableBodyNone">Pass  </td><td class="markdownTableBodyNone">Core cursor commands are implemented and already covered by the internal test suite.  </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone">Screen clearing and line clearing  </td><td class="markdownTableBodyNone">Pass  </td><td class="markdownTableBodyNone"><span class="tt">ED</span> and <span class="tt">EL</span> variants are implemented.  </td></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone">Insert/delete chars and lines  </td><td class="markdownTableBodyNone">Pass  </td><td class="markdownTableBodyNone"><span class="tt">ICH</span>, <span class="tt">DCH</span>, <span class="tt">ECH</span>, <span class="tt">IL</span>, and <span class="tt">DL</span> are implemented in the renderer.  </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone">Scrolling, reverse index, and scroll regions  </td><td class="markdownTableBodyNone">Pass  </td><td class="markdownTableBodyNone"><span class="tt">IND</span>, <span class="tt">NEL</span>, <span class="tt">RI</span>, and <span class="tt">DECSTBM</span> are implemented.  </td></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone">Wraparound tests  </td><td class="markdownTableBodyNone">Pass  </td><td class="markdownTableBodyNone">The renderer carries a dedicated wrap-pending state for VT100-style behavior.  </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone">Origin mode tests  </td><td class="markdownTableBodyNone">Pass  </td><td class="markdownTableBodyNone"><span class="tt">DECOM</span> is implemented and influences cursor addressing.  </td></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone">Device attributes and status reports  </td><td class="markdownTableBodyNone">Pass  </td><td class="markdownTableBodyNone">Primary <span class="tt">DA</span>, <span class="tt">DSR 5</span>, and <span class="tt">DSR 6</span> replies are implemented.  </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone">Tab stop handling  </td><td class="markdownTableBodyNone">Pass  </td><td class="markdownTableBodyNone">Forward tab, set/clear tab stop, clear all, and back-tab are present.  </td></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone">VT52 mode tests  </td><td class="markdownTableBodyNone">Pass  </td><td class="markdownTableBodyNone">VT52 subset and ANSI escape back to normal mode are implemented.  </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone">DEC special graphics  </td><td class="markdownTableBodyNone">Pass  </td><td class="markdownTableBodyNone">G0/G1 switching and graphics glyph selection are implemented.  </td></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone">SGR attribute tests  </td><td class="markdownTableBodyNone">Partial  </td><td class="markdownTableBodyNone">Bold, dim, underline, reverse, reset, and the matching off-codes work, but only the monochrome SGR subset is supported.  </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone">Blink attribute tests  </td><td class="markdownTableBodyNone">Partial  </td><td class="markdownTableBodyNone"><span class="tt">SGR 5</span> is accepted, but text blink is not visibly rendered.  </td></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone">DEC double-width / double-height line tests  </td><td class="markdownTableBodyNone">Pass  </td><td class="markdownTableBodyNone">Internal VTTest sequences use true <span class="tt">ESC #3</span>/<span class="tt">#4</span> top-and-bottom pairs plus <span class="tt">#5</span> reset semantics.  </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone">Keypad application mode tests  </td><td class="markdownTableBodyNone">Not targeted  </td><td class="markdownTableBodyNone"><span class="tt">DECKPAM</span> and <span class="tt">DECKPNM</span> are outside the current product scope because the keyboard has no numeric keypad.  </td></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone">Cursor key application mode tests  </td><td class="markdownTableBodyNone">Not targeted  </td><td class="markdownTableBodyNone"><span class="tt">DECCKM</span> is outside the current product scope and currently ignored.  </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone">80/132-column switching tests  </td><td class="markdownTableBodyNone">Not targeted  </td><td class="markdownTableBodyNone"><span class="tt">DECCOLM</span> is outside scope because the display geometry is fixed by the hardware.  </td></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone">ANSI color tests  </td><td class="markdownTableBodyNone">Fail  </td><td class="markdownTableBodyNone">The firmware is monochrome and does not apply color SGR codes.  </td></tr>
+</table>
+<p>When you run <span class="tt">vttest</span>, capture the exact menu section names alongside the outcomes. That gives you a reproducible conformance ledger and a concrete backlog for the remaining <span class="tt">partial</span> and <span class="tt">fail</span> items.</p>
 <h2 class="doxsection"><a class="anchor" id="troubleshooting"></a>
 Troubleshooting</h2>
 <p>This section collects practical checks and fixes for the most common setup and runtime issues.</p>

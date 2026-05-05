@@ -38,6 +38,8 @@ var index =
       [ "Initial Implementation Plan", "index.html#initial-implementation-plan", null ],
       [ "Templates", "index.html#templates", null ],
       [ "Overview on Escape Sequence Coverage", "index.html#overview-on-escape-sequence-coverage", null ],
+      [ "VT100 Conformance Assessment", "index.html#vt100-conformance-assessment", null ],
+      [ "Practical vttest Plan", "index.html#practical-vttest-plan", null ],
       [ "Troubleshooting", "index.html#troubleshooting", [
         [ "Build fails with <span class=\"tt\">fatal error: stdint.h: No such file or directory</span>", "index.html#build-fails-with-fatal-error-stdinth-no-such-file-or-directory", null ],
         [ "<span class=\"tt\">VT100.txt</span> changes have no effect", "index.html#vt100txt-changes-have-no-effect", null ],

@@ -321,6 +321,7 @@ private:
     unsigned GetCharCellWidthForLineAttribute(ELineAttribute attribute) const;
     unsigned GetCharCellWidthForY(unsigned nPosY) const;
     unsigned GetColumnsForY(unsigned nPosY) const;
+    void ApplyColumnMode(unsigned nColumns, boolean clearScreen);
     void ClampCursorToLineWidth(void);
     boolean SampleGlyphPixel(const CCharGenerator &charGen,
                              char chChar,
@@ -499,6 +500,7 @@ private:
     unsigned m_nHeight;
     unsigned m_nUsedWidth;
     unsigned m_nUsedHeight;
+    unsigned m_nColumnModeColumns;
     unsigned m_nDepth;
     CDisplay::TArea m_UpdateArea;
     TState m_State;

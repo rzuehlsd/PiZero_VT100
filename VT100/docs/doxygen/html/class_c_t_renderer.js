@@ -42,6 +42,7 @@ var class_c_t_renderer =
     [ "SetRawPixel", "class_c_t_renderer.html#a4a234b3a96ebcd05035731152bd304af", null ],
     [ "SetSmoothScrollEnabled", "class_c_t_renderer.html#a6abc018f99385881a810c0946e1ff183", null ],
     [ "SetVT52Mode", "class_c_t_renderer.html#a14d0856fbe4221f33c79337e7738a236", null ],
+    [ "SetWrapAroundMode", "class_c_t_renderer.html#a5ed77f4fc892cf08852125713394230f", null ],
     [ "Update", "class_c_t_renderer.html#a074abc854213038ee01e2ca2487e6890", null ],
     [ "Write", "class_c_t_renderer.html#ab7d8e359be53a3c5bec886a9e052e960", null ]
 ];
