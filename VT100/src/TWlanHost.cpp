@@ -189,27 +189,33 @@ void CTWlanHost::DisplayPromptIfReady()
         const char *hostId = (config != nullptr) ? config->GetHostId() : nullptr;
         if (hostId != nullptr && hostId[0] != '\0')
         {
-            m_StateLock.Acquire();
-            m_HostToken = hostId;
-            m_PromptField = ShellFieldDone;
-            m_InputActive = false;
-            m_ConnectInProgress = false;
-            m_ConnectRequested = false;
-            m_Connected = false;
-            m_SshDetected = false;
-            m_RetryBackoff = 0U;
-            m_StateLock.Release();
-
-            LOGNOTE("Shell target from host_id: %s", m_HostToken.c_str());
-
-            if (m_pRenderer != nullptr)
+            CIPAddress ip;
+            u16 port = DefaultRawPort;
+            if (ParseHostAndPort(hostId, ip, port))
             {
-                CString summary;
-                summary.Format("\r\nShell target from host_id: host=%s\r\n", (const char *)m_HostToken);
-                WriteRendererMessage(m_pRenderer, summary.c_str(), summary.GetLength());
-                WriteRendererMessage(m_pRenderer, "Starting outbound shell-client connection...\r\n", 45);
+                m_StateLock.Acquire();
+                m_PromptField = ShellFieldDone;
+                m_InputActive = false;
+                m_ConnectInProgress = false;
+                m_ConnectRequested = false;
+                m_Connected = false;
+                m_SshDetected = false;
+                m_RetryBackoff = 0U;
+                m_StateLock.Release();
+
+                LOGNOTE("Shell target from host_id: %s", hostId);
+
+                if (m_pRenderer != nullptr)
+                {
+                    CString summary;
+                    summary.Format("\r\nShell target from host_id: host=%s\r\n", hostId);
+                    WriteRendererMessage(m_pRenderer, summary.c_str(), summary.GetLength());
+                    WriteRendererMessage(m_pRenderer, "Starting outbound shell-client connection...\r\n", 45);
+                }
+                return;
             }
-            return;
+
+            LOGWARN("Configured host_id is invalid for shell-client auto-connect: %s", hostId);
         }
     }
 
@@ -424,9 +430,30 @@ void CTWlanHost::RequestConnectIfReady()
         return;
     }
 
+    CNetConfig *netConfig = m_pNet->GetConfig();
+    if (netConfig == nullptr)
+    {
+        m_RetryBackoff = 50U;
+        return;
+    }
+
+    const CIPAddress *localIp = netConfig->GetIPAddress();
+    if (localIp == nullptr || localIp->IsNull())
+    {
+        m_RetryBackoff = 50U;
+        return;
+    }
+
     CIPAddress ip;
     u16 port = DefaultRawPort;
-    if (!ParseHostAndPort(m_HostToken.c_str(), ip, port))
+    const char *hostToken = m_HostToken.c_str();
+    if (hostToken == nullptr || hostToken[0] == '\0')
+    {
+        CTConfig *config = CTConfig::Get();
+        hostToken = (config != nullptr) ? config->GetHostId() : nullptr;
+    }
+
+    if (hostToken == nullptr || hostToken[0] == '\0' || !ParseHostAndPort(hostToken, ip, port))
     {
         if (m_pRenderer != nullptr)
         {
