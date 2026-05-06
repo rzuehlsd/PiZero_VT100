@@ -111,6 +111,7 @@ CTRenderer::CTRenderer(void)
       m_bCursorVisible(FALSE),
       m_nCursorBlinkPeriodTicks(MSEC2HZ(500)),
       m_nNextCursorBlink(0),
+      m_bTextBlinkVisible(TRUE),
       m_ForegroundColor(0),
       m_BackgroundColor(0),
       m_DefaultForegroundColor(0),
@@ -622,7 +623,7 @@ void CTRenderer::RenderShadowCell(unsigned row, unsigned column)
     m_BackgroundColor = cell.background;
     m_bBoldAttribute = cell.bold;
     m_bDimAttribute = cell.dim;
-    m_bUnderlineAttribute = cell.underline;
+    m_bUnderlineAttribute = (cell.blink && !m_bTextBlinkVisible) ? FALSE : cell.underline;
     m_bBlinkAttribute = cell.blink;
     m_bReverseAttribute = cell.reverseVideo;
 
@@ -638,7 +639,8 @@ void CTRenderer::RenderShadowCell(unsigned row, unsigned column)
         m_pCharGen = savedCharGen;
     }
 
-    DisplayChar(cell.used ? cell.ch : ' ', nPosX, nPosY, GetTextColor());
+    const char renderChar = (cell.blink && !m_bTextBlinkVisible) ? ' ' : (cell.used ? cell.ch : ' ');
+    DisplayChar(renderChar, nPosX, nPosY, GetTextColor());
 
     m_ForegroundColor = savedForeground;
     m_BackgroundColor = savedBackground;
@@ -692,7 +694,7 @@ void CTRenderer::RenderShadowRow(unsigned row)
         m_BackgroundColor = cell.background;
         m_bBoldAttribute = cell.bold;
         m_bDimAttribute = cell.dim;
-        m_bUnderlineAttribute = cell.underline;
+        m_bUnderlineAttribute = (cell.blink && !m_bTextBlinkVisible) ? FALSE : cell.underline;
         m_bBlinkAttribute = cell.blink;
         m_bReverseAttribute = cell.reverseVideo;
 
@@ -714,7 +716,8 @@ void CTRenderer::RenderShadowRow(unsigned row)
             break;
         }
 
-        DisplayChar(cell.used ? cell.ch : ' ', nPosX, nPosY, GetTextColor());
+        const char renderChar = (cell.blink && !m_bTextBlinkVisible) ? ' ' : (cell.used ? cell.ch : ' ');
+        DisplayChar(renderChar, nPosX, nPosY, GetTextColor());
     }
 
     m_ForegroundColor = savedForeground;
@@ -747,6 +750,40 @@ void CTRenderer::RenderShadowScreen(void)
     {
         RenderShadowRow(row);
     }
+}
+
+boolean CTRenderer::ShadowRowHasBlink(unsigned row) const
+{
+    const unsigned rowCount = GetRowCount();
+    if (row >= rowCount)
+    {
+        return FALSE;
+    }
+
+    const TShadowCell(*cells)[MaxTextColumns] = GetActiveShadowCells();
+    for (unsigned column = 0; column < MaxTextColumns; ++column)
+    {
+        if (cells[row][column].used && cells[row][column].blink)
+        {
+            return TRUE;
+        }
+    }
+
+    return FALSE;
+}
+
+boolean CTRenderer::ActiveShadowHasBlinkCells(void) const
+{
+    const unsigned rowCount = GetRowCount();
+    for (unsigned row = 0; row < rowCount; ++row)
+    {
+        if (ShadowRowHasBlink(row))
+        {
+            return TRUE;
+        }
+    }
+
+    return FALSE;
 }
 
 void CTRenderer::StoreShadowCellAt(unsigned nPosX,
@@ -1576,14 +1613,44 @@ void CTRenderer::Run()
     {
         m_SpinLock.Acquire();
 
-        if (m_bCursorOn && m_bBlinkingCursor)
+        const unsigned currentTicks = CTimer::Get()->GetTicks();
+        const boolean hasBlinkingText = ActiveShadowHasBlinkCells();
+        if (((m_bCursorOn && m_bBlinkingCursor) || hasBlinkingText) && (int)(currentTicks - m_nNextCursorBlink) >= 0)
         {
-            unsigned currentTicks = CTimer::Get()->GetTicks();
-            if ((int)(currentTicks - m_nNextCursorBlink) >= 0)
+            const boolean cursorShouldToggle = m_bCursorOn && m_bBlinkingCursor;
+            const boolean cursorWasVisible = m_bCursorOn && m_bCursorVisible;
+
+            if (cursorWasVisible)
             {
                 InvertCursor();
-                m_nNextCursorBlink = currentTicks + m_nCursorBlinkPeriodTicks;
             }
+
+            if (hasBlinkingText)
+            {
+                m_bTextBlinkVisible = !m_bTextBlinkVisible;
+                const unsigned rowCount = GetRowCount();
+                for (unsigned row = 0; row < rowCount; ++row)
+                {
+                    if (ShadowRowHasBlink(row))
+                    {
+                        RenderShadowRow(row);
+                    }
+                }
+            }
+
+            if (cursorShouldToggle)
+            {
+                if (!cursorWasVisible)
+                {
+                    InvertCursor();
+                }
+            }
+            else if (cursorWasVisible)
+            {
+                InvertCursor();
+            }
+
+            m_nNextCursorBlink = currentTicks + m_nCursorBlinkPeriodTicks;
         }
 
         m_SpinLock.Release();

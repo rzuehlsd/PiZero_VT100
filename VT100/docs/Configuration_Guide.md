@@ -45,14 +45,14 @@ Modern setup controls:
 
 Modern setup save/apply behavior (current implementation):
 
-- Applied immediately on `Enter`: `text_color`, `background_color`, `font_selection`, `cursor_type`, `cursor_blinking`, `vt52_mode`, `smooth_scroll`, `buzzer_volume`, `switch_txrx`.
+- Applied immediately on `Enter`: `text_color`, `background_color`, `font_selection`, `cursor_type`, `cursor_blinking`, `vt52_mode`, `smooth_scroll`, `smooth_scroll_ms`, `buzzer_volume`, `switch_txrx`.
 - Persisted and used by runtime logic without dedicated re-init: `line_ending`, `key_click`, `key_auto_repeat`, `wrap_around`, `margin_bell`.
-- Persisted and applied on subsystem init/reconnect/reboot: `baud_rate`, `serial_bits`, `serial_parity`, `flow_control`, `repeat_delay_ms`, `repeat_rate_cps`, `log_output`, `log_filename`, `wlan_host_autostart`.
+- Persisted and applied on subsystem init/reconnect/reboot: `baud_rate`, `serial_bits`, `serial_parity`, `flow_control`, `repeat_delay_ms`, `repeat_rate_cps`, `log_output`, `log_filename`, `wlan_host_autostart`, `host_id`.
 
 Local mode (`F10`) behavior:
 
 - ON: keyboard input is looped back directly to the renderer.
-- OFF: keyboard input is routed to host output (UART/TCP host mode path).
+- OFF: keyboard input is routed to the standard host output path (UART, or outbound shell-client uplink when active).
 - Not persisted in `VT100.txt` (runtime toggle only).
 
 ### A3) `VT100.txt` keys (persisted)
@@ -71,7 +71,7 @@ Persisted by `CTConfig::SaveToFile()`:
 10. `flow_control` (0/1, software XON/XOFF)
 11. `text_color` (0=black, 1=white, 2=amber, 3=green)
 12. `background_color` (0..3)
-13. `buzzer_volume` (0..100)
+13. `buzzer_volume` (0..80; values above 80 are clamped)
 14. `key_click` (0/1)
 15. `key_auto_repeat` (0/1)
 16. `smooth_scroll` (0/1)
@@ -81,13 +81,14 @@ Persisted by `CTConfig::SaveToFile()`:
 20. `repeat_rate_cps` (2..20)
 21. `switch_txrx` (0/1)
 22. `margin_bell` (0/1)
-23. `wlan_host_autostart` (0/1/2; 0=off, 1=log, 2=host; current implementation, planned to be replaced by target model keys)
-24. `log_output` (0..7; 0=none, 1=screen, 2=file, 3=wlan, 4=screen+file, 5=screen+wlan, 6=file+wlan, 7=screen+file+wlan)
-25. `log_filename` (string, max 63 chars)
+23. `wlan_host_autostart` (0/1/2; 0=off, 1=log mode, 2=outbound shell-client mode)
+24. `host_id` (string, `IPv4[:port]`, empty means prompt locally on VT100)
+25. `log_output` (0..7; 0=none, 1=screen, 2=file, 3=wlan, 4=screen+file, 5=screen+wlan, 6=file+wlan, 7=screen+file+wlan)
+26. `log_filename` (string, max 63 chars)
 
 ### A4) WLAN usage (operator level)
 
-Endpoint: `telnet <ip-or-hostname> 2323`
+Incoming log/command endpoint: `telnet <ip-or-hostname> 2323`
 
 Waiting-screen connect hints on VT100 include:
 
@@ -105,16 +106,23 @@ Log mode commands:
 Log mode prompt:
 
 - `>: ` is shown at the start of each command line in log mode.
-- No prompt is inserted while host mode is active.
+- No log prompt is inserted while shell-client payload routing is active.
 - Incoming log lines in log mode are separated from the prompt by spaces only (no extra CRLF inserted before a log message).
 - Pressing Enter on an empty command line emits a clean newline and re-shows the prompt.
 
-When host mode is on, keyboard TX and TCP RX are used as terminal host traffic.
+Shell-client mode (`wlan_host_autostart=2`):
 
-Host-mode session end:
+- VT100 initiates an outbound raw TCP connection instead of waiting for an incoming host-bridge client.
+- `host_id` is used as default target when configured; otherwise VT100 prompts locally for `IPv4[:port]`.
+- Keyboard TX is sent to the remote peer and TCP RX is rendered directly on the VT100 screen.
+- UART host rendering is suspended while the shell-client session is active.
 
-- Host mode is a dedicated raw session type.
-- Session ends when the remote TCP client disconnects.
+Shell-client session end:
+
+- Shell-client mode is a dedicated raw payload session type.
+- Session ends when the remote side disconnects or WLAN mode is disabled.
+
+For host-side helper scripts and character-mode client recommendations, see `../tools/README.md`.
 
 ## Part B — Admin / Developer
 
@@ -149,19 +157,21 @@ When adding/changing a setting, update all of:
 
 ### B4) WLAN current-state integration notes
 
-- `CTWlanLog` uses one TCP endpoint with strict per-session mode separation.
+- `CTWlanHost` provides the current WLAN runtime integration.
+- Incoming `telnet <ip> 2323` is the log/command endpoint.
 - `wlan_host_autostart=0` disables WLAN remote mode.
-- `wlan_host_autostart=1` starts a log-mode session.
-- `wlan_host_autostart=2` starts a raw host-mode session.
+- `wlan_host_autostart=1` keeps the incoming endpoint in log mode.
+- `wlan_host_autostart=2` activates the outbound shell-client path.
+- The outbound shell-client target is taken from `host_id` or prompted locally as `IPv4[:port]`.
 
 ### B5) WLAN target model (approved)
 
-Approved target model (without host-server legacy):
+Current runtime mode model:
 
 - **Remote Logging/Status mode**: remote diagnostics/log sink only (`help`, `status`, `echo`, `exit`) with command prompt; no interactive shell stream.
-- **Remote Shell Client mode**: VT100 acts as client and initiates a remote shell session to a configured host; keyboard uplink and renderer downlink belong exclusively to this mode.
+- **Remote Shell Client mode**: VT100 acts as client and initiates a remote raw TCP session to a configured host; keyboard uplink and renderer downlink belong exclusively to this mode.
 
-Explicit non-goal in target model:
+Current non-goal:
 
 - No host-server legacy mode in final mode model.
 
@@ -169,13 +179,13 @@ Mode separation constraints:
 
 - Logging stream and shell stream are strictly isolated.
 - No in-session mode switching between logging and shell-client traffic paths.
-- Shell-client authentication/login flow is handled on VT100 (IP/port/user/password input path).
+- Current shell-client prompting on VT100 captures `IPv4[:port]` only; host-side shell or login behavior is provided by the remote server/helpers.
 
 Architecture-level session model and lifecycle are documented in `docs/VT100_Architecture.md` (section 8.3).
 
 ### B6) WLAN migration and implementation plan
 
-Planned migration from current implementation (`wlan_host_autostart`) to target model:
+Planned cleanup from the current compatibility key to a clearer explicit mode policy:
 
 1. Introduce explicit policy key `wlan_mode_policy` with values:
 	- `0=off`
@@ -185,21 +195,17 @@ Planned migration from current implementation (`wlan_host_autostart`) to target 
 3. Compatibility mapping during transition:
 	- old `0` -> new `0`
 	- old `1` -> new `1`
-	- old `2` -> new `2` (temporary mapping from former host-server value to shell-client target)
-4. Add shell-client profile keys (target, no runtime claim yet):
-	- `shell_client_host`
-	- `shell_client_port`
-	- `shell_client_user`
-	- password entry runtime-only by default (optional persisted storage only via explicit user opt-in).
-5. Remove host-server runtime path after shell-client mode is feature-complete and validated.
+	- old `2` -> new `2` (current shell-client behavior already uses this meaning)
+4. Consider whether `host_id` should remain the single persisted shell-client target or be split into explicit host/port keys later.
+5. Remove compatibility wording once `wlan_mode_policy` becomes the only public configuration key.
 
 Implementation order (approved):
 
 1. Config/state model split
-2. Shell-client state machine (`idle`, `connecting`, `auth`, `interactive`, `error`, `disconnect`)
-3. VT100 login/connect UI
+2. Shell-client state machine cleanup/documentation refresh
+3. VT100 connect UI cleanup around `host_id` / prompt reuse
 4. I/O routing gates and safety guards
-5. Legacy removal cleanup and docs finalization
+5. Compatibility-key cleanup and docs finalization
 
 ### B7) Validation workflow after config-related changes
 

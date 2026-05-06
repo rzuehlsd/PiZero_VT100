@@ -368,6 +368,8 @@ private:
     void RenderShadowCell(unsigned row, unsigned column);
     void RenderShadowRow(unsigned row);
     void RenderShadowScreen(void);
+    boolean ShadowRowHasBlink(unsigned row) const;
+    boolean ActiveShadowHasBlinkCells(void) const;
     void StoreShadowCellAt(unsigned nPosX,
                            unsigned nPosY,
                            char chChar,
@@ -577,6 +579,7 @@ private:
     boolean m_bCursorVisible;
     unsigned m_nCursorBlinkPeriodTicks;
     unsigned m_nNextCursorBlink;
+    boolean m_bTextBlinkVisible;
     CDisplay::TRawColor m_ForegroundColor;
     CDisplay::TRawColor m_BackgroundColor;
     CDisplay::TRawColor m_DefaultForegroundColor;
