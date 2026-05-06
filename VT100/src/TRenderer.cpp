@@ -143,6 +143,7 @@ CTRenderer::CTRenderer(void)
       m_bSmoothScrollEnabled(TRUE),
       m_bSmoothScrollActive(FALSE),
       m_bSmoothScrollDown(FALSE),
+      m_nSmoothScrollLineMs(170),
       m_nSmoothScrollStartY(0),
       m_nSmoothScrollEndY(0),
       m_nSmoothScrollOffset(0),
@@ -484,6 +485,171 @@ void CTRenderer::ShiftShadowRowsDown(unsigned startRow, unsigned endRow, unsigne
     }
 }
 
+void CTRenderer::FillPixelRows(unsigned startY, unsigned endY, CDisplay::TRawColor color)
+{
+    if (startY >= endY || startY >= m_nHeight)
+    {
+        return;
+    }
+
+    if (endY > m_nHeight)
+    {
+        endY = m_nHeight;
+    }
+
+    const unsigned rowCount = endY - startY;
+    if (rowCount == 0)
+    {
+        return;
+    }
+
+    switch (m_nDepth)
+    {
+    case 8:
+        memset(m_pBuffer8 + startY * m_nWidth, static_cast<int>(static_cast<u8>(color)), static_cast<size_t>(rowCount) * m_nWidth);
+        break;
+
+    case 16:
+    {
+        u16 *pRow = m_pBuffer16 + startY * m_nWidth;
+        const size_t pixelCount = static_cast<size_t>(rowCount) * m_nWidth;
+        for (size_t index = 0; index < pixelCount; ++index)
+        {
+            pRow[index] = static_cast<u16>(color);
+        }
+        break;
+    }
+
+    case 32:
+    {
+        u32 *pRow = m_pBuffer32 + startY * m_nWidth;
+        const size_t pixelCount = static_cast<size_t>(rowCount) * m_nWidth;
+        for (size_t index = 0; index < pixelCount; ++index)
+        {
+            pRow[index] = color;
+        }
+        break;
+    }
+
+    default:
+        for (unsigned y = startY; y < endY; ++y)
+        {
+            for (unsigned x = 0; x < m_nWidth; ++x)
+            {
+                SetRawPixel(x, y, color);
+            }
+        }
+        break;
+    }
+}
+
+void CTRenderer::ScrollPixelRowsUp(unsigned startY, unsigned endY, unsigned deltaY)
+{
+    if (startY >= endY || deltaY == 0 || startY >= m_nHeight)
+    {
+        return;
+    }
+
+    if (endY > m_nHeight)
+    {
+        endY = m_nHeight;
+    }
+
+    if (startY + deltaY >= endY)
+    {
+        return;
+    }
+
+    const size_t bytesToMove = static_cast<size_t>(endY - startY - deltaY) * m_nPitch;
+    memmove(m_pBuffer8 + startY * m_nPitch,
+            m_pBuffer8 + (startY + deltaY) * m_nPitch,
+            bytesToMove);
+}
+
+void CTRenderer::ClearUnusedBottomArea(CDisplay::TRawColor background)
+{
+    if (m_nUsedHeight >= m_nHeight)
+    {
+        return;
+    }
+
+    FillPixelRows(m_nUsedHeight, m_nHeight, background);
+
+    SetUpdateArea(m_nUsedHeight, m_nHeight - 1);
+}
+
+void CTRenderer::RenderShadowCell(unsigned row, unsigned column)
+{
+    const unsigned rowCount = GetRowCount();
+    const unsigned cellHeight = GetBaseCharHeight();
+    if (row >= rowCount || column >= MaxTextColumns || cellHeight == 0 || m_pCharGen == nullptr)
+    {
+        return;
+    }
+
+    const unsigned nPosY = row * cellHeight;
+    if (nPosY >= m_nHeight)
+    {
+        return;
+    }
+
+    const unsigned visibleColumns = GetColumnsForY(nPosY);
+    const unsigned cellWidth = GetCharCellWidthForY(nPosY);
+    if (column >= visibleColumns || cellWidth == 0)
+    {
+        return;
+    }
+
+    const unsigned nPosX = column * cellWidth;
+    if (nPosX >= m_nWidth)
+    {
+        return;
+    }
+
+    const CDisplay::TRawColor savedForeground = m_ForegroundColor;
+    const CDisplay::TRawColor savedBackground = m_BackgroundColor;
+    const boolean savedBold = m_bBoldAttribute;
+    const boolean savedDim = m_bDimAttribute;
+    const boolean savedUnderline = m_bUnderlineAttribute;
+    const boolean savedBlink = m_bBlinkAttribute;
+    const boolean savedReverse = m_bReverseAttribute;
+    CCharGenerator *savedCharGen = m_pCharGen;
+
+    const TShadowCell(*cells)[MaxTextColumns] = GetActiveShadowCells();
+    const TShadowCell &cell = cells[row][column];
+
+    m_ForegroundColor = cell.foreground;
+    m_BackgroundColor = cell.background;
+    m_bBoldAttribute = cell.bold;
+    m_bDimAttribute = cell.dim;
+    m_bUnderlineAttribute = cell.underline;
+    m_bBlinkAttribute = cell.blink;
+    m_bReverseAttribute = cell.reverseVideo;
+
+    const bool useGraphics = cell.charSet == static_cast<unsigned>(CharSetGraphics) &&
+                             static_cast<unsigned char>(cell.ch) >= 0x60 &&
+                             static_cast<unsigned char>(cell.ch) <= 0x7E;
+    if (useGraphics && m_pGraphicsCharGen != nullptr)
+    {
+        m_pCharGen = m_pGraphicsCharGen;
+    }
+    else
+    {
+        m_pCharGen = savedCharGen;
+    }
+
+    DisplayChar(cell.used ? cell.ch : ' ', nPosX, nPosY, GetTextColor());
+
+    m_ForegroundColor = savedForeground;
+    m_BackgroundColor = savedBackground;
+    m_bBoldAttribute = savedBold;
+    m_bDimAttribute = savedDim;
+    m_bUnderlineAttribute = savedUnderline;
+    m_bBlinkAttribute = savedBlink;
+    m_bReverseAttribute = savedReverse;
+    m_pCharGen = savedCharGen;
+}
+
 void CTRenderer::RenderShadowRow(unsigned row)
 {
     const unsigned rowCount = GetRowCount();
@@ -515,15 +681,9 @@ void CTRenderer::RenderShadowRow(unsigned row)
     const boolean savedReverse = m_bReverseAttribute;
     CCharGenerator *savedCharGen = m_pCharGen;
 
-    for (unsigned y = nPosY; y < nPosY + cellHeight && y < m_nHeight; ++y)
-    {
-        for (unsigned x = 0; x < m_nWidth; ++x)
-        {
-            SetRawPixel(x, y, savedBackground);
-        }
-    }
+    FillPixelRows(nPosY, nPosY + cellHeight, savedBackground);
 
-    const TShadowCell (*cells)[MaxTextColumns] = GetActiveShadowCells();
+    const TShadowCell(*cells)[MaxTextColumns] = GetActiveShadowCells();
     for (unsigned column = 0; column < visibleColumns && column < MaxTextColumns; ++column)
     {
         const TShadowCell &cell = cells[row][column];
@@ -565,7 +725,28 @@ void CTRenderer::RenderShadowRow(unsigned row)
     m_bBlinkAttribute = savedBlink;
     m_bReverseAttribute = savedReverse;
     m_pCharGen = savedCharGen;
+
+    if (row + 1 == rowCount)
+    {
+        ClearUnusedBottomArea(savedBackground);
+    }
+
     SetUpdateArea(nPosY, nPosY + cellHeight - 1);
+}
+
+void CTRenderer::RenderShadowScreen(void)
+{
+    const unsigned rowCount = GetRowCount();
+    if (rowCount == 0)
+    {
+        ClearUnusedBottomArea(m_BackgroundColor);
+        return;
+    }
+
+    for (unsigned row = 0; row < rowCount; ++row)
+    {
+        RenderShadowRow(row);
+    }
 }
 
 void CTRenderer::StoreShadowCellAt(unsigned nPosX,
@@ -1635,40 +1816,28 @@ void CTRenderer::InsertChars(unsigned nCount)
         return;
     }
 
-    unsigned pixelWidth = nCount * charWidth;
-    const unsigned maxShift = m_nUsedWidth - m_nCursorX;
-    if (pixelWidth > maxShift)
-    {
-        pixelWidth = maxShift;
-    }
-    if (pixelWidth == 0)
+    unsigned cellCount = nCount;
+    const unsigned startColumn = GetColumnIndexFromX(m_nCursorX, m_nCursorY);
+    const unsigned visibleColumns = GetColumnsForY(m_nCursorY);
+    if (startColumn >= visibleColumns)
     {
         return;
     }
 
-    const CDisplay::TRawColor bgColor = GetTextBackgroundColor();
-    const unsigned startY = m_nCursorY;
-    const unsigned endY = m_nCursorY + charHeight;
-
-    for (unsigned y = startY; y < endY; ++y)
+    const unsigned maxShift = visibleColumns - startColumn;
+    if (cellCount > maxShift)
     {
-        for (int x = static_cast<int>(m_nUsedWidth) - 1; x >= static_cast<int>(m_nCursorX + pixelWidth); --x)
-        {
-            SetRawPixel(static_cast<unsigned>(x), y, GetRawPixel(static_cast<unsigned>(x) - pixelWidth, y));
-        }
+        cellCount = maxShift;
+    }
 
-        const unsigned clearEnd = m_nCursorX + pixelWidth;
-        for (unsigned x = m_nCursorX; x < clearEnd && x < m_nUsedWidth; ++x)
-        {
-            SetRawPixel(x, y, bgColor);
-        }
+    if (cellCount == 0)
+    {
+        return;
     }
 
     const unsigned row = GetRowIndexFromY(m_nCursorY);
-    const unsigned startColumn = GetColumnIndexFromX(m_nCursorX, m_nCursorY);
-    ShiftShadowCellsRight(row, startColumn, pixelWidth / charWidth);
-
-    SetUpdateArea(startY, endY - 1);
+    ShiftShadowCellsRight(row, startColumn, cellCount);
+    RenderShadowRow(row);
 }
 
 void CTRenderer::ResetTerminalState(boolean clearScreen)
@@ -1739,12 +1908,19 @@ void CTRenderer::ScreenAlignmentTest(void)
         return;
     }
 
+    ResetShadowBuffer(GetActiveShadowCells());
+
     const CDisplay::TRawColor color = GetTextColor();
+    const CDisplay::TRawColor background = GetTextBackgroundColor();
+    const unsigned activeCharSet = static_cast<unsigned>(m_bUseG1 ? m_G1CharSet : m_G0CharSet);
     for (unsigned row = 0; row < rows; ++row)
     {
         for (unsigned col = 0; col < cols; ++col)
         {
-            DisplayChar('E', col * charWidth, row * charHeight, color);
+            const unsigned nPosX = col * charWidth;
+            const unsigned nPosY = row * charHeight;
+            DisplayChar('E', nPosX, nPosY, color);
+            StoreShadowCellAt(nPosX, nPosY, 'E', color, background, activeCharSet);
         }
     }
 
@@ -2082,7 +2258,7 @@ boolean CTRenderer::BeginSmoothScrollAnimation(unsigned nStartY, unsigned nEndY,
     m_nSmoothScrollEndY = nEndY;
     m_bSmoothScrollDown = bScrollDown;
     // Target roughly 6 lines/sec like real VT100: ~170ms per line, evenly spaced frames.
-    const unsigned targetLineMs = 170;
+    const unsigned targetLineMs = m_nSmoothScrollLineMs != 0 ? m_nSmoothScrollLineMs : 1U;
     unsigned frameMs = targetLineMs / charHeight;
     if (frameMs == 0)
     {
@@ -3455,7 +3631,7 @@ void CTRenderer::ClearDisplay(void)
     m_bWrapPending = FALSE;
     ResetLineAttributes();
     ResetShadowBuffer(GetActiveShadowCells());
-    ClearDisplayEnd();
+    RenderShadowScreen();
 }
 
 void CTRenderer::ClearDisplayStart(void)
@@ -3465,32 +3641,26 @@ void CTRenderer::ClearDisplayStart(void)
         return;
     }
 
-    const unsigned savedX = m_nCursorX;
-    const unsigned savedY = m_nCursorY;
-
-    const unsigned charHeight = m_pCharGen->GetCharHeight();
-    if (charHeight == 0)
+    const unsigned row = GetRowIndexFromY(m_nCursorY);
+    const unsigned rowCount = GetRowCount();
+    if (row >= rowCount)
     {
         return;
     }
 
-    // Clear full lines above the cursor.
-    for (unsigned y = 0; y < savedY; y += charHeight)
+    for (unsigned clearRow = 0; clearRow < row; ++clearRow)
     {
-        m_nCursorX = 0;
-        m_nCursorY = y;
-        ClearLineEnd();
-        SetLineAttributeForRow(GetRowIndexFromY(y), LineAttributeNormal);
-        ResetShadowRow(GetRowIndexFromY(y));
+        SetLineAttributeForRow(clearRow, LineAttributeNormal);
+        ResetShadowRow(clearRow);
     }
 
-    // Clear from start of line to cursor on the cursor line.
-    m_nCursorY = savedY;
-    m_nCursorX = savedX;
-    ClearLineStart();
+    const unsigned endColumn = GetColumnIndexFromX(m_nCursorX, m_nCursorY) + 1;
+    ClearShadowCells(row, 0, endColumn);
 
-    m_nCursorX = savedX;
-    m_nCursorY = savedY;
+    for (unsigned clearRow = 0; clearRow <= row; ++clearRow)
+    {
+        RenderShadowRow(clearRow);
+    }
 }
 
 void CTRenderer::ClearLineStart(void)
@@ -3511,6 +3681,7 @@ void CTRenderer::ClearLineStart(void)
         return;
     }
 
+    const unsigned row = GetRowIndexFromY(m_nCursorY);
     unsigned endX = m_nCursorX;
     const unsigned maxX = m_nUsedWidth - charWidth;
     if (endX > maxX)
@@ -3518,92 +3689,44 @@ void CTRenderer::ClearLineStart(void)
         endX = maxX;
     }
 
-    for (unsigned nPosX = 0; nPosX <= endX; nPosX += charWidth)
-    {
-        EraseChar(nPosX, m_nCursorY);
-    }
-
-    const unsigned row = GetRowIndexFromY(m_nCursorY);
     const unsigned endColumn = GetColumnIndexFromX(endX, m_nCursorY) + 1;
     ClearShadowCells(row, 0, endColumn);
+    RenderShadowRow(row);
 }
 
 void CTRenderer::ClearLine(void)
 {
-    const unsigned savedX = m_nCursorX;
-    m_nCursorX = 0;
-    ClearLineEnd();
-    ResetShadowRow(GetRowIndexFromY(m_nCursorY));
-    m_nCursorX = savedX;
+    const unsigned row = GetRowIndexFromY(m_nCursorY);
+    ResetShadowRow(row);
+    RenderShadowRow(row);
 }
 
 void CTRenderer::ClearDisplayEnd(void)
 {
-    ClearLineEnd();
-
-    unsigned nPosY = m_nCursorY + m_pCharGen->GetCharHeight();
-    unsigned nOffset = nPosY * m_nWidth;
-
-    switch (m_nDepth)
+    if (m_pCharGen == nullptr)
     {
-    case 1:
-    {
-        nOffset /= 8;
-        unsigned nSize = m_nSize - nOffset;
-        for (u8 *pBuffer = m_pBuffer8 + nOffset; nSize--;)
-        {
-            *pBuffer++ = m_BackgroundColor ? 0xFF : 0;
-        }
-    }
-    break;
-
-    case 8:
-    {
-        unsigned nSize = m_nSize - nOffset;
-        for (u8 *pBuffer = m_pBuffer8 + nOffset; nSize--;)
-        {
-            *pBuffer++ = (u8)m_BackgroundColor;
-        }
-    }
-    break;
-
-    case 16:
-    {
-        unsigned nSize = m_nSize / 2 - nOffset;
-        for (u16 *pBuffer = m_pBuffer16 + nOffset; nSize--;)
-        {
-            *pBuffer++ = (u16)m_BackgroundColor;
-        }
-    }
-    break;
-
-    case 32:
-    {
-        unsigned nSize = m_nSize / 4 - nOffset;
-        for (u32 *pBuffer = m_pBuffer32 + nOffset; nSize--;)
-        {
-            *pBuffer++ = (u32)m_BackgroundColor;
-        }
-    }
-    break;
+        return;
     }
 
-    const unsigned charHeight = m_pCharGen->GetCharHeight();
-    if (charHeight != 0)
-    {
-        const unsigned startRow = GetRowIndexFromY(m_nCursorY + charHeight);
-        const unsigned rowCount = GetRowCount();
-        for (unsigned row = startRow; row < rowCount; ++row)
-        {
-            SetLineAttributeForRow(row, LineAttributeNormal);
-            ResetShadowRow(row);
-        }
-    }
-
+    const unsigned rowCount = GetRowCount();
     const unsigned cursorRow = GetRowIndexFromY(m_nCursorY);
+    if (cursorRow >= rowCount)
+    {
+        return;
+    }
+
     ClearShadowCells(cursorRow, GetColumnIndexFromX(m_nCursorX, m_nCursorY), GetColumnsForY(m_nCursorY));
 
-    SetUpdateArea(m_nCursorY, m_nHeight - 1);
+    for (unsigned row = cursorRow + 1; row < rowCount; ++row)
+    {
+        SetLineAttributeForRow(row, LineAttributeNormal);
+        ResetShadowRow(row);
+    }
+
+    for (unsigned row = cursorRow; row < rowCount; ++row)
+    {
+        RenderShadowRow(row);
+    }
 }
 
 void CTRenderer::ClearLineEnd(void)
@@ -3614,22 +3737,9 @@ void CTRenderer::ClearLineEnd(void)
         return;
     }
 
-    for (unsigned nPosX = m_nCursorX; nPosX < m_nUsedWidth; nPosX += charWidth)
-    {
-        EraseChar(nPosX, m_nCursorY);
-    }
-
-    for (unsigned nPosX = m_nUsedWidth; nPosX < m_nWidth; nPosX++)
-    {
-        for (unsigned nPosY = m_nCursorY;
-             nPosY < m_nCursorY + m_pCharGen->GetCharHeight(); nPosY++)
-        {
-            SetRawPixel(nPosX, nPosY, m_BackgroundColor);
-        }
-    }
-
     const unsigned row = GetRowIndexFromY(m_nCursorY);
     ClearShadowCells(row, GetColumnIndexFromX(m_nCursorX, m_nCursorY), GetColumnsForY(m_nCursorY));
+    RenderShadowRow(row);
 }
 
 void CTRenderer::CursorDown(void)
@@ -3806,41 +3916,28 @@ void CTRenderer::DeleteChars(unsigned nCount) // TODO
         return;
     }
 
-    unsigned pixelWidth = nCount * charWidth;
-    const unsigned maxShift = m_nUsedWidth - m_nCursorX;
-    if (pixelWidth > maxShift)
-    {
-        pixelWidth = maxShift;
-    }
-
-    if (pixelWidth == 0)
+    unsigned cellCount = nCount;
+    const unsigned startColumn = GetColumnIndexFromX(m_nCursorX, m_nCursorY);
+    const unsigned visibleColumns = GetColumnsForY(m_nCursorY);
+    if (startColumn >= visibleColumns)
     {
         return;
     }
 
-    const CDisplay::TRawColor bgColor = GetTextBackgroundColor();
-    const unsigned startY = m_nCursorY;
-    const unsigned endY = m_nCursorY + charHeight;
-    const unsigned shiftEndX = m_nUsedWidth - pixelWidth;
-
-    for (unsigned y = startY; y < endY; ++y)
+    const unsigned maxShift = visibleColumns - startColumn;
+    if (cellCount > maxShift)
     {
-        for (unsigned x = m_nCursorX; x < shiftEndX; ++x)
-        {
-            SetRawPixel(x, y, GetRawPixel(x + pixelWidth, y));
-        }
+        cellCount = maxShift;
+    }
 
-        for (unsigned x = shiftEndX; x < m_nUsedWidth; ++x)
-        {
-            SetRawPixel(x, y, bgColor);
-        }
+    if (cellCount == 0)
+    {
+        return;
     }
 
     const unsigned row = GetRowIndexFromY(m_nCursorY);
-    const unsigned startColumn = GetColumnIndexFromX(m_nCursorX, m_nCursorY);
-    ShiftShadowCellsLeft(row, startColumn, pixelWidth / charWidth);
-
-    SetUpdateArea(startY, endY - 1);
+    ShiftShadowCellsLeft(row, startColumn, cellCount);
+    RenderShadowRow(row);
 }
 
 void CTRenderer::DeleteLines(unsigned nCount) // TODO
@@ -3884,66 +3981,15 @@ void CTRenderer::DeleteLines(unsigned nCount) // TODO
         startTicks = CTimer::Get()->GetTicks();
     }
 
-    const unsigned lineBytes = m_nPitch * charHeight;
-    const unsigned startOffset = m_nCursorY * m_nPitch;
-    const unsigned endOffset = m_nScrollEnd * m_nPitch;
-    const unsigned deleteBytes = lineBytes * nCount;
-    const unsigned moveBytes = endOffset - startOffset - deleteBytes;
-
-    if (moveBytes > 0)
-    {
-        memmove(m_pBuffer8 + startOffset, m_pBuffer8 + startOffset + deleteBytes, moveBytes);
-    }
-
-    u8 *pClear = m_pBuffer8 + endOffset - deleteBytes;
-    unsigned clearBytes = deleteBytes;
-    switch (m_nDepth)
-    {
-    case 1:
-    {
-        const u8 fill = m_BackgroundColor ? 0xFF : 0x00;
-        while (clearBytes--)
-        {
-            *pClear++ = fill;
-        }
-    }
-    break;
-
-    case 8:
-        while (clearBytes--)
-        {
-            *pClear++ = (u8)m_BackgroundColor;
-        }
-        break;
-
-    case 16:
-    {
-        u16 *p16 = reinterpret_cast<u16 *>(pClear);
-        unsigned count = clearBytes / 2;
-        while (count--)
-        {
-            *p16++ = (u16)m_BackgroundColor;
-        }
-    }
-    break;
-
-    case 32:
-    {
-        u32 *p32 = reinterpret_cast<u32 *>(pClear);
-        unsigned count = clearBytes / 4;
-        while (count--)
-        {
-            *p32++ = (u32)m_BackgroundColor;
-        }
-    }
-    break;
-    }
-
-    SetUpdateArea(m_nCursorY, m_nScrollEnd - 1);
     const unsigned startRow = GetRowIndexFromY(m_nCursorY);
     const unsigned endRow = m_nScrollEnd / charHeight;
     ShiftLineAttributesUp(startRow, endRow, nCount);
     ShiftShadowRowsUp(startRow, endRow, nCount);
+
+    for (unsigned row = startRow; row < endRow; ++row)
+    {
+        RenderShadowRow(row);
+    }
 
     if (!smoothStarted)
     {
@@ -3980,32 +4026,19 @@ void CTRenderer::DisplayChar(char chChar)
         }
 
         ECharacterSet activeSet = m_bUseG1 ? m_G1CharSet : m_G0CharSet;
-        bool bUseGraphics = (activeSet == CharSetGraphics) &&
-                            (unsigned char)chChar >= 0x60 && (unsigned char)chChar <= 0x7E;
-
-        CCharGenerator *pOriginalGen = nullptr;
-        if (bUseGraphics && m_pGraphicsCharGen != nullptr)
-        {
-            pOriginalGen = m_pCharGen;
-            m_pCharGen = m_pGraphicsCharGen;
-        }
 
         const unsigned activeCharSet = static_cast<unsigned>(activeSet);
         const CDisplay::TRawColor foreground = GetTextColor();
         const CDisplay::TRawColor background = GetTextBackgroundColor();
         const unsigned row = GetRowIndexFromY(m_nCursorY);
+        const unsigned column = GetColumnIndexFromX(m_nCursorX, m_nCursorY);
         const ELineAttribute attribute = GetLineAttributeForY(m_nCursorY);
         if ((row == 11 || row == 12) && chChar == '*')
         {
             LOGNOTE("DWDH write: row=%u x=%u attr=%u charset=%u", row + 1, m_nCursorX, static_cast<unsigned>(attribute), activeCharSet);
         }
-        DisplayChar(chChar, m_nCursorX, m_nCursorY, foreground);
         StoreShadowCellAt(m_nCursorX, m_nCursorY, chChar, foreground, background, activeCharSet);
-
-        if (pOriginalGen != nullptr)
-        {
-            m_pCharGen = pOriginalGen;
-        }
+        RenderShadowCell(row, column);
 
         const unsigned charWidth = GetCharCellWidthForY(m_nCursorY);
         if (charWidth != 0 && m_nUsedWidth >= charWidth)
@@ -4046,16 +4079,22 @@ void CTRenderer::EraseChars(unsigned nCount)
     }
 
     const unsigned charWidth = GetCharCellWidthForY(m_nCursorY);
-    unsigned nEndX = m_nCursorX + nCount * charWidth;
-    if (nEndX > m_nUsedWidth)
+    if (charWidth == 0)
     {
-        nEndX = m_nUsedWidth;
+        return;
     }
 
-    for (unsigned nPosX = m_nCursorX; nPosX < nEndX; nPosX += charWidth)
+    const unsigned row = GetRowIndexFromY(m_nCursorY);
+    const unsigned startColumn = GetColumnIndexFromX(m_nCursorX, m_nCursorY);
+    unsigned endColumn = startColumn + nCount;
+    const unsigned visibleColumns = GetColumnsForY(m_nCursorY);
+    if (endColumn > visibleColumns)
     {
-        EraseChar(nPosX, m_nCursorY);
+        endColumn = visibleColumns;
     }
+
+    ClearShadowCells(row, startColumn, endColumn);
+    RenderShadowRow(row);
 }
 
 CDisplay::TRawColor CTRenderer::GetTextBackgroundColor(void)
@@ -4114,66 +4153,15 @@ void CTRenderer::InsertLines(unsigned nCount) // TODO
         startTicks = CTimer::Get()->GetTicks();
     }
 
-    const unsigned lineBytes = m_nPitch * charHeight;
-    const unsigned startOffset = m_nCursorY * m_nPitch;
-    const unsigned endOffset = m_nScrollEnd * m_nPitch;
-    const unsigned insertBytes = lineBytes * nCount;
-    const unsigned moveBytes = endOffset - startOffset - insertBytes;
-
-    if (moveBytes > 0)
-    {
-        memmove(m_pBuffer8 + startOffset + insertBytes, m_pBuffer8 + startOffset, moveBytes);
-    }
-
-    u8 *pClear = m_pBuffer8 + startOffset;
-    unsigned clearBytes = insertBytes;
-    switch (m_nDepth)
-    {
-    case 1:
-    {
-        const u8 fill = m_BackgroundColor ? 0xFF : 0x00;
-        while (clearBytes--)
-        {
-            *pClear++ = fill;
-        }
-    }
-    break;
-
-    case 8:
-        while (clearBytes--)
-        {
-            *pClear++ = (u8)m_BackgroundColor;
-        }
-        break;
-
-    case 16:
-    {
-        u16 *p16 = reinterpret_cast<u16 *>(pClear);
-        unsigned count = clearBytes / 2;
-        while (count--)
-        {
-            *p16++ = (u16)m_BackgroundColor;
-        }
-    }
-    break;
-
-    case 32:
-    {
-        u32 *p32 = reinterpret_cast<u32 *>(pClear);
-        unsigned count = clearBytes / 4;
-        while (count--)
-        {
-            *p32++ = (u32)m_BackgroundColor;
-        }
-    }
-    break;
-    }
-
-    SetUpdateArea(m_nCursorY, m_nScrollEnd - 1);
     const unsigned startRow = GetRowIndexFromY(m_nCursorY);
     const unsigned endRow = m_nScrollEnd / charHeight;
     ShiftLineAttributesDown(startRow, endRow, nCount);
     ShiftShadowRowsDown(startRow, endRow, nCount);
+
+    for (unsigned row = startRow; row < endRow; ++row)
+    {
+        RenderShadowRow(row);
+    }
 
     if (!smoothStarted)
     {
@@ -4195,6 +4183,15 @@ void CTRenderer::SetSmoothScrollEnabled(boolean bEnable)
     {
         m_bSmoothScrollActive = FALSE;
     }
+}
+
+void CTRenderer::SetSmoothScrollLineMs(unsigned durationMs)
+{
+    if (durationMs == 0)
+    {
+        durationMs = 1;
+    }
+    m_nSmoothScrollLineMs = durationMs;
 }
 
 void CTRenderer::NewLine(void)
@@ -4611,7 +4608,7 @@ void CTRenderer::RestoreCursor(void)
 
 void CTRenderer::Scroll(void)
 {
-    unsigned nLines = m_pCharGen->GetCharHeight();
+    const unsigned charHeight = m_pCharGen->GetCharHeight();
 
     const bool smoothStarted = BeginSmoothScrollAnimation(m_nScrollStart, m_nScrollEnd - 1, FALSE) ? true : false;
     unsigned startTicks = 0;
@@ -4620,61 +4617,25 @@ void CTRenderer::Scroll(void)
         startTicks = CTimer::Get()->GetTicks();
     }
 
-    u8 *pTo = m_pBuffer8 + m_nScrollStart * m_nPitch;
-    u8 *pFrom = m_pBuffer8 + (m_nScrollStart + nLines) * m_nPitch;
+    const unsigned startRow = m_nScrollStart / charHeight;
+    const unsigned endRow = m_nScrollEnd / charHeight;
 
-    unsigned nSize = m_nPitch * (m_nScrollEnd - m_nScrollStart - nLines);
-    if (nSize)
+    ShiftLineAttributesUp(startRow, endRow, 1);
+    ShiftShadowRowsUp(startRow, endRow, 1);
+
+    if (!smoothStarted && m_nScrollStart < m_nScrollEnd && charHeight < (m_nScrollEnd - m_nScrollStart) && endRow > startRow)
     {
-        memcpy(pTo, pFrom, nSize);
-
-        pTo += nSize;
+        ScrollPixelRowsUp(m_nScrollStart, m_nScrollEnd, charHeight);
+        RenderShadowRow(endRow - 1);
+        SetUpdateArea(m_nScrollStart, m_nScrollEnd - 1);
     }
-
-    nSize = m_nWidth * nLines;
-    switch (m_nDepth)
+    else
     {
-    case 1:
-    {
-        nSize /= 8;
-        for (u8 *p = (u8 *)pTo; nSize--;)
+        for (unsigned row = startRow; row < endRow; ++row)
         {
-            *p++ = m_BackgroundColor ? 0xFF : 0;
+            RenderShadowRow(row);
         }
     }
-    break;
-
-    case 8:
-    {
-        for (u8 *p = (u8 *)pTo; nSize--;)
-        {
-            *p++ = (u8)m_BackgroundColor;
-        }
-    }
-    break;
-
-    case 16:
-    {
-        for (u16 *p = (u16 *)pTo; nSize--;)
-        {
-            *p++ = (u16)m_BackgroundColor;
-        }
-    }
-    break;
-
-    case 32:
-    {
-        for (u32 *p = (u32 *)pTo; nSize--;)
-        {
-            *p++ = (u32)m_BackgroundColor;
-        }
-    }
-    break;
-    }
-
-    SetUpdateArea(0, m_nHeight - 1);
-    ShiftLineAttributesUp(m_nScrollStart / nLines, m_nScrollEnd / nLines, 1);
-    ShiftShadowRowsUp(m_nScrollStart / nLines, m_nScrollEnd / nLines, 1);
 
     if (!smoothStarted)
     {
@@ -4764,17 +4725,15 @@ void CTRenderer::DisplayChar(char chChar, unsigned nPosX, unsigned nPosY,
 
 void CTRenderer::EraseChar(unsigned nPosX, unsigned nPosY)
 {
-    const unsigned cellWidth = GetCharCellWidthForY(nPosY);
-    const unsigned cellHeight = GetBaseCharHeight();
-    for (unsigned y = 0; y < cellHeight; y++)
+    const unsigned row = GetRowIndexFromY(nPosY);
+    const unsigned column = GetColumnIndexFromX(nPosX, nPosY);
+    if (row >= MaxTextRows || column >= MaxTextColumns)
     {
-        for (unsigned x = 0; x < cellWidth; x++)
-        {
-            SetRawPixel(nPosX + x, nPosY + y, m_BackgroundColor);
-        }
+        return;
     }
 
-    SetUpdateArea(nPosY, nPosY + cellHeight - 1);
+    ClearShadowCells(row, column, column + 1);
+    RenderShadowCell(row, column);
 }
 
 void CTRenderer::InvertCursor(void)
@@ -5080,6 +5039,7 @@ void CTRenderer::RestoreState(const TRendererState &state)
     m_bUseG1 = state.useG1;
     memcpy(m_LineAttributes, state.lineAttributes, sizeof(m_LineAttributes));
     memcpy(GetActiveShadowCells(), state.shadowCells, sizeof(state.shadowCells));
+    RenderShadowScreen();
     m_SpinLock.Release();
 
     if (m_bCursorVisible && m_bCursorOn)

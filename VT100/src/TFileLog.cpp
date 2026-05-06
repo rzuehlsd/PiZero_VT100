@@ -29,15 +29,7 @@ CTFileLog *CTFileLog::Get()
 }
 
 CTFileLog::CTFileLog()
-    : CDevice()
-    , m_pLogger(nullptr)
-    , m_pFallback(nullptr)
-    , m_FileOpen(false)
-    , m_Initialized(false)
-    , m_Active(false)
-    , m_FileErrorReported(false)
-    , m_PendingFlushBytes(0)
-    , m_PendingFlushLines(0)
+    : CDevice(), m_pLogger(nullptr), m_pFallback(nullptr), m_FileOpen(false), m_Initialized(false), m_Active(false), m_FileErrorReported(false), m_PendingFlushBytes(0), m_PendingFlushLines(0)
 {
 }
 
@@ -145,9 +137,7 @@ int CTFileLog::Write(const void *buffer, size_t count)
                 }
             }
 
-            if (   (wroteNewline && m_PendingFlushLines <= ImmediateFlushLineCount)
-                || m_PendingFlushBytes >= FlushByteThreshold
-                || m_PendingFlushLines >= FlushLineThreshold)
+            if ((wroteNewline && m_PendingFlushLines <= ImmediateFlushLineCount) || m_PendingFlushBytes >= FlushByteThreshold || m_PendingFlushLines >= FlushLineThreshold)
             {
                 Flush();
             }

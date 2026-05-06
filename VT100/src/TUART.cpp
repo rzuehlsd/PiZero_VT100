@@ -31,17 +31,16 @@ CTUART *CTUART::Get(void)
     return s_pThis;
 }
 
-
 CTUART::CTUART()
-        : CTask(),
-            m_pSerial(nullptr),
-            m_pInterruptSystem(nullptr),
-            m_bTaskRunning(false),
-            m_bEverStarted(false),
-            m_bSoftwareFlowControl(false),
-            m_bFlowStopped(false),
-            m_FlowHighThreshold(0),
-            m_FlowLowThreshold(0)
+    : CTask(),
+      m_pSerial(nullptr),
+      m_pInterruptSystem(nullptr),
+      m_bTaskRunning(false),
+      m_bEverStarted(false),
+      m_bSoftwareFlowControl(false),
+      m_bFlowStopped(false),
+      m_FlowHighThreshold(0),
+      m_FlowLowThreshold(0)
 {
     SetName("UART");
     Suspend();
@@ -55,7 +54,8 @@ CTUART::~CTUART() {
 bool CTUART::Initialize(CInterruptSystem *pInterruptSystem, ReceiveHandler recvFunc)
 {
     m_pInterruptSystem = pInterruptSystem;
-    if (m_pSerial) {
+    if (m_pSerial)
+    {
         delete m_pSerial;
         m_pSerial = nullptr;
     }
@@ -94,17 +94,23 @@ bool CTUART::Initialize(CInterruptSystem *pInterruptSystem, ReceiveHandler recvF
         m_bFlowStopped = false;
     }
 
+    if (dataBits != 7U && dataBits != 8U)
+    {
+        LOGWARN("Invalid serial_bits=%u in runtime config, clamping to 8", dataBits);
+        dataBits = 8U;
+    }
+
     if (!m_pSerial->Initialize(baud, dataBits, 1U, parity))
     {
         LOGERR("Serial port initialization failed");
         return false;
     }
     // Use polling reads in the UART task (no ISR handler registration)
-        LOGNOTE("Serial port initialized at %u baud (%u%c1)",
+    LOGNOTE("Serial port initialized at %u baud (%u%c1)",
             baud,
             dataBits,
             parity == CSerialDevice::ParityEven ? 'E' : (parity == CSerialDevice::ParityOdd ? 'O' : 'N'));
-    
+
     return true;
 }
 

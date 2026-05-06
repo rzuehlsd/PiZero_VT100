@@ -223,6 +223,12 @@ public:
     /// \brief Enable or disable smooth scrolling animation.
     /// \param enabled TRUE to enable smooth scrolling.
     void SetSmoothScrollEnabled(boolean enabled);
+    /// \brief Retrieve smooth-scroll line duration in milliseconds.
+    /// \return Duration per scrolled text line in milliseconds.
+    unsigned int GetSmoothScrollLineMs(void) const { return m_SmoothScrollLineMs; }
+    /// \brief Set smooth-scroll line duration in milliseconds.
+    /// \param durationMs Duration per scrolled text line in milliseconds.
+    void SetSmoothScrollLineMs(unsigned int durationMs);
 
     /// \brief Check whether automatic line wrap-around is enabled.
     /// \return TRUE if enabled.
@@ -316,6 +322,7 @@ private:
     unsigned int m_KeyRepeatRateCps;        // Repeat frequency in characters per second
     unsigned int m_ScreenInverted;          // 0=normal, 1=swap fg/bg screen colors
     unsigned int m_SmoothScrollEnabled;     // 0=off, 1=on smooth scrolling animation
+    unsigned int m_SmoothScrollLineMs;      // Smooth-scroll line duration in milliseconds
     unsigned int m_WrapAroundEnabled;       // 0=off hold at right margin, 1=on wrap to next line
     unsigned int m_SerialDataBits;          // UART data bits (7 or 8)
     unsigned int m_SerialParityMode;        // UART parity (0=none, 1=even, 2=odd)
@@ -326,5 +333,5 @@ private:
     bool m_TabStops[TabStopsMax];           // Tab stop positions (0-based columns)
 
     static const char ConfigFileName[];
-    TConfigParam s_ConfigParams[25]; // Instance array for config params
+    TConfigParam s_ConfigParams[26]; // Instance array for config params
 };

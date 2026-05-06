@@ -598,6 +598,7 @@ boolean CKernel::Initialize(void)
         m_pRenderer->SetColors(m_pConfig->GetTextColor(), m_pConfig->GetBackgroundColor());
         m_pRenderer->SetVT52Mode(m_pConfig->GetVT52ModeEnabled() ? TRUE : FALSE);
         m_pRenderer->SetSmoothScrollEnabled(m_pConfig->GetSmoothScrollEnabled() ? TRUE : FALSE);
+        m_pRenderer->SetSmoothScrollLineMs(m_pConfig->GetSmoothScrollLineMs());
         m_pRenderer->ClearDisplay();
     }
 
@@ -794,6 +795,7 @@ void CKernel::ApplyRuntimeConfig()
         m_pRenderer->SetBlinkingCursor(m_pConfig->GetCursorBlinking(), 500);
         m_pRenderer->SetVT52Mode(m_pConfig->GetVT52ModeEnabled() ? TRUE : FALSE);
         m_pRenderer->SetSmoothScrollEnabled(m_pConfig->GetSmoothScrollEnabled() ? TRUE : FALSE);
+        m_pRenderer->SetSmoothScrollLineMs(m_pConfig->GetSmoothScrollLineMs());
         m_pRenderer->SetWrapAroundMode(m_pConfig->GetWrapAroundEnabled() ? TRUE : FALSE);
     }
 

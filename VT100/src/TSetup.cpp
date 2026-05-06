@@ -74,7 +74,7 @@ namespace
     constexpr unsigned int kModernDialogMinRows = 12U;
     constexpr unsigned int kModernDialogMinCols = 72U;
     constexpr unsigned int kModernRowBufferSize = 192U;
-    constexpr unsigned int kModernFieldCount = 21U;
+    constexpr unsigned int kModernFieldCount = 22U;
 
     static const char *kModernFieldNames[kModernFieldCount] = {
         "line_ending",
@@ -91,6 +91,7 @@ namespace
         "buzzer_volume",
         "key_click",
         "key_auto_repeat",
+        "smooth_scroll_ms",
         "repeat_delay_ms",
         "repeat_rate_cps",
         "switch_txrx",
@@ -114,6 +115,7 @@ namespace
         "Buzzer volume 0-100%",
         "Key click on/off",
         "Auto-repeat on/off",
+        "Smooth scroll line time 10-500 ms",
         "Repeat delay 250-1000 ms",
         "Repeat rate 2-20 cps",
         "Swap UART TX/RX",
@@ -1231,6 +1233,7 @@ void CTSetup::InitializeModernFromConfig()
         m_ModernConfig.fontSelection = EFontSelection::VT100Font10x20;
         m_ModernConfig.textColor = TerminalColorGreen;
         m_ModernConfig.backgroundColor = TerminalColorBlack;
+        m_ModernConfig.smoothScrollLineMs = 170U;
         m_ModernConfig.repeatDelayMs = kRepeatDelayMinMs;
         m_ModernConfig.repeatRateCps = 10U;
         return;
@@ -1250,6 +1253,7 @@ void CTSetup::InitializeModernFromConfig()
     m_ModernConfig.buzzerVolume = m_pConfig->GetBuzzerVolume();
     m_ModernConfig.keyClick = m_pConfig->GetKeyClick() != 0U;
     m_ModernConfig.keyAutoRepeat = m_pConfig->GetKeyAutoRepeatEnabled() ? true : false;
+    m_ModernConfig.smoothScrollLineMs = m_pConfig->GetSmoothScrollLineMs();
     m_ModernConfig.repeatDelayMs = m_pConfig->GetKeyRepeatDelayMs();
     m_ModernConfig.repeatRateCps = m_pConfig->GetKeyRepeatRateCps();
     m_ModernConfig.switchTxRx = m_pConfig->GetSwitchTxRx() != 0U;
@@ -1282,6 +1286,7 @@ void CTSetup::ApplyModernToConfig()
     m_pConfig->SetBuzzerVolume(m_ModernConfig.buzzerVolume);
     m_pConfig->SetKeyClick(m_ModernConfig.keyClick ? TRUE : FALSE);
     m_pConfig->SetKeyAutoRepeatEnabled(m_ModernConfig.keyAutoRepeat ? TRUE : FALSE);
+    m_pConfig->SetSmoothScrollLineMs(m_ModernConfig.smoothScrollLineMs);
     m_pConfig->SetKeyRepeatDelayMs(m_ModernConfig.repeatDelayMs);
     m_pConfig->SetKeyRepeatRateCps(m_ModernConfig.repeatRateCps);
     m_pConfig->SetSwitchTxRx(m_ModernConfig.switchTxRx ? TRUE : FALSE);
@@ -1799,6 +1804,16 @@ void CTSetup::ChangeModernValue(int delta)
     case ModernFieldKeyAutoRepeat:
         m_ModernConfig.keyAutoRepeat = !m_ModernConfig.keyAutoRepeat;
         break;
+    case ModernFieldSmoothScrollLineMs:
+        if (delta > 0)
+        {
+            m_ModernConfig.smoothScrollLineMs = (m_ModernConfig.smoothScrollLineMs >= 500U) ? 10U : (m_ModernConfig.smoothScrollLineMs + 10U);
+        }
+        else
+        {
+            m_ModernConfig.smoothScrollLineMs = (m_ModernConfig.smoothScrollLineMs <= 10U) ? 500U : (m_ModernConfig.smoothScrollLineMs - 10U);
+        }
+        break;
     case ModernFieldRepeatDelay:
         if (delta > 0)
         {
@@ -1929,6 +1944,9 @@ void CTSetup::FormatModernValue(TModernField field, char *pBuffer, size_t buffer
         break;
     case ModernFieldKeyAutoRepeat:
         text = BoolName(m_ModernConfig.keyAutoRepeat);
+        break;
+    case ModernFieldSmoothScrollLineMs:
+        text.Format("%u ms", m_ModernConfig.smoothScrollLineMs);
         break;
     case ModernFieldRepeatDelay:
         text.Format("%u ms", m_ModernConfig.repeatDelayMs);

@@ -21,6 +21,7 @@ namespace
 {
     static const char FromTerminal[] = "wlan-host";
     static const u16 DefaultRawPort = 2323;
+    static const size_t RendererWriteChunkSize = 64;
 
     static bool IsScreenOutputBlocked()
     {
@@ -35,7 +36,19 @@ namespace
             return;
         }
 
-        pRenderer->Write(pBuffer, nCount);
+        const u8 *data = static_cast<const u8 *>(pBuffer);
+        while (nCount != 0)
+        {
+            size_t chunkSize = nCount;
+            if (chunkSize > RendererWriteChunkSize)
+            {
+                chunkSize = RendererWriteChunkSize;
+            }
+
+            pRenderer->Write(data, chunkSize);
+            data += chunkSize;
+            nCount -= chunkSize;
+        }
     }
 }
 
@@ -373,16 +386,13 @@ void CTWlanHost::Tick()
                         static const char Msg[] =
                             "\r\nSSH server detected. Full SSH transport/auth is not implemented in firmware yet.\r\n"
                             "Connection is closed to avoid unusable encrypted session.\r\n";
-                        m_pRenderer->Write(Msg, sizeof Msg - 1);
+                        WriteRendererMessage(m_pRenderer, Msg, sizeof Msg - 1);
                     }
                     CloseConnection("ssh-not-implemented");
                     return;
                 }
 
-                if (m_pRenderer != nullptr)
-                {
-                    m_pRenderer->Write(rx, static_cast<size_t>(received));
-                }
+                WriteRendererMessage(m_pRenderer, rx, static_cast<size_t>(received));
                 ++iteration;
                 continue;
             }

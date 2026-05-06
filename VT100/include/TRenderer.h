@@ -255,10 +255,16 @@ public:
     /// \brief Enable or disable smooth-scroll animation.
     /// \param bEnable TRUE to enable smooth-scroll animation.
     void SetSmoothScrollEnabled(boolean bEnable);
+    /// \brief Set smooth-scroll duration per text line.
+    /// \param durationMs Duration per text line in milliseconds.
+    void SetSmoothScrollLineMs(unsigned durationMs);
 
     /// \brief Query whether smooth-scroll animation is enabled.
     /// \return TRUE when smooth-scroll animation is enabled.
     boolean GetSmoothScrollEnabled(void) const { return m_bSmoothScrollEnabled; }
+    /// \brief Query smooth-scroll duration per text line.
+    /// \return Duration per text line in milliseconds.
+    unsigned GetSmoothScrollLineMs(void) const { return m_nSmoothScrollLineMs; }
 
     /// \brief Force-hide the cursor and restore underlying pixels.
     void ForceHideCursor(void);
@@ -356,7 +362,12 @@ private:
     void ShiftShadowCellsRight(unsigned row, unsigned startColumn, unsigned count);
     void ShiftShadowRowsUp(unsigned startRow, unsigned endRow, unsigned count);
     void ShiftShadowRowsDown(unsigned startRow, unsigned endRow, unsigned count);
+    void FillPixelRows(unsigned startY, unsigned endY, CDisplay::TRawColor color);
+    void ScrollPixelRowsUp(unsigned startY, unsigned endY, unsigned deltaY);
+    void ClearUnusedBottomArea(CDisplay::TRawColor background);
+    void RenderShadowCell(unsigned row, unsigned column);
     void RenderShadowRow(unsigned row);
+    void RenderShadowScreen(void);
     void StoreShadowCellAt(unsigned nPosX,
                            unsigned nPosY,
                            char chChar,
@@ -606,6 +617,7 @@ private:
     boolean m_bSmoothScrollEnabled;
     boolean m_bSmoothScrollActive;
     boolean m_bSmoothScrollDown;
+    unsigned m_nSmoothScrollLineMs;
     unsigned m_nSmoothScrollStartY;
     unsigned m_nSmoothScrollEndY;
     unsigned m_nSmoothScrollOffset;
