@@ -64,6 +64,21 @@ public:
     };
 
     static constexpr unsigned MaxTextRows = 64;
+    static constexpr unsigned MaxTextColumns = 160;
+
+    struct TSnapshotCell
+    {
+        char ch;
+        CDisplay::TRawColor foreground;
+        CDisplay::TRawColor background;
+        unsigned charSet;
+        boolean bold;
+        boolean dim;
+        boolean underline;
+        boolean blink;
+        boolean reverseVideo;
+        boolean used;
+    };
 
     struct TRendererState
     {
@@ -101,6 +116,8 @@ public:
         unsigned g0CharSet;
         unsigned g1CharSet;
         boolean useG1;
+        ELineAttribute lineAttributes[MaxTextRows];
+        TSnapshotCell shadowCells[MaxTextRows][MaxTextColumns];
     };
 
     /// \brief Access the singleton renderer instance.
@@ -311,16 +328,48 @@ private:
     unsigned GetBaseCharHeight(void) const;
     unsigned GetRowCount(void) const;
     unsigned GetRowIndexFromY(unsigned nPosY) const;
+    unsigned GetColumnIndexFromX(unsigned nPosX, unsigned nPosY) const;
     ELineAttribute GetLineAttributeForRow(unsigned row) const;
     ELineAttribute GetLineAttributeForY(unsigned nPosY) const;
     void SetLineAttributeForRow(unsigned row, ELineAttribute attribute);
     void ResetLineAttributes(void);
+    struct TShadowCell
+    {
+        char ch;
+        CDisplay::TRawColor foreground;
+        CDisplay::TRawColor background;
+        unsigned charSet;
+        boolean bold;
+        boolean dim;
+        boolean underline;
+        boolean blink;
+        boolean reverseVideo;
+        boolean used;
+    };
+
+    TShadowCell (*GetActiveShadowCells(void))[MaxTextColumns];
+    const TShadowCell (*GetActiveShadowCells(void) const)[MaxTextColumns];
+    void ResetShadowBuffer(TShadowCell cells[MaxTextRows][MaxTextColumns]);
+    void ResetShadowRow(unsigned row);
+    void ClearShadowCells(unsigned row, unsigned startColumn, unsigned endColumn);
+    void ShiftShadowCellsLeft(unsigned row, unsigned startColumn, unsigned count);
+    void ShiftShadowCellsRight(unsigned row, unsigned startColumn, unsigned count);
+    void ShiftShadowRowsUp(unsigned startRow, unsigned endRow, unsigned count);
+    void ShiftShadowRowsDown(unsigned startRow, unsigned endRow, unsigned count);
+    void RenderShadowRow(unsigned row);
+    void StoreShadowCellAt(unsigned nPosX,
+                           unsigned nPosY,
+                           char chChar,
+                           CDisplay::TRawColor foreground,
+                           CDisplay::TRawColor background,
+                           unsigned charSet);
     void ShiftLineAttributesUp(unsigned startRow, unsigned endRow, unsigned count);
     void ShiftLineAttributesDown(unsigned startRow, unsigned endRow, unsigned count);
     boolean IsDoubleWidthLineAttribute(ELineAttribute attribute) const;
     unsigned GetCharCellWidthForLineAttribute(ELineAttribute attribute) const;
     unsigned GetCharCellWidthForY(unsigned nPosY) const;
     unsigned GetColumnsForY(unsigned nPosY) const;
+    void RecomputeCursorXForCurrentLine(ELineAttribute previousAttribute);
     void ApplyColumnMode(unsigned nColumns, boolean clearScreen);
     void ClampCursorToLineWidth(void);
     boolean SampleGlyphPixel(const CCharGenerator &charGen,
@@ -480,6 +529,8 @@ private:
     EFontSelection m_CurrentFontSelection;
     ELineAttribute m_LineAttributes[MaxTextRows];
     ELineAttribute m_AltScreenLineAttributes[MaxTextRows];
+    TShadowCell m_ShadowCells[MaxTextRows][MaxTextColumns];
+    TShadowCell m_AltScreenShadowCells[MaxTextRows][MaxTextColumns];
 
     ECharacterSet m_G0CharSet;
     ECharacterSet m_G1CharSet;

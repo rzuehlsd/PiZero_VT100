@@ -167,6 +167,8 @@ CTRenderer::CTRenderer(void)
     memset(&m_SavedState, 0, sizeof(m_SavedState));
     memset(&m_AltScreenSavedState, 0, sizeof(m_AltScreenSavedState));
     memset(m_CSIParams, 0, sizeof(m_CSIParams));
+    ResetShadowBuffer(m_ShadowCells);
+    ResetShadowBuffer(m_AltScreenShadowCells);
 
     SetName("Renderer");
     Suspend();
@@ -236,6 +238,27 @@ unsigned CTRenderer::GetRowIndexFromY(unsigned nPosY) const
     return row;
 }
 
+unsigned CTRenderer::GetColumnIndexFromX(unsigned nPosX, unsigned nPosY) const
+{
+    const unsigned charWidth = GetCharCellWidthForY(nPosY);
+    if (charWidth == 0)
+    {
+        return 0;
+    }
+
+    unsigned column = nPosX / charWidth;
+    const unsigned columns = GetColumnsForY(nPosY);
+    if (columns == 0)
+    {
+        return 0;
+    }
+    if (column >= columns)
+    {
+        column = columns - 1;
+    }
+    return column;
+}
+
 CTRenderer::ELineAttribute CTRenderer::GetLineAttributeForRow(unsigned row) const
 {
     const unsigned rowCount = GetRowCount();
@@ -272,6 +295,304 @@ void CTRenderer::ResetLineAttributes(void)
     {
         m_LineAttributes[row] = LineAttributeNormal;
     }
+}
+
+CTRenderer::TShadowCell (*CTRenderer::GetActiveShadowCells(void)) [MaxTextColumns]
+{
+    return m_bAltScreenActive ? m_AltScreenShadowCells : m_ShadowCells;
+}
+
+const CTRenderer::TShadowCell (*CTRenderer::GetActiveShadowCells(void) const)[MaxTextColumns]
+{
+    return m_bAltScreenActive ? m_AltScreenShadowCells : m_ShadowCells;
+}
+
+void CTRenderer::ResetShadowBuffer(TShadowCell cells[MaxTextRows][MaxTextColumns])
+{
+    for (unsigned row = 0; row < MaxTextRows; ++row)
+    {
+        for (unsigned column = 0; column < MaxTextColumns; ++column)
+        {
+            cells[row][column].ch = ' ';
+            cells[row][column].foreground = m_DefaultForegroundColor;
+            cells[row][column].background = m_DefaultBackgroundColor;
+            cells[row][column].charSet = static_cast<unsigned>(CharSetUS);
+            cells[row][column].bold = FALSE;
+            cells[row][column].dim = FALSE;
+            cells[row][column].underline = FALSE;
+            cells[row][column].blink = FALSE;
+            cells[row][column].reverseVideo = FALSE;
+            cells[row][column].used = FALSE;
+        }
+    }
+}
+
+void CTRenderer::ResetShadowRow(unsigned row)
+{
+    if (row >= MaxTextRows)
+    {
+        return;
+    }
+
+    ClearShadowCells(row, 0, MaxTextColumns);
+}
+
+void CTRenderer::ClearShadowCells(unsigned row, unsigned startColumn, unsigned endColumn)
+{
+    if (row >= MaxTextRows || startColumn >= MaxTextColumns)
+    {
+        return;
+    }
+
+    if (endColumn > MaxTextColumns)
+    {
+        endColumn = MaxTextColumns;
+    }
+
+    if (startColumn >= endColumn)
+    {
+        return;
+    }
+
+    TShadowCell(*cells)[MaxTextColumns] = GetActiveShadowCells();
+    const unsigned activeCharSet = static_cast<unsigned>(m_bUseG1 ? m_G1CharSet : m_G0CharSet);
+    const CDisplay::TRawColor foreground = GetTextColor();
+    const CDisplay::TRawColor background = GetTextBackgroundColor();
+
+    for (unsigned column = startColumn; column < endColumn; ++column)
+    {
+        cells[row][column].ch = ' ';
+        cells[row][column].foreground = foreground;
+        cells[row][column].background = background;
+        cells[row][column].charSet = activeCharSet;
+        cells[row][column].bold = m_bBoldAttribute;
+        cells[row][column].dim = m_bDimAttribute;
+        cells[row][column].underline = m_bUnderlineAttribute;
+        cells[row][column].blink = m_bBlinkAttribute;
+        cells[row][column].reverseVideo = m_bReverseAttribute;
+        cells[row][column].used = FALSE;
+    }
+}
+
+void CTRenderer::ShiftShadowCellsLeft(unsigned row, unsigned startColumn, unsigned count)
+{
+    if (row >= MaxTextRows || startColumn >= MaxTextColumns || count == 0)
+    {
+        return;
+    }
+
+    if (count >= MaxTextColumns - startColumn)
+    {
+        ClearShadowCells(row, startColumn, MaxTextColumns);
+        return;
+    }
+
+    TShadowCell(*cells)[MaxTextColumns] = GetActiveShadowCells();
+    for (unsigned column = startColumn; column + count < MaxTextColumns; ++column)
+    {
+        cells[row][column] = cells[row][column + count];
+    }
+
+    ClearShadowCells(row, MaxTextColumns - count, MaxTextColumns);
+}
+
+void CTRenderer::ShiftShadowCellsRight(unsigned row, unsigned startColumn, unsigned count)
+{
+    if (row >= MaxTextRows || startColumn >= MaxTextColumns || count == 0)
+    {
+        return;
+    }
+
+    if (count >= MaxTextColumns - startColumn)
+    {
+        ClearShadowCells(row, startColumn, MaxTextColumns);
+        return;
+    }
+
+    TShadowCell(*cells)[MaxTextColumns] = GetActiveShadowCells();
+    for (unsigned column = MaxTextColumns; column > startColumn + count; --column)
+    {
+        cells[row][column - 1] = cells[row][column - 1 - count];
+    }
+
+    ClearShadowCells(row, startColumn, startColumn + count);
+}
+
+void CTRenderer::ShiftShadowRowsUp(unsigned startRow, unsigned endRow, unsigned count)
+{
+    if (startRow >= endRow || startRow >= MaxTextRows || count == 0)
+    {
+        return;
+    }
+
+    if (endRow > MaxTextRows)
+    {
+        endRow = MaxTextRows;
+    }
+
+    if (count >= endRow - startRow)
+    {
+        for (unsigned row = startRow; row < endRow; ++row)
+        {
+            ResetShadowRow(row);
+        }
+        return;
+    }
+
+    TShadowCell(*cells)[MaxTextColumns] = GetActiveShadowCells();
+    for (unsigned row = startRow; row + count < endRow; ++row)
+    {
+        memcpy(cells[row], cells[row + count], sizeof(cells[row]));
+    }
+
+    for (unsigned row = endRow - count; row < endRow; ++row)
+    {
+        ResetShadowRow(row);
+    }
+}
+
+void CTRenderer::ShiftShadowRowsDown(unsigned startRow, unsigned endRow, unsigned count)
+{
+    if (startRow >= endRow || startRow >= MaxTextRows || count == 0)
+    {
+        return;
+    }
+
+    if (endRow > MaxTextRows)
+    {
+        endRow = MaxTextRows;
+    }
+
+    if (count >= endRow - startRow)
+    {
+        for (unsigned row = startRow; row < endRow; ++row)
+        {
+            ResetShadowRow(row);
+        }
+        return;
+    }
+
+    TShadowCell(*cells)[MaxTextColumns] = GetActiveShadowCells();
+    for (unsigned row = endRow; row > startRow + count; --row)
+    {
+        memcpy(cells[row - 1], cells[row - 1 - count], sizeof(cells[row - 1]));
+    }
+
+    for (unsigned row = startRow; row < startRow + count; ++row)
+    {
+        ResetShadowRow(row);
+    }
+}
+
+void CTRenderer::RenderShadowRow(unsigned row)
+{
+    const unsigned rowCount = GetRowCount();
+    const unsigned cellHeight = GetBaseCharHeight();
+    if (row >= rowCount || cellHeight == 0 || m_pCharGen == nullptr)
+    {
+        return;
+    }
+
+    const unsigned nPosY = row * cellHeight;
+    if (nPosY >= m_nHeight)
+    {
+        return;
+    }
+
+    const unsigned visibleColumns = GetColumnsForY(nPosY);
+    const unsigned cellWidth = GetCharCellWidthForY(nPosY);
+    if (visibleColumns == 0 || cellWidth == 0)
+    {
+        return;
+    }
+
+    const CDisplay::TRawColor savedForeground = m_ForegroundColor;
+    const CDisplay::TRawColor savedBackground = m_BackgroundColor;
+    const boolean savedBold = m_bBoldAttribute;
+    const boolean savedDim = m_bDimAttribute;
+    const boolean savedUnderline = m_bUnderlineAttribute;
+    const boolean savedBlink = m_bBlinkAttribute;
+    const boolean savedReverse = m_bReverseAttribute;
+    CCharGenerator *savedCharGen = m_pCharGen;
+
+    for (unsigned y = nPosY; y < nPosY + cellHeight && y < m_nHeight; ++y)
+    {
+        for (unsigned x = 0; x < m_nWidth; ++x)
+        {
+            SetRawPixel(x, y, savedBackground);
+        }
+    }
+
+    const TShadowCell (*cells)[MaxTextColumns] = GetActiveShadowCells();
+    for (unsigned column = 0; column < visibleColumns && column < MaxTextColumns; ++column)
+    {
+        const TShadowCell &cell = cells[row][column];
+
+        m_ForegroundColor = cell.foreground;
+        m_BackgroundColor = cell.background;
+        m_bBoldAttribute = cell.bold;
+        m_bDimAttribute = cell.dim;
+        m_bUnderlineAttribute = cell.underline;
+        m_bBlinkAttribute = cell.blink;
+        m_bReverseAttribute = cell.reverseVideo;
+
+        const bool useGraphics = cell.charSet == static_cast<unsigned>(CharSetGraphics) &&
+                                 static_cast<unsigned char>(cell.ch) >= 0x60 &&
+                                 static_cast<unsigned char>(cell.ch) <= 0x7E;
+        if (useGraphics && m_pGraphicsCharGen != nullptr)
+        {
+            m_pCharGen = m_pGraphicsCharGen;
+        }
+        else
+        {
+            m_pCharGen = savedCharGen;
+        }
+
+        const unsigned nPosX = column * cellWidth;
+        if (nPosX >= m_nWidth)
+        {
+            break;
+        }
+
+        DisplayChar(cell.used ? cell.ch : ' ', nPosX, nPosY, GetTextColor());
+    }
+
+    m_ForegroundColor = savedForeground;
+    m_BackgroundColor = savedBackground;
+    m_bBoldAttribute = savedBold;
+    m_bDimAttribute = savedDim;
+    m_bUnderlineAttribute = savedUnderline;
+    m_bBlinkAttribute = savedBlink;
+    m_bReverseAttribute = savedReverse;
+    m_pCharGen = savedCharGen;
+    SetUpdateArea(nPosY, nPosY + cellHeight - 1);
+}
+
+void CTRenderer::StoreShadowCellAt(unsigned nPosX,
+                                   unsigned nPosY,
+                                   char chChar,
+                                   CDisplay::TRawColor foreground,
+                                   CDisplay::TRawColor background,
+                                   unsigned charSet)
+{
+    const unsigned row = GetRowIndexFromY(nPosY);
+    const unsigned column = GetColumnIndexFromX(nPosX, nPosY);
+    if (row >= MaxTextRows || column >= MaxTextColumns)
+    {
+        return;
+    }
+
+    TShadowCell(*cells)[MaxTextColumns] = GetActiveShadowCells();
+    cells[row][column].ch = chChar;
+    cells[row][column].foreground = foreground;
+    cells[row][column].background = background;
+    cells[row][column].charSet = charSet;
+    cells[row][column].bold = m_bBoldAttribute;
+    cells[row][column].dim = m_bDimAttribute;
+    cells[row][column].underline = m_bUnderlineAttribute;
+    cells[row][column].blink = m_bBlinkAttribute;
+    cells[row][column].reverseVideo = m_bReverseAttribute;
+    cells[row][column].used = TRUE;
 }
 
 void CTRenderer::ShiftLineAttributesUp(unsigned startRow, unsigned endRow, unsigned count)
@@ -350,6 +671,20 @@ unsigned CTRenderer::GetColumnsForY(unsigned nPosY) const
     }
 
     return m_nUsedWidth / charWidth;
+}
+
+void CTRenderer::RecomputeCursorXForCurrentLine(ELineAttribute previousAttribute)
+{
+    const unsigned previousCharWidth = GetCharCellWidthForLineAttribute(previousAttribute);
+    const unsigned currentCharWidth = GetCharCellWidthForY(m_nCursorY);
+    if (previousCharWidth == 0 || currentCharWidth == 0)
+    {
+        return;
+    }
+
+    const unsigned logicalColumn = m_nCursorX / previousCharWidth;
+    m_nCursorX = logicalColumn * currentCharWidth;
+    ClampCursorToLineWidth();
 }
 
 void CTRenderer::ApplyColumnMode(unsigned nColumns, boolean clearScreen)
@@ -1329,6 +1664,10 @@ void CTRenderer::InsertChars(unsigned nCount)
         }
     }
 
+    const unsigned row = GetRowIndexFromY(m_nCursorY);
+    const unsigned startColumn = GetColumnIndexFromX(m_nCursorX, m_nCursorY);
+    ShiftShadowCellsRight(row, startColumn, pixelWidth / charWidth);
+
     SetUpdateArea(startY, endY - 1);
 }
 
@@ -2113,25 +2452,45 @@ void CTRenderer::Write(char chChar)
         switch (chChar)
         {
         case '3':
-            SetLineAttributeForRow(GetRowIndexFromY(m_nCursorY), LineAttributeDoubleHeightTop);
-            ClampCursorToLineWidth();
+        {
+            const unsigned row = GetRowIndexFromY(m_nCursorY);
+            const ELineAttribute previousAttribute = GetLineAttributeForRow(row);
+            SetLineAttributeForRow(row, LineAttributeDoubleHeightTop);
+            RenderShadowRow(row);
+            RecomputeCursorXForCurrentLine(previousAttribute);
             m_State = StateStart;
             break;
+        }
         case '4':
-            SetLineAttributeForRow(GetRowIndexFromY(m_nCursorY), LineAttributeDoubleHeightBottom);
-            ClampCursorToLineWidth();
+        {
+            const unsigned row = GetRowIndexFromY(m_nCursorY);
+            const ELineAttribute previousAttribute = GetLineAttributeForRow(row);
+            SetLineAttributeForRow(row, LineAttributeDoubleHeightBottom);
+            RenderShadowRow(row);
+            RecomputeCursorXForCurrentLine(previousAttribute);
             m_State = StateStart;
             break;
+        }
         case '5':
-            SetLineAttributeForRow(GetRowIndexFromY(m_nCursorY), LineAttributeNormal);
-            ClampCursorToLineWidth();
+        {
+            const unsigned row = GetRowIndexFromY(m_nCursorY);
+            const ELineAttribute previousAttribute = GetLineAttributeForRow(row);
+            SetLineAttributeForRow(row, LineAttributeNormal);
+            RenderShadowRow(row);
+            RecomputeCursorXForCurrentLine(previousAttribute);
             m_State = StateStart;
             break;
+        }
         case '6':
-            SetLineAttributeForRow(GetRowIndexFromY(m_nCursorY), LineAttributeDoubleWidth);
-            ClampCursorToLineWidth();
+        {
+            const unsigned row = GetRowIndexFromY(m_nCursorY);
+            const ELineAttribute previousAttribute = GetLineAttributeForRow(row);
+            SetLineAttributeForRow(row, LineAttributeDoubleWidth);
+            RenderShadowRow(row);
+            RecomputeCursorXForCurrentLine(previousAttribute);
             m_State = StateStart;
             break;
+        }
         case '8':
             // DECALN: Screen alignment test pattern
             ScreenAlignmentTest();
@@ -3095,6 +3454,7 @@ void CTRenderer::ClearDisplay(void)
     m_nCursorY = 0;
     m_bWrapPending = FALSE;
     ResetLineAttributes();
+    ResetShadowBuffer(GetActiveShadowCells());
     ClearDisplayEnd();
 }
 
@@ -3121,6 +3481,7 @@ void CTRenderer::ClearDisplayStart(void)
         m_nCursorY = y;
         ClearLineEnd();
         SetLineAttributeForRow(GetRowIndexFromY(y), LineAttributeNormal);
+        ResetShadowRow(GetRowIndexFromY(y));
     }
 
     // Clear from start of line to cursor on the cursor line.
@@ -3139,7 +3500,7 @@ void CTRenderer::ClearLineStart(void)
         return;
     }
 
-    const unsigned charWidth = m_pCharGen->GetCharWidth();
+    const unsigned charWidth = GetCharCellWidthForY(m_nCursorY);
     if (charWidth == 0)
     {
         return;
@@ -3161,6 +3522,10 @@ void CTRenderer::ClearLineStart(void)
     {
         EraseChar(nPosX, m_nCursorY);
     }
+
+    const unsigned row = GetRowIndexFromY(m_nCursorY);
+    const unsigned endColumn = GetColumnIndexFromX(endX, m_nCursorY) + 1;
+    ClearShadowCells(row, 0, endColumn);
 }
 
 void CTRenderer::ClearLine(void)
@@ -3168,7 +3533,7 @@ void CTRenderer::ClearLine(void)
     const unsigned savedX = m_nCursorX;
     m_nCursorX = 0;
     ClearLineEnd();
-    SetLineAttributeForRow(GetRowIndexFromY(m_nCursorY), LineAttributeNormal);
+    ResetShadowRow(GetRowIndexFromY(m_nCursorY));
     m_nCursorX = savedX;
 }
 
@@ -3231,15 +3596,25 @@ void CTRenderer::ClearDisplayEnd(void)
         for (unsigned row = startRow; row < rowCount; ++row)
         {
             SetLineAttributeForRow(row, LineAttributeNormal);
+            ResetShadowRow(row);
         }
     }
+
+    const unsigned cursorRow = GetRowIndexFromY(m_nCursorY);
+    ClearShadowCells(cursorRow, GetColumnIndexFromX(m_nCursorX, m_nCursorY), GetColumnsForY(m_nCursorY));
 
     SetUpdateArea(m_nCursorY, m_nHeight - 1);
 }
 
 void CTRenderer::ClearLineEnd(void)
 {
-    for (unsigned nPosX = m_nCursorX; nPosX < m_nUsedWidth; nPosX += m_pCharGen->GetCharWidth())
+    const unsigned charWidth = GetCharCellWidthForY(m_nCursorY);
+    if (charWidth == 0)
+    {
+        return;
+    }
+
+    for (unsigned nPosX = m_nCursorX; nPosX < m_nUsedWidth; nPosX += charWidth)
     {
         EraseChar(nPosX, m_nCursorY);
     }
@@ -3252,6 +3627,9 @@ void CTRenderer::ClearLineEnd(void)
             SetRawPixel(nPosX, nPosY, m_BackgroundColor);
         }
     }
+
+    const unsigned row = GetRowIndexFromY(m_nCursorY);
+    ClearShadowCells(row, GetColumnIndexFromX(m_nCursorX, m_nCursorY), GetColumnsForY(m_nCursorY));
 }
 
 void CTRenderer::CursorDown(void)
@@ -3282,6 +3660,14 @@ void CTRenderer::CursorHome(void)
 void CTRenderer::CursorLeft(void)
 {
     m_bWrapPending = FALSE;
+    const unsigned row = GetRowIndexFromY(m_nCursorY);
+    const ELineAttribute attribute = GetLineAttributeForY(m_nCursorY);
+    const bool traceDwdhRow = row == 11 || row == 12;
+    if (traceDwdhRow)
+    {
+        LOGNOTE("DWDH CursorLeft before: row=%u x=%u attr=%u", row + 1, m_nCursorX, static_cast<unsigned>(attribute));
+    }
+
     if (m_nCursorX > 0)
     {
         const unsigned charWidth = GetCharCellWidthForY(m_nCursorY);
@@ -3293,6 +3679,11 @@ void CTRenderer::CursorLeft(void)
         {
             m_nCursorX = 0;
         }
+    }
+
+    if (traceDwdhRow)
+    {
+        LOGNOTE("DWDH CursorLeft after: row=%u x=%u attr=%u", row + 1, m_nCursorX, static_cast<unsigned>(GetLineAttributeForY(m_nCursorY)));
     }
 }
 
@@ -3357,6 +3748,12 @@ void CTRenderer::CursorMove(unsigned nRow, unsigned nColumn)
     // Cursor positions are clamped to the visible grid and remain cell-aligned.
     m_nCursorX = nPosX;
     m_nCursorY = nPosY;
+
+    const unsigned targetRow = GetRowIndexFromY(m_nCursorY);
+    if (targetRow == 11 || targetRow == 12)
+    {
+        LOGNOTE("DWDH CursorMove: row=%u col=%u x=%u attr=%u", targetRow + 1, nColumn, m_nCursorX, static_cast<unsigned>(GetLineAttributeForY(m_nCursorY)));
+    }
 }
 
 void CTRenderer::CursorRight(void)
@@ -3438,6 +3835,10 @@ void CTRenderer::DeleteChars(unsigned nCount) // TODO
             SetRawPixel(x, y, bgColor);
         }
     }
+
+    const unsigned row = GetRowIndexFromY(m_nCursorY);
+    const unsigned startColumn = GetColumnIndexFromX(m_nCursorX, m_nCursorY);
+    ShiftShadowCellsLeft(row, startColumn, pixelWidth / charWidth);
 
     SetUpdateArea(startY, endY - 1);
 }
@@ -3542,6 +3943,7 @@ void CTRenderer::DeleteLines(unsigned nCount) // TODO
     const unsigned startRow = GetRowIndexFromY(m_nCursorY);
     const unsigned endRow = m_nScrollEnd / charHeight;
     ShiftLineAttributesUp(startRow, endRow, nCount);
+    ShiftShadowRowsUp(startRow, endRow, nCount);
 
     if (!smoothStarted)
     {
@@ -3588,7 +3990,17 @@ void CTRenderer::DisplayChar(char chChar)
             m_pCharGen = m_pGraphicsCharGen;
         }
 
-        DisplayChar(chChar, m_nCursorX, m_nCursorY, GetTextColor());
+        const unsigned activeCharSet = static_cast<unsigned>(activeSet);
+        const CDisplay::TRawColor foreground = GetTextColor();
+        const CDisplay::TRawColor background = GetTextBackgroundColor();
+        const unsigned row = GetRowIndexFromY(m_nCursorY);
+        const ELineAttribute attribute = GetLineAttributeForY(m_nCursorY);
+        if ((row == 11 || row == 12) && chChar == '*')
+        {
+            LOGNOTE("DWDH write: row=%u x=%u attr=%u charset=%u", row + 1, m_nCursorX, static_cast<unsigned>(attribute), activeCharSet);
+        }
+        DisplayChar(chChar, m_nCursorX, m_nCursorY, foreground);
+        StoreShadowCellAt(m_nCursorX, m_nCursorY, chChar, foreground, background, activeCharSet);
 
         if (pOriginalGen != nullptr)
         {
@@ -3761,6 +4173,7 @@ void CTRenderer::InsertLines(unsigned nCount) // TODO
     const unsigned startRow = GetRowIndexFromY(m_nCursorY);
     const unsigned endRow = m_nScrollEnd / charHeight;
     ShiftLineAttributesDown(startRow, endRow, nCount);
+    ShiftShadowRowsDown(startRow, endRow, nCount);
 
     if (!smoothStarted)
     {
@@ -4035,6 +4448,11 @@ void CTRenderer::Tabulator(void)
 
     const unsigned currentCol = m_nCursorX / charWidth;
     const unsigned cols = GetColumns();
+    const unsigned row = GetRowIndexFromY(m_nCursorY);
+    if (row == 11 || row == 12)
+    {
+        LOGNOTE("DWDH Tab before: row=%u x=%u col=%u attr=%u", row + 1, m_nCursorX, currentCol + 1, static_cast<unsigned>(GetLineAttributeForY(m_nCursorY)));
+    }
 
     CTConfig *config = CTConfig::Get();
     if (config != nullptr && cols > 0)
@@ -4044,6 +4462,10 @@ void CTRenderer::Tabulator(void)
             if (config->IsTabStop(col))
             {
                 m_nCursorX = col * charWidth;
+                if (row == 11 || row == 12)
+                {
+                    LOGNOTE("DWDH Tab after-stop: row=%u x=%u col=%u attr=%u", row + 1, m_nCursorX, col + 1, static_cast<unsigned>(GetLineAttributeForY(m_nCursorY)));
+                }
                 return;
             }
         }
@@ -4054,6 +4476,11 @@ void CTRenderer::Tabulator(void)
     if (m_nCursorX >= m_nUsedWidth)
     {
         m_nCursorX = (m_nUsedWidth >= charWidth) ? (m_nUsedWidth - charWidth) : 0;
+    }
+
+    if (row == 11 || row == 12)
+    {
+        LOGNOTE("DWDH Tab after-fallback: row=%u x=%u col=%u attr=%u", row + 1, m_nCursorX, (charWidth != 0 ? (m_nCursorX / charWidth) + 1 : 0), static_cast<unsigned>(GetLineAttributeForY(m_nCursorY)));
     }
 }
 
@@ -4247,6 +4674,7 @@ void CTRenderer::Scroll(void)
 
     SetUpdateArea(0, m_nHeight - 1);
     ShiftLineAttributesUp(m_nScrollStart / nLines, m_nScrollEnd / nLines, 1);
+    ShiftShadowRowsUp(m_nScrollStart / nLines, m_nScrollEnd / nLines, 1);
 
     if (!smoothStarted)
     {
@@ -4595,6 +5023,8 @@ void CTRenderer::SaveState(TRendererState &state)
     state.g0CharSet = static_cast<unsigned>(m_G0CharSet);
     state.g1CharSet = static_cast<unsigned>(m_G1CharSet);
     state.useG1 = m_bUseG1;
+    memcpy(state.lineAttributes, m_LineAttributes, sizeof(state.lineAttributes));
+    memcpy(state.shadowCells, GetActiveShadowCells(), sizeof(state.shadowCells));
     m_SpinLock.Release();
 }
 
@@ -4648,6 +5078,8 @@ void CTRenderer::RestoreState(const TRendererState &state)
     m_G0CharSet = static_cast<ECharacterSet>(state.g0CharSet);
     m_G1CharSet = static_cast<ECharacterSet>(state.g1CharSet);
     m_bUseG1 = state.useG1;
+    memcpy(m_LineAttributes, state.lineAttributes, sizeof(m_LineAttributes));
+    memcpy(GetActiveShadowCells(), state.shadowCells, sizeof(state.shadowCells));
     m_SpinLock.Release();
 
     if (m_bCursorVisible && m_bCursorOn)

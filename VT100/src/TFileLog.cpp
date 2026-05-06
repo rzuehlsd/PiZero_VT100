@@ -35,6 +35,7 @@ CTFileLog::CTFileLog()
     , m_FileOpen(false)
     , m_Initialized(false)
     , m_Active(false)
+    , m_FileErrorReported(false)
     , m_PendingFlushBytes(0)
     , m_PendingFlushLines(0)
 {
@@ -53,6 +54,7 @@ bool CTFileLog::Initialize(CLogger &logger, const char *fileName, CDevice *fallb
     m_FilePath = "SD:/";
     m_Initialized = false;
     m_Active = false;
+    m_FileErrorReported = false;
 
     if (fileName != nullptr && *fileName != '\0')
     {
@@ -124,18 +126,27 @@ int CTFileLog::Write(const void *buffer, size_t count)
         FRESULT result = f_write(&m_File, buffer, static_cast<UINT>(count), &written);
         if (result == FR_OK)
         {
+            if (written != count)
+            {
+                ReportFileError("write", FR_DISK_ERR);
+                m_FileOpen = false;
+            }
+
             m_PendingFlushBytes += written;
 
             const char *ch = static_cast<const char *>(buffer);
+            bool wroteNewline = false;
             for (UINT i = 0; i < written; ++i)
             {
                 if (ch[i] == '\n')
                 {
+                    wroteNewline = true;
                     ++m_PendingFlushLines;
                 }
             }
 
-            if (   m_PendingFlushBytes >= FlushByteThreshold
+            if (   (wroteNewline && m_PendingFlushLines <= ImmediateFlushLineCount)
+                || m_PendingFlushBytes >= FlushByteThreshold
                 || m_PendingFlushLines >= FlushLineThreshold)
             {
                 Flush();
@@ -143,6 +154,7 @@ int CTFileLog::Write(const void *buffer, size_t count)
         }
         else
         {
+            ReportFileError("write", static_cast<int>(result));
             m_FileOpen = false;
         }
     }
@@ -200,7 +212,12 @@ void CTFileLog::WriteHeader()
 
     static const char Divider[] = "[INFO] ================================\r\n";
     f_write(&m_File, Divider, sizeof(Divider) - 1, &written);
-    f_sync(&m_File);
+    FRESULT syncResult = f_sync(&m_File);
+    if (syncResult != FR_OK)
+    {
+        ReportFileError("sync", static_cast<int>(syncResult));
+        m_FileOpen = false;
+    }
     m_PendingFlushBytes = 0;
     m_PendingFlushLines = 0;
 }
@@ -217,7 +234,36 @@ void CTFileLog::Flush()
         return;
     }
 
-    f_sync(&m_File);
+    FRESULT result = f_sync(&m_File);
+    if (result != FR_OK)
+    {
+        ReportFileError("sync", static_cast<int>(result));
+        m_FileOpen = false;
+        return;
+    }
+
     m_PendingFlushBytes = 0;
     m_PendingFlushLines = 0;
+}
+
+void CTFileLog::ReportFileError(const char *operation, int errorCode)
+{
+    if (m_FileErrorReported)
+    {
+        return;
+    }
+
+    m_FileErrorReported = true;
+
+    if (m_pFallback == nullptr)
+    {
+        return;
+    }
+
+    CString message;
+    message.Format("FileLog: %s failed for %s (err=%d)\n",
+                   operation != nullptr ? operation : "I/O",
+                   (const char *)m_FilePath,
+                   errorCode);
+    m_pFallback->Write((const char *)message, message.GetLength());
 }
