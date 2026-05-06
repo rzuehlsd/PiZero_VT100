@@ -1,45 +1,37 @@
 # Carrier Board for Pi Zero VT100 Terminal
 
 
-This project designs and builds a carrier board for the Raspberry Pi Zero that, together with the Pi Zero software, enables a bare‑metal implementation of a VT100 terminal.
-The software features are described in the `VT100` directory.
+This project designs and builds a carrier board for the Raspberry Pi Zero that, together with the Pi Zero software, enables a bare-metal implementation of a VT100 terminal.
+The current documented software/runtime behavior is described in `README.md`, `docs/Configuration_Guide.md`, and `docs/VT100_Architecture.md`.
 
-The carrier board can be mounted directly in the rear panel of a terminal enclosure of a 60% VT100 replica designed by megardi (https://www.instructables.com/23-Scale-VT100-Terminal-Reproduction/) and provides the following components:
+The carrier board can be mounted directly inside the terminal enclosure of a 60% VT100 replica designed by megardi (https://www.instructables.com/23-Scale-VT100-Terminal-Reproduction/) and provides the following features:
 - 5 VDC / 2 A power supply (input 7–9 V DC or AC / 2 A wall adapter)
 - RS‑232 interface to the host computer with MAX3232
-- Alternative host interface via Mini‑DIN‑6 connector and 4‑pin header
+- Alternative host interface via Mini‑DIN‑6 connector and 4‑pin header (used by me for my MBC2-Z80)
 - USB‑A connector for a wired USB keyboard
 - Switch (relay) to swap RxD and TxD for RS-232
 - 800 Hz buzzer (optional)
 
-The Pi Zero GPIO pins are not 5 V tolerant. A 1 kΩ series resistor is placed on the RxD signal path directly before the GPIO pin. When the host sends 5V TTL, the internal GPIO protection diode clamps the voltage to ~3.6 V, resulting in a safe injection current of ~1.4 mA. No series resistor is used on TxD: the Pi drives TxD actively at 3.3V and a series resistor would reduce the output level below the minimum TTL HIGH threshold recognized by the host.
+The Pi Zero GPIO pins are **not** 5V tolerant. In version 2.2, in a null-modem cable scenario, the host's 5V TxD signal could reach the unprotected Pi TxD GPIO pin until the relay is switched. This is a **brief but real risk** if a null-modem cable is connected without immediate relay switching.
 
-The MAX3232 board with Vcc connected to the 3.3V output of the Pi Zero handles the RS-232 compatibility for the host interface, as all signals on the Pi side remain 3.3V.
+The documented V2.3 adapter-board design addresses this risk by adding true 3.3V/5V level shifters for RxD and TxD using PMOS BSS138. This design is documented in the schematic/layout below, but as noted in the revision-status section it has not yet been manufactured and hardware-validated.
 
-### Signal level analysis: relay swap scenarios
+The MAX3232 board with Vcc connected to the 5V output of the Pi Zero handles the RS-232 compatibility for the host interface. In the documented V2.3 design, the serial signals pass through the BSS138 level shifters so that the Pi sees 3.3V-side logic levels.
 
-| Relay state | Host TxD → Pi | Pi TxD → Host | GPIO RxD protected? | GPIO TxD protected? |
-|-------------|--------------|---------------|---------------------|---------------------|
-| Normal (TxD↔RxD, RxD↔TxD) | Host TxD → Pi RxD GPIO | Pi TxD GPIO → Host RxD | ✅ 1kΩ + clamp | ✅ Pi drives, no danger |
-| Null-modem before relay switch | Host TxD → Pi **TxD** GPIO | Pi RxD GPIO → Host RxD | — | ❌ **5V unprotected on TxD GPIO!** |
-| Null-modem after relay switch | Host TxD → Pi RxD GPIO | Pi TxD GPIO → Host RxD | ✅ 1kΩ + clamp | ✅ Pi drives, no danger |
-
-**Known limitation (V2.2):** In a null-modem cable scenario the host's 5V TxD signal reaches the unprotected Pi TxD GPIO pin until the relay is switched. This is a **brief but real risk** if a null-modem cable is connected without immediate relay switching.
-
-**Recommended fix for V2.3:** Place the 1 kΩ protection resistor on the DIN connector side **before the relay**, not after. This protects any incoming 5V signal regardless of relay position. The outgoing Pi TxD signal passes through the relay without a series resistor, preserving signal integrity toward the host.
+#
+**Current documented hardware status of version 2.3 (2026-05-06):**
 
 <div style="text-align: center;">
-  <img src="images/Schematic_V22.png" alt="Schematic Adapterboard" width="60%" height="auto"/>
-  <img src="images/Layout_V22.png" alt="Layout Adapterboard" width="60%" height="auto"/>
+  <img src="images/Schematic_V23.png" alt="Schematic Adapterboard" width="60%" height="auto"/>
+  <img src="images/Layout_V23.png" alt="Layout Adapterboard" width="60%" height="auto"/>
 </div>
 
 
-The images above show the schematic and the layout of the last version which uses a LM2576 switching regulator to provide the 5V 2A power line for the display controller and the MBC2 connected through DIN6 connector. If a LM2576-adj is used both smd resitors can be used to select a voltage slighthly above 5V (eg. 5.1 - 5.2V) as I discovered sometimes some flickering of the screen when background ist reversed (white), which may be related to power fluctuations. If you use a LM2576-5V just one resitor has to be bridged (0R).
+The images above show the documented V2.3 schematic and layout, which use an LM2576 switching regulator to provide the 5 V / 2 A rail for the display controller and the MBC2 through the DIN6 connector. If an LM2576-adj is used, both SMD resistors can be populated to select a voltage slightly above 5 V (for example 5.1 - 5.2 V). This was observed as a possible mitigation for occasional display flicker when the screen is inverted (white background). If an LM2576-5V is used, one resistor position is bridged (0R).
 
-The usb keyboard input is wired to 2 testpoints below the usb C connector of the Pi. Klick and Bell sounds are generated via 800 Hz PWM signals from GPIO and a small buzzer. Switching of the Tx/Rx lines of the RS232 connector are done by a relay which is triggered by a GPIO pin.
+The USB keyboard input is wired to two test points below the USB connector of the Pi. Click and bell sounds are generated via an 800 Hz PWM signal from GPIO and a small buzzer. Switching of the Tx/Rx lines of the RS-232 connector is done by a relay controlled from a GPIO pin.
 
-
-All changes have been reflected in the schematic and layout.
+The V2.3 schematic/layout reflect the currently documented next board baseline.
 
 An adapter for the MBC2‑Z80 to connect the Z80 via the Mini‑DIN‑8 connector is described in the sub‑project “Z80‑SBC_Adapter”.
 
@@ -52,6 +44,7 @@ Board revisions:
 - [x] USB‑A socket for keyboard connection
 - [x] Mini‑DIN‑6 socket for direct MBC2 connection with power
 - [x] RS‑3232 DB9 connector
+- [x] BSS138 level shifter for TxD and RxD
 - [x] Internal header for direct MBC2 connection inside the terminal enclosure
 - [x] PCB cut‑out for the USB plug (very short pins)
 - [x] Buzzer / speaker circuit added
@@ -74,13 +67,17 @@ To connect the display controller to power and the hdmi connector at the Pi addi
 
 ## Revision status
 
-- Carrier board schematic V2.2 was created with a switching power-supply variant (LM2576-50 / LM2576-adj).
-- VT100 terminal integration was validated with a provisional backplate and carrier board V2.0 and also worked seemlessly with V2.2.
+- Carrier board schematic V2.3 is the latest documented board revision in this repository. This board has as of today not been manufactured and tested!
+- VT100 terminal integration was validated with a provisional backplate and carrier board V2.0 and also worked cleanly with V2.2.
 - A routing issue near the rectifier in V2.0 required a follow-up revision.
-- Revision V2.1 and V2.2 use a 40 V / 2 A DIP rectifier and support AC/DC supplies up to 12 V. With this version any polarity of the power connector can be used. 
+- Revision V2.1 and V2.2 use a 40 V / 2 A DIP rectifier and support AC/DC supplies up to 12 V, so either polarity of the power connector can be used.
 - OpenSCAD backplate files were updated to support carrier board V2.1 and above.
-- Version 2.2 moved the resistor devider for RxD to the Mini DIN6 connector and rewired the MAX3232 to be powered by 3.3v for maximum compatibility with Pi.
+- Version 2.2 moved the RxD protection resistor network toward the Mini DIN6 connector and powered the MAX3232 from 3.3 V for Pi-side signal compatibility.
+- Known remaining V2.2 limitation: with a null-modem cable, the unprotected Pi TxD GPIO can still briefly see 5 V until the relay is switched.
+- V2.3 design change: add true 3.3V/5V level shifters with BSS138 on RxD and TxD to eliminate that transient null-modem risk.
 
 ## Firmware interaction notes (2026-02-18)
 
 - Keyboard hotkeys currently used by firmware runtime: `F12` (legacy setup), `F11` (modern setup), `F10` (local keyboard loopback mode).
+- GPIO16 is used by firmware to control the relay-based TX/RX swap (`switch_txrx`).
+- GPIO12 is used by firmware for the 800 Hz buzzer output (`buzzer_volume`, key click, bell).

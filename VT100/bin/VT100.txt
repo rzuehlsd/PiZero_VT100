@@ -51,7 +51,7 @@ cursor_type=0
 cursor_blinking=0
 
 # vt_test: 0=off, 1=on
-vt_test=1
+vt_test=0
 
 # font_selection: 1=8x20, 2=10x20 CRT, 3=10x20 solid
 font_selection=2
@@ -61,7 +61,7 @@ text_color=1
 background_color=0
 
 # --- Sound / wiring ---
-# buzzer_volume: 0..100 (percent duty cycle)
+# buzzer_volume: 0..80 (percent duty cycle)
 buzzer_volume=50
 
 # margin_bell: 0=off, 1=on (ring at right margin - 8)
@@ -82,8 +82,12 @@ switch_txrx=0
 # 7=screen+file+wlan
 log_output=0
 
-# wlan_host_autostart: 0=off, 1=log mode after connect, 2=auto-enable host bridge mode
+# wlan_host_autostart: 0=off, 1=log mode, 2=outbound shell-client mode
 wlan_host_autostart=0
+
+# host_id: default shell-client target when wlan_host_autostart=2
+# Format: IPv4[:port] (e.g. 192.168.2.10 or 192.168.2.10:2323). Leave empty to prompt.
+host_id=
 
 # Log file name (max 63 chars)
 log_filename=vt100.log
