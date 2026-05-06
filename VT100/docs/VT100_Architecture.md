@@ -23,9 +23,9 @@ It combines architecture, dependency structure, runtime flow, and module-level i
   - 8.2 File sink
   - 8.3 WLAN/telnet sink
     - 8.3.1 Current-state session model (implemented)
-    - 8.3.2 Approved target model (2-mode)
-    - 8.3.3 Data-path gates in target model
-    - 8.3.4 Planned implementation phases
+    - 8.3.2 Current shell-client path (implemented)
+    - 8.3.3 Routing gates (implemented)
+    - 8.3.4 Future cleanup
   - 8.4 Kernel networking loop and lifecycle
 - 9. Font and rendering details
   - 9.1 DEC special graphics and charset switching
@@ -48,13 +48,13 @@ Primary modules in `VT100/src`:
 
 - `kernel.cpp` (`CKernel`) — system bring-up, task orchestration, host routing
 - `TConfig.cpp` (`CTConfig`) — defaults, parser, validation, persistence (`SD:/VT100.txt`)
-- `TRenderer.cpp` (`CTRenderer`) — framebuffer terminal rendering and cursor/attribute handling
+- `TRenderer.cpp` (`CTRenderer`) — shadow-buffer-first terminal state management with framebuffer projection plus cursor/attribute handling
 - `TFontConverter.cpp` + `VT100_FontConverter.cpp` — VT100 font conversion and lookup
 - `TKeyboard.cpp` (`CTKeyboard`) — USB keyboard processing, repeat, line-ending conversion
 - `TUART.cpp` (`CTUART`) — serial init and polling read/write abstraction
 - `TSetup.cpp` (`CTSetup`) — legacy setup + modern setup dialog
 - `TFileLog.cpp` (`CTFileLog`) — SD log sink with fallback
-- `TWlanLog.cpp` (`CTWlanLog`) — telnet/log sink + host bridge mode
+- `TWlanHost.cpp` (`CTWlanHost`) — telnet/log sink + outbound shell-client mode
 - `hal.cpp` (`CHAL`) — buzzer PWM and GPIO16 TX/RX switching
 - `VTTest.cpp` — integrated terminal test runner
 
@@ -69,7 +69,7 @@ graph TD
   CKernel --> CTUART
   CKernel --> CTSetup
   CKernel --> CTFileLog
-  CKernel --> CTWlanLog
+  CKernel --> CTWlanHost
   CKernel --> CHAL
   CKernel --> CVTTest
 
@@ -82,9 +82,9 @@ graph TD
   CTRenderer --> CTFontConverter
 
   CTFileLog --> CLogger
-  CTWlanLog --> CLogger
-  CTWlanLog --> CNetSubSystem
-  CTWlanLog --> CWPASupplicant
+  CTWlanHost --> CLogger
+  CTWlanHost --> CNetSubSystem
+  CTWlanHost --> CWPASupplicant
 
   CTUART --> CSerialDevice
   CTRenderer --> CBcmFrameBuffer
@@ -121,7 +121,7 @@ sequenceDiagram
   participant Keyboard as CTKeyboard
   participant UART as CTUART
   participant Setup as CTSetup
-  participant Wlan as CTWlanLog
+  participant Wlan as CTWlanHost
 
   Main->>Kernel: Initialize()
   Kernel->>Config: Initialize()
@@ -163,13 +163,13 @@ Implementation notes aligned with current code:
 - when local mode is ON: keyboard text is looped directly to renderer
 - when local mode is OFF: routing continues via `SendHostOutput()`
 - destination:
-  - WLAN host mode active: TCP client
+  - outbound shell-client session active: remote TCP peer
   - else: UART TX
 
 ### 6.2 Host to display flow
 
 - UART RX polling path: kernel `ProcessSerial()` → renderer write
-- WLAN host mode RX path: `HandleWlanHostRx()` → renderer write
+- outbound shell-client RX path: WLAN socket receive → renderer write
 - setup visibility guard: serial/host rendering is suppressed while setup overlay is visible
 
 ```mermaid
@@ -179,13 +179,13 @@ sequenceDiagram
   participant Kcb as kernel onKeyPressed
   participant Router as CKernel::SendHostOutput
   participant Uart as CTUART
-  participant Wlan as CTWlanLog
+  participant Wlan as CTWlanHost
   participant Rndr as CTRenderer
 
   HID->>Kbd: key event
   Kbd->>Kcb: translated text
   Kcb->>Router: SendHostOutput()
-  alt WLAN host mode active
+  alt outbound shell-client active
     Router->>Wlan: SendHostData()
   else UART mode
     Router->>Uart: Send()
@@ -194,8 +194,8 @@ sequenceDiagram
   Uart-->>Router: DrainSerialInput()
   Router->>Rndr: Write(serial bytes)
 
-  Wlan-->>Router: HandleWlanHostRx()
-  Router->>Rndr: Write(host bridge bytes)
+  Wlan-->>Router: Deliver socket RX
+  Router->>Rndr: Write(shell-client bytes)
 ```
 
 ## 7. Setup subsystem details
@@ -209,7 +209,7 @@ sequenceDiagram
 ### 7.2 Modern setup (F11)
 
 - trigger: raw HID key `0x44` or `CTSetup::ShowModern()`
-- rendering: DEC graphics frame (`ESC ( 0`), centered double-width/bold title, three-column parameter/value/description rows
+- rendering: DEC graphics frame (`ESC ( 0`), centered normal-width title, three-column parameter/value/description rows
 - controls:
   - Up/Down select row
   - Left/Right edit value
@@ -234,7 +234,7 @@ Keyboard auto-repeat currently includes:
 - trigger: raw HID key `0x43`
 - runtime action: toggles `CKernel` local mode state
 - ON behavior: keypress text is written directly to `CTRenderer`
-- OFF behavior: keypress text follows standard host routing (WLAN host mode/UART)
+- OFF behavior: keypress text follows standard host routing (outbound shell-client when active, otherwise UART)
 - UX feedback: renderer prints `VT100 local mode ON/OFF` when toggled
 
 ## 8. Logging and network integration
@@ -245,7 +245,7 @@ Keyboard auto-repeat currently includes:
 
 - screen
 - file (`CTFileLog`)
-- WLAN (`CTWlanLog`)
+- WLAN (`CTWlanHost`)
 
 ### 8.2 File sink
 
@@ -259,76 +259,65 @@ Keyboard auto-repeat currently includes:
 
 ### 8.3 WLAN/telnet sink
 
-`CTWlanLog`:
+`CTWlanHost`:
 
-- listens on port `2323`
-- uses strict per-session mode separation (log mode vs host mode) on the same endpoint
-- supports mode policy via `wlan_host_autostart` (`0` off, `1` log, `2` host)
-- in auto-host raw sessions, telnet option negotiation is bypassed to avoid control-byte leakage into host payload
+- exposes the incoming telnet/log endpoint on port `2323`
+- keeps log-mode command handling (`help`, `status`, `echo`, `exit`) separate from outbound shell-client payload routing
+- supports runtime mode policy via `wlan_host_autostart` (`0` off, `1` log, `2` outbound shell-client)
+- reuses `host_id` as the persisted default shell-client target and otherwise prompts locally for `IPv4[:port]`
 
 #### 8.3.1 Current-state session model (implemented)
 
-Session selection is made at connect time from `wlan_host_autostart`:
+Session selection is made from `wlan_host_autostart`:
 
 - `0` => WLAN remote mode disabled
-- `1` => log-mode session
-- `2` => host-mode session
+- `1` => incoming telnet stays in log-mode session
+- `2` => outbound shell-client path is activated
 
 Operational intent by session:
 
 - Log mode: diagnostics/control (`help`, `status`, `echo`, `exit`) with remote log mirroring and command prompt.
-- Host mode: raw VT100 host bridge only (keyboard TX to host, host RX to renderer), no prompt/parser chatter in payload.
+- Shell-client mode: VT100 initiates a raw TCP session to a configured remote peer; keyboard TX is bridged uplink and socket RX is rendered directly, with no log/prompt chatter in the payload.
 
-Internal runtime state follows this strict split:
+Current implementation details that matter operationally:
 
-- `SessionLogMode`
-- `SessionHostMode`
-- `SessionClosing`
+- incoming telnet remains the logging/command surface
+- `host_id` can auto-start the outbound shell-client connection without local prompting
+- if `host_id` is empty, VT100 prompts on screen for `IPv4[:port]`
+- hostnames are not accepted on that shell-client input path; numeric IPv4 plus optional port is required
 
-#### 8.3.2 Approved target model (2-mode)
+#### 8.3.2 Current shell-client path (implemented)
 
-Approved target model removes host-server legacy mode and keeps exactly two runtime modes:
+The current shell-client path works as follows:
 
-- `RemoteLoggingStatusMode`
-  - diagnostics/log channel only
-  - command prompt/control surface (`help`, `status`, `echo`, `exit`)
-- `RemoteShellClientMode`
-  - VT100 initiates outbound remote shell session
-  - login/auth driven on VT100 side (IP/port/user/password input path)
+- `DisplayPromptIfReady()` prepares local target capture after WLAN bring-up.
+- If `host_id` is valid, connection setup starts immediately without interactive prompt entry.
+- Otherwise the renderer shows `Shell Client mode selected` and requests `IPv4[:port]`.
+- During an active shell-client session, UART host rendering is suppressed to avoid mixed host sources.
+- Renderer writes from the remote socket are chunked to keep the terminal responsive during bursty output.
 
-Target constraints:
+#### 8.3.3 Routing gates (implemented)
 
-- no host-server legacy mode in final runtime model
-- no in-session switching between logging and shell streams
-- strict routing isolation between diagnostics traffic and shell payload
+Log-mode gates:
 
-#### 8.3.3 Data-path gates in target model
+- logger->remote mirroring enabled when WLAN logging is part of `log_output`
+- prompt/command parser enabled for the incoming telnet session
+- shell-client payload routing disabled
 
-`RemoteLoggingStatusMode` gates:
+Shell-client gates:
 
-- logger->remote mirror enabled
-- shell uplink/downlink disabled
-- prompt/command parser enabled
-
-`RemoteShellClientMode` gates:
-
-- logger->remote mirror disabled
-- keyboard uplink enabled to remote shell socket
+- keyboard uplink redirected to the outbound TCP socket
 - socket downlink enabled to renderer
-- prompt/command parser disabled for shell payload path
+- UART host rendering suppressed while the shell-client session is active
+- no log-mode prompt or command parser chatter is inserted into the raw shell-client payload
 
-Current implementation equivalent (for migration reference):
+#### 8.3.4 Future cleanup
 
-- previous `log mode` maps to `RemoteLoggingStatusMode`
-- previous `host mode` maps functionally to the shell-payload path that will be replaced by `RemoteShellClientMode`
+The remaining cleanup is mostly terminology and configuration-surface simplification:
 
-#### 8.3.4 Planned implementation phases
-
-1. Add explicit mode policy (`off`, `remote_log`, `shell_client`) with compatibility mapping from `wlan_host_autostart`.
-2. Add shell-client state machine (`idle`, `connecting`, `auth`, `interactive`, `error`, `disconnect`).
-3. Add VT100-side login/connect UI and profile config keys.
-4. Move keyboard/socket routing to mode-gated shell-client path.
-5. Remove host-server runtime path and finalize config/doc cleanup.
+1. Decide whether `wlan_host_autostart` should remain public or be replaced by a clearer explicit `wlan_mode_policy` key.
+2. Decide whether `host_id` should stay as a single `IPv4[:port]` string or be split into explicit host/port keys.
+3. Keep `README.md`, `Configuration_Guide.md`, and `tools/README.md` synchronized as the shell-client UX evolves.
 
 ### 8.4 Kernel networking loop and lifecycle
 
@@ -343,7 +332,7 @@ Important correction vs older planning text:
 
 - there is no dedicated deferred-serial backlog queue with 4 KiB cap in current implementation; serial routing is controlled by readiness/host-mode guards in the run loop.
 
-This architecture section is now the canonical source for WLAN log/host separation design and lifecycle behavior.
+This architecture section is now the canonical source for WLAN log/shell-client separation design and lifecycle behavior.
 
 ## 9. Font and rendering details
 
@@ -361,6 +350,13 @@ Current relevant font selections:
 - graphics variants: `6`, `8`, `10`
 
 User-facing persisted selection currently uses `font_selection` values `1..3`.
+
+Current renderer architecture is shadow-buffer-first:
+
+- text cells, attributes, and DEC line-size state are maintained in shadow storage as the authoritative terminal model
+- terminal mutations such as character writes, erase operations, insert/delete character or line operations, and state restore update shadow state first
+- the framebuffer is treated as a projection target that is refreshed from shadow state per cell, row, or full screen depending on the affected region
+- setup save/restore and shadow-based rerender paths rely on this separation so visible pixels can be rebuilt from terminal state instead of serving as the primary source of truth
 
 ### 9.1 DEC special graphics and charset switching
 
@@ -405,14 +401,24 @@ State persistence behavior:
 
 Authoritative persisted key set is defined by `CTConfig::SaveToFile()`.
 
-Persisted domains include serial framing, cursor/display mode, font/color, buzzer/keyboard behavior, repeat tuning, wiring switch, WLAN host-mode flag, and logging configuration.
+Persisted domains include serial framing, cursor/display mode, font/color, buzzer/keyboard behavior, repeat tuning, wiring switch, WLAN mode/target settings, and logging configuration.
 
 Current persisted set also includes `smooth_scroll` (0/1), which controls renderer-side non-blocking smooth animation for single-line scroll operations.
 
 Current persisted set also includes:
 
+- `smooth_scroll_ms` (10..500) for the target duration per scrolled text line
 - `wrap_around` (0/1) for right-margin wrap behavior
 - `margin_bell` (0/1) for bell at right-margin minus 8 columns
+- `host_id` (`IPv4[:port]`) for the default outbound shell-client target
+
+Runtime clamping note:
+
+- `buzzer_volume` is constrained to `0..80`
+- `smooth_scroll_ms` is constrained to `10..500`
+- `repeat_delay_ms` is constrained to `250..1000`
+- `repeat_rate_cps` is constrained to `2..20`
+- `serial_bits` is constrained to `7` or `8`
 
 Setup B mapping note:
 
@@ -425,7 +431,7 @@ For value semantics and user/admin guidance see `docs/Configuration_Guide.md`.
 ## 12. Development notes
 
 - QEMU-specific runtime/build fallback paths were intentionally removed from `VT100`.
-- Current implementation enforces strict separation of log-mode command sessions and host-mode raw sessions on `:2323`, selected per connection via `wlan_host_autostart`.
+- Current implementation enforces strict separation of incoming log-mode command sessions and outbound shell-client raw sessions, coordinated through `wlan_host_autostart` and `host_id`.
 - For configuration changes, keep `CTConfig` defaults/parser/setters/save format and `Configuration_Guide.md` in sync.
 - `docs/Refactoring_Note.md` remains useful as historical refactoring context, but this file is the normative technical reference.
 
