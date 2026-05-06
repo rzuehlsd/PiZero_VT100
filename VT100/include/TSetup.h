@@ -75,6 +75,7 @@ private:
         ModernFieldBuzzerVolume,
         ModernFieldKeyClick,
         ModernFieldKeyAutoRepeat,
+        ModernFieldSmoothScrollEnabled,
         ModernFieldSmoothScrollLineMs,
         ModernFieldRepeatDelay,
         ModernFieldRepeatRate,
@@ -102,6 +103,7 @@ private:
         unsigned int buzzerVolume;
         bool keyClick;
         bool keyAutoRepeat;
+        bool smoothScrollEnabled;
         unsigned int smoothScrollLineMs;
         unsigned int repeatDelayMs;
         unsigned int repeatRateCps;

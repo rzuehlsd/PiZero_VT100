@@ -74,7 +74,7 @@ namespace
     constexpr unsigned int kModernDialogMinRows = 12U;
     constexpr unsigned int kModernDialogMinCols = 72U;
     constexpr unsigned int kModernRowBufferSize = 192U;
-    constexpr unsigned int kModernFieldCount = 22U;
+    constexpr unsigned int kModernFieldCount = 23U;
 
     static const char *kModernFieldNames[kModernFieldCount] = {
         "line_ending",
@@ -91,6 +91,7 @@ namespace
         "buzzer_volume",
         "key_click",
         "key_auto_repeat",
+        "smooth_scroll",
         "smooth_scroll_ms",
         "repeat_delay_ms",
         "repeat_rate_cps",
@@ -115,6 +116,7 @@ namespace
         "Buzzer volume 0-100%",
         "Key click on/off",
         "Auto-repeat on/off",
+        "Smooth scroll on/off",
         "Smooth scroll line time 10-500 ms",
         "Repeat delay 250-1000 ms",
         "Repeat rate 2-20 cps",
@@ -709,18 +711,17 @@ void CTSetup::RenderHeader(const char *pTitle, unsigned topRow, unsigned subtitl
     m_pRenderer->SetColors(fgColor, bgColor);
     m_pRenderer->Write(kESC_3, strlen(kESC_3));
     m_pRenderer->Write(pTitle, strlen(pTitle));
-    m_pRenderer->Write(kESC_5, strlen(kESC_5));
 
     m_pRenderer->Goto(topRow + 1, 0);
     m_pRenderer->SetColors(fgColor, bgColor);
     static const char kESC_4[] = "\x1B#4";
     m_pRenderer->Write(kESC_4, strlen(kESC_4));
     m_pRenderer->Write(pTitle, strlen(pTitle));
-    m_pRenderer->Write(kESC_5, strlen(kESC_5));
 
     // Subtitle: double width
     m_pRenderer->Goto(topRow + 2, 0);
     m_pRenderer->SetColors(fgColor, bgColor);
+    m_pRenderer->Write(kESC_5, strlen(kESC_5));
     m_pRenderer->Write(kESC_6, strlen(kESC_6));
     m_pRenderer->Write("\x1B[4m", strlen("\x1B[4m"));
     m_pRenderer->Write("TO EXIT PRESS \"SET-UP\"", strlen("TO EXIT PRESS \"SET-UP\""));
@@ -1233,6 +1234,7 @@ void CTSetup::InitializeModernFromConfig()
         m_ModernConfig.fontSelection = EFontSelection::VT100Font10x20;
         m_ModernConfig.textColor = TerminalColorGreen;
         m_ModernConfig.backgroundColor = TerminalColorBlack;
+        m_ModernConfig.smoothScrollEnabled = true;
         m_ModernConfig.smoothScrollLineMs = 170U;
         m_ModernConfig.repeatDelayMs = kRepeatDelayMinMs;
         m_ModernConfig.repeatRateCps = 10U;
@@ -1253,6 +1255,7 @@ void CTSetup::InitializeModernFromConfig()
     m_ModernConfig.buzzerVolume = m_pConfig->GetBuzzerVolume();
     m_ModernConfig.keyClick = m_pConfig->GetKeyClick() != 0U;
     m_ModernConfig.keyAutoRepeat = m_pConfig->GetKeyAutoRepeatEnabled() ? true : false;
+    m_ModernConfig.smoothScrollEnabled = m_pConfig->GetSmoothScrollEnabled() ? true : false;
     m_ModernConfig.smoothScrollLineMs = m_pConfig->GetSmoothScrollLineMs();
     m_ModernConfig.repeatDelayMs = m_pConfig->GetKeyRepeatDelayMs();
     m_ModernConfig.repeatRateCps = m_pConfig->GetKeyRepeatRateCps();
@@ -1286,6 +1289,7 @@ void CTSetup::ApplyModernToConfig()
     m_pConfig->SetBuzzerVolume(m_ModernConfig.buzzerVolume);
     m_pConfig->SetKeyClick(m_ModernConfig.keyClick ? TRUE : FALSE);
     m_pConfig->SetKeyAutoRepeatEnabled(m_ModernConfig.keyAutoRepeat ? TRUE : FALSE);
+    m_pConfig->SetSmoothScrollEnabled(m_ModernConfig.smoothScrollEnabled ? TRUE : FALSE);
     m_pConfig->SetSmoothScrollLineMs(m_ModernConfig.smoothScrollLineMs);
     m_pConfig->SetKeyRepeatDelayMs(m_ModernConfig.repeatDelayMs);
     m_pConfig->SetKeyRepeatRateCps(m_ModernConfig.repeatRateCps);
@@ -1380,26 +1384,15 @@ void CTSetup::RenderModernDialog()
 
     const char *titleText = "VT100 Emulation Setup";
     const unsigned titleLen = strlen(titleText);
-    const unsigned innerWidthDouble = drawInnerWidth / 2U;
     unsigned centeredTitleOffset = 0;
-    if (innerWidthDouble > titleLen)
+    if (drawInnerWidth > titleLen)
     {
-        centeredTitleOffset = (innerWidthDouble - titleLen) / 2U;
+        centeredTitleOffset = (drawInnerWidth - titleLen) / 2U;
     }
-    const unsigned titleChars = (innerWidthDouble < sizeof(line) - 1U) ? innerWidthDouble : (sizeof(line) - 1U);
-    memset(line, ' ', titleChars);
-    if (titleChars > 0)
-    {
-        const unsigned copiedTitleLen = (titleLen < titleChars) ? titleLen : titleChars;
-        memcpy(line + centeredTitleOffset, titleText, copiedTitleLen);
-    }
-    line[titleChars] = '\0';
-    m_pRenderer->Goto(layout.top + 1, layout.left + 1);
-    m_pRenderer->Write("\x1B#6", strlen("\x1B#6"));
+    m_pRenderer->Goto(layout.top + 1, layout.left + 1 + centeredTitleOffset);
     m_pRenderer->Write("\x1B[1m", strlen("\x1B[1m"));
-    m_pRenderer->Write(line, titleChars);
+    m_pRenderer->Write(titleText, titleLen);
     m_pRenderer->Write("\x1B[22m", strlen("\x1B[22m"));
-    m_pRenderer->Write("\x1B#5", strlen("\x1B#5"));
 
     m_pRenderer->Goto(layout.top + 3, layout.left + 2);
     m_pRenderer->Write("Parameter", strlen("Parameter"));
@@ -1804,6 +1797,9 @@ void CTSetup::ChangeModernValue(int delta)
     case ModernFieldKeyAutoRepeat:
         m_ModernConfig.keyAutoRepeat = !m_ModernConfig.keyAutoRepeat;
         break;
+    case ModernFieldSmoothScrollEnabled:
+        m_ModernConfig.smoothScrollEnabled = !m_ModernConfig.smoothScrollEnabled;
+        break;
     case ModernFieldSmoothScrollLineMs:
         if (delta > 0)
         {
@@ -1944,6 +1940,9 @@ void CTSetup::FormatModernValue(TModernField field, char *pBuffer, size_t buffer
         break;
     case ModernFieldKeyAutoRepeat:
         text = BoolName(m_ModernConfig.keyAutoRepeat);
+        break;
+    case ModernFieldSmoothScrollEnabled:
+        text = BoolName(m_ModernConfig.smoothScrollEnabled);
         break;
     case ModernFieldSmoothScrollLineMs:
         text.Format("%u ms", m_ModernConfig.smoothScrollLineMs);
