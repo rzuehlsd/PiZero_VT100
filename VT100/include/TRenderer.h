@@ -17,7 +17,6 @@
 #include <circle/display.h>
 #include <circle/string.h>
 #include <circle/chargenerator.h>
-#include <circle/bcmframebuffer.h>
 #include <circle/spinlock.h>
 #include <circle/types.h>
 
@@ -35,8 +34,11 @@
 // Forward declarations and includes for classes used in this module
 #include "TColorPalette.h"
 #include "TFontConverter.h"
-#include "TRendererProjector.h"
-#include "TShadowBuffer.h"
+
+class CShadowBuffer;
+class CRendererProjector;
+class CRendererSurface;
+class CBcmFrameBuffer;
 
 /**
  * @class CTRenderer
@@ -50,10 +52,44 @@
 class CTRenderer : public CDevice, public CTask
 {
 public:
-    using ELineAttribute = CShadowBuffer::ELineAttribute;
-    using TSnapshotCell = CShadowBuffer::TShadowCell;
-    using TShadowCell = CShadowBuffer::TShadowCell;
-    using TShadowStyle = CShadowBuffer::TStyle;
+    enum ELineAttribute
+    {
+        LineAttributeNormal,
+        LineAttributeDoubleWidth,
+        LineAttributeDoubleHeightTop,
+        LineAttributeDoubleHeightBottom
+    };
+
+    static constexpr unsigned MaxTextRows = 64;
+    static constexpr unsigned MaxTextColumns = 160;
+
+    struct TSnapshotCell
+    {
+        char ch;
+        CDisplay::TRawColor foreground;
+        CDisplay::TRawColor background;
+        unsigned charSet;
+        boolean bold;
+        boolean dim;
+        boolean underline;
+        boolean blink;
+        boolean reverseVideo;
+        boolean used;
+    };
+
+    struct TShadowStyle
+    {
+        CDisplay::TRawColor foreground;
+        CDisplay::TRawColor background;
+        unsigned charSet;
+        boolean bold;
+        boolean dim;
+        boolean underline;
+        boolean blink;
+        boolean reverseVideo;
+    };
+
+    using TShadowCell = TSnapshotCell;
 
     // Define realistic vintage terminal colors
     // static constexpr TRendererColor kColorBlack = DISPLAY_COLOR(12, 12, 12);
@@ -61,14 +97,6 @@ public:
     static constexpr TRendererColor kColorWhite = DISPLAY_COLOR(235, 235, 235);
     static constexpr TRendererColor kColorAmber = DISPLAY_COLOR(255, 176, 0);
     static constexpr TRendererColor kColorGreen = DISPLAY_COLOR(51, 255, 51);
-
-    static constexpr ELineAttribute LineAttributeNormal = CShadowBuffer::LineAttributeNormal;
-    static constexpr ELineAttribute LineAttributeDoubleWidth = CShadowBuffer::LineAttributeDoubleWidth;
-    static constexpr ELineAttribute LineAttributeDoubleHeightTop = CShadowBuffer::LineAttributeDoubleHeightTop;
-    static constexpr ELineAttribute LineAttributeDoubleHeightBottom = CShadowBuffer::LineAttributeDoubleHeightBottom;
-
-    static constexpr unsigned MaxTextRows = CShadowBuffer::MaxTextRows;
-    static constexpr unsigned MaxTextColumns = CShadowBuffer::MaxTextColumns;
 
     struct TRendererState
     {
@@ -322,6 +350,12 @@ private:
                       CCharGenerator::TFontFlags FontFlags,
                       boolean preservePixelCursor);
 
+    /// \brief Internal renderer helpers used by the projector implementation.
+    const CCharGenerator *GetProjectorCharGenerator(unsigned charSet, ELineAttribute attribute) const;
+    CDisplay::TRawColor ApplyProjectedGlyphBrightness(CDisplay::TRawColor color,
+                                                      boolean bold,
+                                                      boolean dim) const;
+
     unsigned GetBaseCharWidth(void) const;
     unsigned GetBaseCharHeight(void) const;
     unsigned GetRowCount(void) const;
@@ -520,8 +554,9 @@ private:
     CCharGenerator *m_pDoubleBothCharGen;
     CCharGenerator *m_pGraphicsDoubleBothCharGen;
     EFontSelection m_CurrentFontSelection;
-    CShadowBuffer m_ShadowBuffer;
-    CRendererProjector m_Projector;
+    CShadowBuffer *m_pShadowBuffer;
+    CRendererSurface *m_pSurface;
+    CRendererProjector *m_pProjector;
 
     ECharacterSet m_G0CharSet;
     ECharacterSet m_G1CharSet;
@@ -534,7 +569,6 @@ private:
         u16 *m_pBuffer16;
         u32 *m_pBuffer32;
     };
-    CBcmFrameBuffer *m_pFrameBuffer;
     unsigned m_nDisplayIndex;
     unsigned m_nSize;
     unsigned m_nPitch;

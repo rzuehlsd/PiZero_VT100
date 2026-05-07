@@ -1,3 +1,14 @@
+//------------------------------------------------------------------------------
+// Module:        CShadowBuffer
+// Description:   Stores the authoritative terminal shadow state for CTRenderer.
+// Author:        R. Zuehlsdorff, ralf.zuehlsdorff@t-online.de
+// Created:       2026-05-07
+// License:       MIT License (https://opensource.org/license/mit/)
+//------------------------------------------------------------------------------
+// Change Log:
+// 2026-05-07     R. Zuehlsdorff        Initial creation
+//------------------------------------------------------------------------------
+
 #include "TShadowBuffer.h"
 
 #include <string.h>

@@ -42,6 +42,7 @@ OBJS := \
 	$(BUILDDIR)/kernel.o \
 	$(BUILDDIR)/hal.o \
 	$(BUILDDIR)/TFontConverter.o \
+	$(BUILDDIR)/TRendererSurface.o \
 	$(BUILDDIR)/TRendererProjector.o \
 	$(BUILDDIR)/TShadowBuffer.o \
 	$(BUILDDIR)/VT100_FontConverter.o \

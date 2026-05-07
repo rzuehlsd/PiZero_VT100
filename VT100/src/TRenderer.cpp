@@ -26,6 +26,9 @@
 
 // Include application components
 #include "TFontConverter.h"
+#include "TRendererSurface.h"
+#include "TShadowBuffer.h"
+#include "TRendererProjector.h"
 #include "TConfig.h"
 #include "hal.h"
 #include "kernel.h"
@@ -34,6 +37,30 @@ LOGMODULE("TRenderer");
 
 namespace
 {
+    static CShadowBuffer::TStyle ToShadowBufferStyle(const CTRenderer::TShadowStyle &style)
+    {
+        CShadowBuffer::TStyle shadowStyle{};
+        shadowStyle.foreground = style.foreground;
+        shadowStyle.background = style.background;
+        shadowStyle.charSet = style.charSet;
+        shadowStyle.bold = style.bold;
+        shadowStyle.dim = style.dim;
+        shadowStyle.underline = style.underline;
+        shadowStyle.blink = style.blink;
+        shadowStyle.reverseVideo = style.reverseVideo;
+        return shadowStyle;
+    }
+
+    static CShadowBuffer::ELineAttribute ToShadowBufferLineAttribute(CTRenderer::ELineAttribute attribute)
+    {
+        return static_cast<CShadowBuffer::ELineAttribute>(attribute);
+    }
+
+    static CTRenderer::ELineAttribute FromShadowBufferLineAttribute(CShadowBuffer::ELineAttribute attribute)
+    {
+        return static_cast<CTRenderer::ELineAttribute>(attribute);
+    }
+
     static void SendHostReply(const char *data, size_t length)
     {
         if (data == nullptr || length == 0)
@@ -84,13 +111,14 @@ CTRenderer::CTRenderer(void)
       m_pDoubleBothCharGen(nullptr),
       m_pGraphicsDoubleBothCharGen(nullptr),
       m_CurrentFontSelection(EFontSelection::VT100Font10x20),
-      m_Projector(*this),
+      m_pShadowBuffer(new CShadowBuffer()),
+    m_pSurface(new CRendererSurface()),
+    m_pProjector(new CRendererProjector(*this, *m_pShadowBuffer, *m_pSurface)),
       m_G0CharSet(CharSetUS),
       m_G1CharSet(CharSetGraphics),
       m_bUseG1(FALSE),
       m_pCursorPixels(nullptr),
       m_pBuffer8(nullptr),
-      m_pFrameBuffer(nullptr),
       m_nDisplayIndex(0),
       m_nSize(0),
       m_nPitch(0),
@@ -170,7 +198,7 @@ CTRenderer::CTRenderer(void)
     memset(&m_SavedState, 0, sizeof(m_SavedState));
     memset(&m_AltScreenSavedState, 0, sizeof(m_AltScreenSavedState));
     memset(m_CSIParams, 0, sizeof(m_CSIParams));
-    m_ShadowBuffer.ResetBuffers(GetDefaultShadowStyle());
+    m_pShadowBuffer->ResetBuffers(ToShadowBufferStyle(GetDefaultShadowStyle()));
 
     SetName("Renderer");
     Suspend();
@@ -263,7 +291,7 @@ unsigned CTRenderer::GetColumnIndexFromX(unsigned nPosX, unsigned nPosY) const
 
 CTRenderer::ELineAttribute CTRenderer::GetLineAttributeForRow(unsigned row) const
 {
-    return m_ShadowBuffer.GetLineAttribute(row, GetRowCount());
+    return FromShadowBufferLineAttribute(m_pShadowBuffer->GetLineAttribute(row, GetRowCount()));
 }
 
 CTRenderer::ELineAttribute CTRenderer::GetLineAttributeForY(unsigned nPosY) const
@@ -273,22 +301,22 @@ CTRenderer::ELineAttribute CTRenderer::GetLineAttributeForY(unsigned nPosY) cons
 
 void CTRenderer::SetLineAttributeForRow(unsigned row, ELineAttribute attribute)
 {
-    m_ShadowBuffer.SetLineAttribute(row, GetRowCount(), attribute);
+    m_pShadowBuffer->SetLineAttribute(row, GetRowCount(), ToShadowBufferLineAttribute(attribute));
 }
 
 void CTRenderer::ResetLineAttributes(void)
 {
-    m_ShadowBuffer.ResetLineAttributes();
+    m_pShadowBuffer->ResetLineAttributes();
 }
 
 CTRenderer::TShadowCell (*CTRenderer::GetActiveShadowCells(void)) [MaxTextColumns]
 {
-    return m_ShadowBuffer.GetActiveCells(m_bAltScreenActive);
+    return reinterpret_cast<TShadowCell(*)[MaxTextColumns]>(m_pShadowBuffer->GetActiveCells(m_bAltScreenActive));
 }
 
 const CTRenderer::TShadowCell (*CTRenderer::GetActiveShadowCells(void) const)[MaxTextColumns]
 {
-    return m_ShadowBuffer.GetActiveCells(m_bAltScreenActive);
+    return reinterpret_cast<const TShadowCell(*)[MaxTextColumns]>(m_pShadowBuffer->GetActiveCells(m_bAltScreenActive));
 }
 
 CTRenderer::TShadowStyle CTRenderer::GetCurrentShadowStyle(void) const
@@ -321,42 +349,69 @@ CTRenderer::TShadowStyle CTRenderer::GetDefaultShadowStyle(void) const
 
 void CTRenderer::ResetShadowBuffer(void)
 {
-    m_ShadowBuffer.ResetActiveBuffer(m_bAltScreenActive, GetDefaultShadowStyle());
+    const TShadowStyle style = GetDefaultShadowStyle();
+    m_pShadowBuffer->ResetActiveBuffer(m_bAltScreenActive, ToShadowBufferStyle(style));
 }
 
 void CTRenderer::ResetShadowRow(unsigned row)
 {
-    m_ShadowBuffer.ResetRow(m_bAltScreenActive, row, GetCurrentShadowStyle());
+    const TShadowStyle style = GetCurrentShadowStyle();
+    m_pShadowBuffer->ResetRow(m_bAltScreenActive, row, ToShadowBufferStyle(style));
 }
 
 void CTRenderer::ClearShadowCells(unsigned row, unsigned startColumn, unsigned endColumn)
 {
-    m_ShadowBuffer.ClearCells(m_bAltScreenActive, row, startColumn, endColumn, GetCurrentShadowStyle());
+    const TShadowStyle style = GetCurrentShadowStyle();
+    m_pShadowBuffer->ClearCells(m_bAltScreenActive,
+                                row,
+                                startColumn,
+                                endColumn,
+                                ToShadowBufferStyle(style));
 }
 
 void CTRenderer::ShiftShadowCellsLeft(unsigned row, unsigned startColumn, unsigned count)
 {
-    m_ShadowBuffer.ShiftCellsLeft(m_bAltScreenActive, row, startColumn, count, GetCurrentShadowStyle());
+    const TShadowStyle style = GetCurrentShadowStyle();
+    m_pShadowBuffer->ShiftCellsLeft(m_bAltScreenActive,
+                                    row,
+                                    startColumn,
+                                    count,
+                                    ToShadowBufferStyle(style));
 }
 
 void CTRenderer::ShiftShadowCellsRight(unsigned row, unsigned startColumn, unsigned count)
 {
-    m_ShadowBuffer.ShiftCellsRight(m_bAltScreenActive, row, startColumn, count, GetCurrentShadowStyle());
+    const TShadowStyle style = GetCurrentShadowStyle();
+    m_pShadowBuffer->ShiftCellsRight(m_bAltScreenActive,
+                                     row,
+                                     startColumn,
+                                     count,
+                                     ToShadowBufferStyle(style));
 }
 
 void CTRenderer::ShiftShadowRowsUp(unsigned startRow, unsigned endRow, unsigned count)
 {
-    m_ShadowBuffer.ShiftRowsUp(m_bAltScreenActive, startRow, endRow, count, GetCurrentShadowStyle());
+    const TShadowStyle style = GetCurrentShadowStyle();
+    m_pShadowBuffer->ShiftRowsUp(m_bAltScreenActive,
+                                 startRow,
+                                 endRow,
+                                 count,
+                                 ToShadowBufferStyle(style));
 }
 
 void CTRenderer::ShiftShadowRowsDown(unsigned startRow, unsigned endRow, unsigned count)
 {
-    m_ShadowBuffer.ShiftRowsDown(m_bAltScreenActive, startRow, endRow, count, GetCurrentShadowStyle());
+    const TShadowStyle style = GetCurrentShadowStyle();
+    m_pShadowBuffer->ShiftRowsDown(m_bAltScreenActive,
+                                   startRow,
+                                   endRow,
+                                   count,
+                                   ToShadowBufferStyle(style));
 }
 
 boolean CTRenderer::ShadowRowHasBlink(unsigned row) const
 {
-    return m_ShadowBuffer.RowHasBlink(m_bAltScreenActive, row, GetRowCount());
+    return m_pShadowBuffer->RowHasBlink(m_bAltScreenActive, row, GetRowCount());
 }
 
 boolean CTRenderer::ActiveShadowHasBlinkCells(void) const
@@ -391,17 +446,21 @@ void CTRenderer::StoreShadowCellAt(unsigned nPosX,
     style.foreground = foreground;
     style.background = background;
     style.charSet = charSet;
-    m_ShadowBuffer.StoreCell(m_bAltScreenActive, row, column, chChar, style);
+    m_pShadowBuffer->StoreCell(m_bAltScreenActive,
+                               row,
+                               column,
+                               chChar,
+                               ToShadowBufferStyle(style));
 }
 
 void CTRenderer::ShiftLineAttributesUp(unsigned startRow, unsigned endRow, unsigned count)
 {
-    m_ShadowBuffer.ShiftLineAttributesUp(startRow, endRow, count);
+    m_pShadowBuffer->ShiftLineAttributesUp(startRow, endRow, count);
 }
 
 void CTRenderer::ShiftLineAttributesDown(unsigned startRow, unsigned endRow, unsigned count)
 {
-    m_ShadowBuffer.ShiftLineAttributesDown(startRow, endRow, count);
+    m_pShadowBuffer->ShiftLineAttributesDown(startRow, endRow, count);
 }
 
 boolean CTRenderer::IsDoubleWidthLineAttribute(ELineAttribute attribute) const
@@ -596,8 +655,10 @@ CTRenderer::~CTRenderer(void)
 {
     CDeviceNameService::Get()->RemoveDevice(DevicePrefix, m_nDisplayIndex + 1, FALSE);
 
-    m_ShadowBuffer.ResetBuffers(GetDefaultShadowStyle());
-    delete[] m_pBuffer8;
+    if (m_pShadowBuffer != nullptr)
+    {
+        m_pShadowBuffer->ResetBuffers(ToShadowBufferStyle(GetDefaultShadowStyle()));
+    }
     m_pBuffer8 = nullptr;
 
     delete[] m_pCursorPixels;
@@ -625,8 +686,14 @@ CTRenderer::~CTRenderer(void)
     delete m_pGraphicsDoubleBothCharGen;
     m_pGraphicsDoubleBothCharGen = nullptr;
 
-    delete m_pFrameBuffer;
-    m_pFrameBuffer = nullptr;
+    delete m_pProjector;
+    m_pProjector = nullptr;
+
+    delete m_pSurface;
+    m_pSurface = nullptr;
+
+    delete m_pShadowBuffer;
+    m_pShadowBuffer = nullptr;
 }
 
 void CTRenderer::EnterAlternateScreen(void)
@@ -658,7 +725,7 @@ void CTRenderer::EnterAlternateScreen(void)
 
     // Save the visible framebuffer.
     memcpy(m_pAltScreenSnapshot, m_pBuffer8, m_nSize);
-    m_ShadowBuffer.CopyLineAttributesToAlternate();
+    m_pShadowBuffer->CopyLineAttributesToAlternate();
 
     // Save key terminal state so we can restore a sane session on exit.
     m_AltScreenSavedState.cursorX = m_nCursorX;
@@ -708,7 +775,7 @@ void CTRenderer::LeaveAlternateScreen(void)
     // Restore saved state (best effort).
     if (m_bAltScreenSavedValid && m_pCharGen != nullptr)
     {
-        m_ShadowBuffer.RestoreLineAttributesFromAlternate();
+        m_pShadowBuffer->RestoreLineAttributesFromAlternate();
         const unsigned charWidth = m_pCharGen->GetCharWidth();
         const unsigned charHeight = m_pCharGen->GetCharHeight();
 
@@ -761,33 +828,22 @@ void CTRenderer::LeaveAlternateScreen(void)
 
 boolean CTRenderer::Initialize(void)
 {
-    m_pFrameBuffer = new CBcmFrameBuffer(0, 0, DEPTH, 0, 0, m_nDisplayIndex);
-    if (!m_pFrameBuffer)
+    if (m_pSurface == nullptr)
     {
         return FALSE;
     }
 
-    if (!m_pFrameBuffer->Initialize())
+    if (!m_pSurface->Initialize(m_nDisplayIndex, DEPTH))
     {
         return FALSE;
     }
 
-    m_nWidth = m_pFrameBuffer->GetWidth();
-    m_nHeight = m_pFrameBuffer->GetHeight();
-    m_nDepth = m_pFrameBuffer->GetDepth();
-    m_nSize = m_nWidth * m_nHeight * m_nDepth / 8;
-    m_nPitch = m_nWidth * m_nDepth / 8;
-
-    if (m_nDepth == 1 && m_nWidth % 8 != 0)
-    {
-        return FALSE;
-    }
-
-    m_pBuffer8 = new u8[m_nSize];
-    if (!m_pBuffer8)
-    {
-        return FALSE;
-    }
+    m_nWidth = m_pSurface->GetWidth();
+    m_nHeight = m_pSurface->GetHeight();
+    m_nDepth = m_pSurface->GetDepth();
+    m_nSize = m_pSurface->GetSize();
+    m_nPitch = m_pSurface->GetPitch();
+    m_pBuffer8 = m_pSurface->GetBuffer();
 
     m_nSmoothScrollBufferSize = m_nSize;
     m_pSmoothScrollSnapshot = new u8[m_nSmoothScrollBufferSize];
@@ -807,8 +863,8 @@ boolean CTRenderer::Initialize(void)
         return FALSE;
     }
 
-    m_ForegroundColor = m_pFrameBuffer->GetColor(CDisplay::NormalColor);
-    m_BackgroundColor = m_pFrameBuffer->GetColor(CDisplay::Black);
+    m_ForegroundColor = m_pSurface->GetRawColor(CDisplay::NormalColor);
+    m_BackgroundColor = m_pSurface->GetRawColor(CDisplay::Black);
     m_DefaultForegroundColor = m_ForegroundColor;
     m_DefaultBackgroundColor = m_BackgroundColor;
     m_nNextCursorBlink = CTimer::Get()->GetTicks() + m_nCursorBlinkPeriodTicks;
@@ -822,7 +878,7 @@ boolean CTRenderer::Initialize(void)
     m_UpdateArea.x2 = m_nWidth - 1;
     m_UpdateArea.y1 = 0;
     m_UpdateArea.y2 = m_nHeight - 1;
-    m_pFrameBuffer->SetArea(m_UpdateArea, m_pBuffer8);
+    m_pSurface->FlushArea(m_UpdateArea, m_pBuffer8);
 
     m_UpdateArea.y1 = m_nHeight;
     m_UpdateArea.y2 = 0;
@@ -1074,7 +1130,7 @@ TRendererColor CTRenderer::MapColor(EColorSelection color)
 
 boolean CTRenderer::SetColors(EColorSelection Foreground, EColorSelection Background)
 {
-    if (m_pFrameBuffer == nullptr)
+    if (m_pSurface == nullptr)
     {
         return false;
     }
@@ -1092,8 +1148,8 @@ boolean CTRenderer::SetColors(EColorSelection Foreground, EColorSelection Backgr
     m_SpinLock.Acquire();
     const TRendererColor fgLogical = MapColor(fgSelection);
     const TRendererColor bgLogical = MapColor(bgSelection);
-    const CDisplay::TRawColor fgColor = m_pFrameBuffer->GetColor(fgLogical);
-    const CDisplay::TRawColor bgColor = m_pFrameBuffer->GetColor(bgLogical);
+    const CDisplay::TRawColor fgColor = m_pSurface->GetRawColor(fgLogical);
+    const CDisplay::TRawColor bgColor = m_pSurface->GetRawColor(bgLogical);
     m_DefaultForegroundColor = fgColor;
     m_DefaultBackgroundColor = bgColor;
     m_ForegroundColor = fgColor;
@@ -1286,20 +1342,20 @@ unsigned CTRenderer::GetCursorRow(void) const
 
 CBcmFrameBuffer *CTRenderer::GetDisplay(void)
 {
-    return m_pFrameBuffer;
+    return m_pSurface != nullptr ? m_pSurface->GetDisplay() : nullptr;
 }
 
 void CTRenderer::SetColors(TRendererColor Foreground, TRendererColor Background)
 {
-    if (m_pFrameBuffer == nullptr)
+    if (m_pSurface == nullptr)
     {
         return;
     }
 
     m_SpinLock.Acquire();
 
-    const CDisplay::TRawColor fgColor = m_pFrameBuffer->GetColor(Foreground);
-    const CDisplay::TRawColor bgColor = m_pFrameBuffer->GetColor(Background);
+    const CDisplay::TRawColor fgColor = m_pSurface->GetRawColor(Foreground);
+    const CDisplay::TRawColor bgColor = m_pSurface->GetRawColor(Background);
 
     m_DefaultForegroundColor = fgColor;
     m_DefaultBackgroundColor = bgColor;
@@ -1349,7 +1405,7 @@ int CTRenderer::Write(const void *pBuffer, size_t nCount)
     // Update display
     if (!m_bDelayedUpdate && !m_bSmoothScrollActive && m_UpdateArea.y1 <= m_UpdateArea.y2)
     {
-        m_pFrameBuffer->SetArea(m_UpdateArea, m_pBuffer8 + m_UpdateArea.y1 * m_nPitch);
+        m_pSurface->FlushArea(m_UpdateArea, m_pBuffer8 + m_UpdateArea.y1 * m_nPitch);
 
         m_UpdateArea.y1 = m_nHeight;
         m_UpdateArea.y2 = 0;
@@ -1546,11 +1602,8 @@ void CTRenderer::SetPixel(unsigned nPosX, unsigned nPosY, TRendererColor Color)
         return;
     }
 
-    CDisplay::TRawColor nColor = m_pFrameBuffer->GetColor(Color);
-
-    SetRawPixel(nPosX, nPosY, nColor);
-
-    m_pFrameBuffer->SetPixel(nPosX, nPosY, nColor);
+    CDisplay::TRawColor nColor = m_pSurface->GetRawColor(Color);
+    m_pSurface->SetPixel(nPosX, nPosY, nColor);
 }
 
 void CTRenderer::SetPixel(unsigned nPosX, unsigned nPosY, CDisplay::TRawColor nColor)
@@ -1560,9 +1613,7 @@ void CTRenderer::SetPixel(unsigned nPosX, unsigned nPosY, CDisplay::TRawColor nC
         return;
     }
 
-    SetRawPixel(nPosX, nPosY, nColor);
-
-    m_pFrameBuffer->SetPixel(nPosX, nPosY, nColor);
+    m_pSurface->SetPixel(nPosX, nPosY, nColor);
 }
 
 TRendererColor CTRenderer::GetPixel(unsigned nPosX, unsigned nPosY)
@@ -1572,7 +1623,7 @@ TRendererColor CTRenderer::GetPixel(unsigned nPosX, unsigned nPosY)
         return CDisplay::Black;
     }
 
-    return m_pFrameBuffer->GetColor(GetRawPixel(nPosX, nPosY));
+    return m_pSurface->GetLogicalColor(GetRawPixel(nPosX, nPosY));
 }
 
 void CTRenderer::SetCursorBlock(boolean bCursorBlock)
@@ -1630,7 +1681,7 @@ void CTRenderer::Update()
                 area.x2 = m_nWidth - 1;
                 area.y1 = m_nSmoothScrollStartY;
                 area.y2 = m_nSmoothScrollEndY;
-                m_pFrameBuffer->SetArea(area, m_pBuffer8 + area.y1 * m_nPitch);
+                m_pSurface->FlushArea(area, m_pBuffer8 + area.y1 * m_nPitch);
                 if (m_nSmoothScrollStartTick != 0)
                 {
                     m_ScrollSmoothTicksAccum += static_cast<unsigned>(now - m_nSmoothScrollStartTick);
@@ -1643,7 +1694,7 @@ void CTRenderer::Update()
 
     if (!m_bSmoothScrollActive && m_UpdateArea.y1 <= m_UpdateArea.y2)
     {
-        m_pFrameBuffer->SetArea(m_UpdateArea, m_pBuffer8 + m_UpdateArea.y1 * m_nPitch);
+        m_pSurface->FlushArea(m_UpdateArea, m_pBuffer8 + m_UpdateArea.y1 * m_nPitch);
 
         m_UpdateArea.y1 = m_nHeight;
         m_UpdateArea.y2 = 0;
@@ -1768,7 +1819,7 @@ void CTRenderer::RenderSmoothScrollFrame(void)
     area.x2 = m_nWidth - 1;
     area.y1 = m_nSmoothScrollStartY;
     area.y2 = m_nSmoothScrollEndY;
-    m_pFrameBuffer->SetArea(area, m_pSmoothScrollCompose);
+    m_pSurface->FlushArea(area, m_pSmoothScrollCompose);
 }
 
 void CTRenderer::Write(char chChar)
@@ -4263,7 +4314,7 @@ void CTRenderer::SaveState(TRendererState &state)
     state.g0CharSet = static_cast<unsigned>(m_G0CharSet);
     state.g1CharSet = static_cast<unsigned>(m_G1CharSet);
     state.useG1 = m_bUseG1;
-    memcpy(state.lineAttributes, m_ShadowBuffer.GetLineAttributes(), sizeof(state.lineAttributes));
+    memcpy(state.lineAttributes, m_pShadowBuffer->GetLineAttributes(), sizeof(state.lineAttributes));
     memcpy(state.shadowCells, GetActiveShadowCells(), sizeof(state.shadowCells));
     m_SpinLock.Release();
 }
@@ -4318,7 +4369,12 @@ void CTRenderer::RestoreState(const TRendererState &state)
     m_G0CharSet = static_cast<ECharacterSet>(state.g0CharSet);
     m_G1CharSet = static_cast<ECharacterSet>(state.g1CharSet);
     m_bUseG1 = state.useG1;
-    m_ShadowBuffer.RestoreLineAttributes(state.lineAttributes);
+    CShadowBuffer::ELineAttribute lineAttributes[MaxTextRows];
+    for (unsigned row = 0; row < MaxTextRows; ++row)
+    {
+        lineAttributes[row] = ToShadowBufferLineAttribute(state.lineAttributes[row]);
+    }
+    m_pShadowBuffer->RestoreLineAttributes(lineAttributes);
     memcpy(GetActiveShadowCells(), state.shadowCells, sizeof(state.shadowCells));
     RenderShadowScreen();
     m_SpinLock.Release();
@@ -4367,14 +4423,14 @@ void CTRenderer::RestoreScreenBuffer(const void *buffer, size_t bufferSize)
     memcpy(m_pBuffer8, buffer, m_nSize);
     m_UpdateArea.y1 = 0;
     m_UpdateArea.y2 = m_nHeight ? (m_nHeight - 1) : 0;
-    if (m_pFrameBuffer != nullptr)
+    if (m_pSurface != nullptr)
     {
         CDisplay::TArea area;
         area.x1 = 0;
         area.y1 = 0;
         area.x2 = m_nWidth ? (m_nWidth - 1) : 0;
         area.y2 = m_nHeight ? (m_nHeight - 1) : 0;
-        m_pFrameBuffer->SetArea(area, m_pBuffer8);
+        m_pSurface->FlushArea(area, m_pBuffer8);
     }
     m_SpinLock.Release();
 }

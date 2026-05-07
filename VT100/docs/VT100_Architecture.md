@@ -28,7 +28,8 @@ It combines architecture, dependency structure, runtime flow, and module-level i
     - 8.3.4 Future cleanup
   - 8.4 Kernel networking loop and lifecycle
 - 9. Font and rendering details
-  - 9.1 DEC special graphics and charset switching
+    - 9.1 Renderer pipeline split
+    - 9.2 DEC special graphics and charset switching
 - 10. HAL and buzzer details
 - 11. Configuration persistence contract
 - 12. Development notes
@@ -48,7 +49,10 @@ Primary modules in `VT100/src`:
 
 - `kernel.cpp` (`CKernel`) — system bring-up, task orchestration, host routing
 - `TConfig.cpp` (`CTConfig`) — defaults, parser, validation, persistence (`SD:/VT100.txt`)
-- `TRenderer.cpp` (`CTRenderer`) — shadow-buffer-first terminal state management with framebuffer projection plus cursor/attribute handling
+- `TRenderer.cpp` (`CTRenderer`) — public renderer facade, parser host, terminal-state owner, and dirty-region coordinator
+- `TShadowBuffer.cpp` (`CShadowBuffer`) — authoritative normal/alternate screen text, style, and DEC line-size storage
+- `TRendererProjector.cpp` (`CRendererProjector`) — framebuffer projection helper that redraws shadow state and cursor pixels
+- `TRendererSurface.cpp` (`CRendererSurface`) — framebuffer backend that owns `CBcmFrameBuffer`, raw pixel storage, color conversion, and row-oriented pixel operations
 - `TFontConverter.cpp` + `VT100_FontConverter.cpp` — VT100 font conversion and lookup
 - `TKeyboard.cpp` (`CTKeyboard`) — USB keyboard processing, repeat, line-ending conversion
 - `TUART.cpp` (`CTUART`) — serial init and polling read/write abstraction
@@ -80,6 +84,11 @@ graph TD
   CTKeyboard --> CTConfig
   CTRenderer --> CTConfig
   CTRenderer --> CTFontConverter
+  CTRenderer --> CShadowBuffer
+  CTRenderer --> CRendererProjector
+  CTRenderer --> CRendererSurface
+  CRendererProjector --> CShadowBuffer
+  CRendererProjector --> CRendererSurface
 
   CTFileLog --> CLogger
   CTWlanHost --> CLogger
@@ -87,7 +96,8 @@ graph TD
   CTWlanHost --> CWPASupplicant
 
   CTUART --> CSerialDevice
-  CTRenderer --> CBcmFrameBuffer
+  CRendererSurface --> CBcmFrameBuffer
+  CRendererProjector --> CCharGenerator
 ```
 
 Notes:
@@ -95,6 +105,7 @@ Notes:
 - `CKernel` remains the integration hub and lifecycle owner of singleton task modules.
 - `CTConfig` is the runtime configuration source of truth.
 - `CTSetup` edits runtime configuration through `CTConfig` setters and persists changes with `SaveToFile()`.
+- `CTRenderer` now owns `CShadowBuffer`, `CRendererProjector`, and `CRendererSurface` internally and exposes only the terminal-facing facade to the rest of the system.
 
 ## 4. Boot and initialization sequence
 
@@ -355,10 +366,42 @@ Current renderer architecture is shadow-buffer-first:
 
 - text cells, attributes, and DEC line-size state are maintained in shadow storage as the authoritative terminal model
 - terminal mutations such as character writes, erase operations, insert/delete character or line operations, and state restore update shadow state first
-- the framebuffer is treated as a projection target that is refreshed from shadow state per cell, row, or full screen depending on the affected region
+- the framebuffer is treated as a projection target behind `CRendererSurface`, which is refreshed from shadow state per cell, row, or full screen depending on the affected region
 - setup save/restore and shadow-based rerender paths rely on this separation so visible pixels can be rebuilt from terminal state instead of serving as the primary source of truth
 
-### 9.1 DEC special graphics and charset switching
+### 9.1 Renderer pipeline split
+
+The renderer is currently divided into four cooperating parts:
+
+- `CTRenderer` owns parser state, terminal modes, cursor state, color/font selection, dirty-region decisions, and the public device/task API.
+- `CShadowBuffer` owns the authoritative terminal model for both the normal and alternate screens, including per-cell style snapshots and per-row DEC line-size attributes.
+- `CRendererSurface` owns the framebuffer device, raw pixel buffer, raw/logical color conversion, and row-oriented pixel mutations.
+- `CRendererProjector` consumes shadow-state plus current renderer runtime state and projects the affected cells, rows, or cursor region onto the framebuffer surface.
+
+The practical consequence is that most terminal mutations no longer paint pixels directly as the primary state transition. Instead they follow a model-first path and project only the affected region afterward.
+
+```mermaid
+flowchart LR
+  Input[Host or keyboard byte stream] --> Parser[CTRenderer parser and mode state]
+  Parser --> Shadow[CShadowBuffer terminal model]
+  Shadow --> Dirty[Dirty cell or row decision in CTRenderer]
+  Dirty --> Projector[CRendererProjector]
+  Projector --> Surface[CRendererSurface backend]
+  Surface --> Framebuffer[CBcmFrameBuffer raw pixels]
+  Projector --> Cursor[Cursor invert or restore path]
+```
+
+Implementation-aligned responsibilities:
+
+- character writes, erase operations, insert/delete character or line operations, scroll-region mutations, and setup state restore update shadow state first
+- `CRendererProjector::RenderShadowCell()`, `RenderShadowRow()`, and `RenderShadowScreen()` rebuild framebuffer contents from shadow snapshots
+- `CRendererSurface` centralizes raw pixel writes, row fills, row scrolls, incremental flushes, and color translation so projector logic no longer depends on `CBcmFrameBuffer` ownership in `CTRenderer`
+- cursor display remains a framebuffer operation because it temporarily inverts and restores live pixel data around the current text cell
+- the optimized pixel-row helpers stay inside the projector path so scroll and clear operations can still avoid unnecessary full rerenders
+
+This keeps the public renderer interface narrower while preserving the same behavior at the call sites that still invoke renderer facade methods such as `RenderShadowRow()` or `InvertCursor()`.
+
+### 9.2 DEC special graphics and charset switching
 
 `CTRenderer` implements ISO 2022 VT100 charset switching with explicit G0/G1 state tracking:
 
