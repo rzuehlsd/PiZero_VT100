@@ -35,6 +35,7 @@
 // Forward declarations and includes for classes used in this module
 #include "TColorPalette.h"
 #include "TFontConverter.h"
+#include "TShadowBuffer.h"
 
 /**
  * @class CTRenderer
@@ -48,6 +49,11 @@
 class CTRenderer : public CDevice, public CTask
 {
 public:
+    using ELineAttribute = CShadowBuffer::ELineAttribute;
+    using TSnapshotCell = CShadowBuffer::TShadowCell;
+    using TShadowCell = CShadowBuffer::TShadowCell;
+    using TShadowStyle = CShadowBuffer::TStyle;
+
     // Define realistic vintage terminal colors
     // static constexpr TRendererColor kColorBlack = DISPLAY_COLOR(12, 12, 12);
     static constexpr TRendererColor kColorBlack = DISPLAY_COLOR(0, 0, 0);
@@ -55,30 +61,13 @@ public:
     static constexpr TRendererColor kColorAmber = DISPLAY_COLOR(255, 176, 0);
     static constexpr TRendererColor kColorGreen = DISPLAY_COLOR(51, 255, 51);
 
-    enum ELineAttribute
-    {
-        LineAttributeNormal,
-        LineAttributeDoubleWidth,
-        LineAttributeDoubleHeightTop,
-        LineAttributeDoubleHeightBottom
-    };
+    static constexpr ELineAttribute LineAttributeNormal = CShadowBuffer::LineAttributeNormal;
+    static constexpr ELineAttribute LineAttributeDoubleWidth = CShadowBuffer::LineAttributeDoubleWidth;
+    static constexpr ELineAttribute LineAttributeDoubleHeightTop = CShadowBuffer::LineAttributeDoubleHeightTop;
+    static constexpr ELineAttribute LineAttributeDoubleHeightBottom = CShadowBuffer::LineAttributeDoubleHeightBottom;
 
-    static constexpr unsigned MaxTextRows = 64;
-    static constexpr unsigned MaxTextColumns = 160;
-
-    struct TSnapshotCell
-    {
-        char ch;
-        CDisplay::TRawColor foreground;
-        CDisplay::TRawColor background;
-        unsigned charSet;
-        boolean bold;
-        boolean dim;
-        boolean underline;
-        boolean blink;
-        boolean reverseVideo;
-        boolean used;
-    };
+    static constexpr unsigned MaxTextRows = CShadowBuffer::MaxTextRows;
+    static constexpr unsigned MaxTextColumns = CShadowBuffer::MaxTextColumns;
 
     struct TRendererState
     {
@@ -290,13 +279,13 @@ public:
     /// \param color The logical color to be adjusted.
     /// \param factor Brightness factor (1.0 = no change, < 1.0 = darker, > 1.0 = brighter).
     /// \return The adjusted logical color.
-    CDisplay::TColor AdjustBrightness(CDisplay::TColor color, float factor);
+    CDisplay::TColor AdjustBrightness(CDisplay::TColor color, float factor) const;
 
     /// \brief Adjust brightness of a raw RGB565 color.
     /// \param color The raw RGB565 color to be adjusted.
     /// \param factor Brightness factor (1.0 = no change, < 1.0 = darker, > 1.0 = brighter).
     /// \return The adjusted raw RGB565 color.
-    CDisplay::TRawColor AdjustBrightness565(CDisplay::TRawColor color, float factor);
+    CDisplay::TRawColor AdjustBrightness565(CDisplay::TRawColor color, float factor) const;
 
     /// \brief Set scaling factors for bold and reverse video attributes.
     /// \param boldFactor Scaling factor for bold attribute.
@@ -339,23 +328,11 @@ private:
     ELineAttribute GetLineAttributeForY(unsigned nPosY) const;
     void SetLineAttributeForRow(unsigned row, ELineAttribute attribute);
     void ResetLineAttributes(void);
-    struct TShadowCell
-    {
-        char ch;
-        CDisplay::TRawColor foreground;
-        CDisplay::TRawColor background;
-        unsigned charSet;
-        boolean bold;
-        boolean dim;
-        boolean underline;
-        boolean blink;
-        boolean reverseVideo;
-        boolean used;
-    };
-
     TShadowCell (*GetActiveShadowCells(void))[MaxTextColumns];
     const TShadowCell (*GetActiveShadowCells(void) const)[MaxTextColumns];
-    void ResetShadowBuffer(TShadowCell cells[MaxTextRows][MaxTextColumns]);
+    TShadowStyle GetCurrentShadowStyle(void) const;
+    TShadowStyle GetDefaultShadowStyle(void) const;
+    void ResetShadowBuffer(void);
     void ResetShadowRow(unsigned row);
     void ClearShadowCells(unsigned row, unsigned startColumn, unsigned endColumn);
     void ShiftShadowCellsLeft(unsigned row, unsigned startColumn, unsigned count);
@@ -427,9 +404,9 @@ private:
     /// \brief Erase characters and shift remainder of line.
     void EraseChars(unsigned nCount);
     /// \brief Obtain current background color.
-    CDisplay::TRawColor GetTextBackgroundColor(void);
+    CDisplay::TRawColor GetTextBackgroundColor(void) const;
     /// \brief Obtain current foreground color.
-    CDisplay::TRawColor GetTextColor(void);
+    CDisplay::TRawColor GetTextColor(void) const;
     /// \brief Insert new blank lines starting at cursor row.
     void InsertLines(unsigned nCount);
     /// \brief Insert blank character cells at the cursor position (ICH/IRM support).
@@ -540,10 +517,7 @@ private:
     CCharGenerator *m_pDoubleBothCharGen;
     CCharGenerator *m_pGraphicsDoubleBothCharGen;
     EFontSelection m_CurrentFontSelection;
-    ELineAttribute m_LineAttributes[MaxTextRows];
-    ELineAttribute m_AltScreenLineAttributes[MaxTextRows];
-    TShadowCell m_ShadowCells[MaxTextRows][MaxTextColumns];
-    TShadowCell m_AltScreenShadowCells[MaxTextRows][MaxTextColumns];
+    CShadowBuffer m_ShadowBuffer;
 
     ECharacterSet m_G0CharSet;
     ECharacterSet m_G1CharSet;
