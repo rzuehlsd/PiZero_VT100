@@ -1,17 +1,64 @@
+#include "TRendererProjector.h"
+
 #include "TRenderer.h"
 
 #include <string.h>
 
-void CTRenderer::FillPixelRows(unsigned startY, unsigned endY, CDisplay::TRawColor color)
+CRendererProjector::CRendererProjector(CTRenderer &renderer)
+    : m_Renderer(renderer)
 {
-    if (startY >= endY || startY >= m_nHeight)
+}
+
+const CCharGenerator *CRendererProjector::GetCharGeneratorForCell(unsigned charSet, ELineAttribute attribute) const
+{
+    const bool useGraphics = charSet == static_cast<unsigned>(CTRenderer::CharSetGraphics);
+    const CCharGenerator *charGen = useGraphics && m_Renderer.m_pGraphicsCharGen != nullptr
+                                        ? m_Renderer.m_pGraphicsCharGen
+                                        : m_Renderer.m_pCharGen;
+
+    if (attribute == CShadowBuffer::LineAttributeDoubleHeightTop ||
+        attribute == CShadowBuffer::LineAttributeDoubleHeightBottom)
+    {
+        if (useGraphics && m_Renderer.m_pGraphicsDoubleBothCharGen != nullptr)
+        {
+            charGen = m_Renderer.m_pGraphicsDoubleBothCharGen;
+        }
+        else if (m_Renderer.m_pDoubleBothCharGen != nullptr)
+        {
+            charGen = m_Renderer.m_pDoubleBothCharGen;
+        }
+    }
+
+    return charGen;
+}
+
+CRendererProjector::TProjectedCellStyle CRendererProjector::GetProjectedCellStyle(const TShadowCell &cell,
+                                                                                  ELineAttribute attribute) const
+{
+    TProjectedCellStyle style{};
+    style.charGen = GetCharGeneratorForCell(cell.charSet, attribute);
+    style.foreground = cell.reverseVideo
+                           ? m_Renderer.AdjustBrightness565(cell.foreground, m_Renderer.m_ReverseForegroundScaleFactor)
+                           : cell.foreground;
+    style.background = cell.reverseVideo
+                           ? m_Renderer.AdjustBrightness565(cell.foreground, m_Renderer.m_ReverseBackgroundScaleFactor)
+                           : cell.background;
+    style.bold = cell.bold;
+    style.dim = cell.dim;
+    style.underline = (cell.blink && !m_Renderer.m_bTextBlinkVisible) ? FALSE : cell.underline;
+    return style;
+}
+
+void CRendererProjector::FillPixelRows(unsigned startY, unsigned endY, CDisplay::TRawColor color)
+{
+    if (startY >= endY || startY >= m_Renderer.m_nHeight)
     {
         return;
     }
 
-    if (endY > m_nHeight)
+    if (endY > m_Renderer.m_nHeight)
     {
-        endY = m_nHeight;
+        endY = m_Renderer.m_nHeight;
     }
 
     const unsigned rowCount = endY - startY;
@@ -20,16 +67,16 @@ void CTRenderer::FillPixelRows(unsigned startY, unsigned endY, CDisplay::TRawCol
         return;
     }
 
-    switch (m_nDepth)
+    switch (m_Renderer.m_nDepth)
     {
     case 8:
-        memset(m_pBuffer8 + startY * m_nWidth, static_cast<int>(static_cast<u8>(color)), static_cast<size_t>(rowCount) * m_nWidth);
+        memset(m_Renderer.m_pBuffer8 + startY * m_Renderer.m_nWidth, static_cast<int>(static_cast<u8>(color)), static_cast<size_t>(rowCount) * m_Renderer.m_nWidth);
         break;
 
     case 16:
     {
-        u16 *pRow = m_pBuffer16 + startY * m_nWidth;
-        const size_t pixelCount = static_cast<size_t>(rowCount) * m_nWidth;
+        u16 *pRow = m_Renderer.m_pBuffer16 + startY * m_Renderer.m_nWidth;
+        const size_t pixelCount = static_cast<size_t>(rowCount) * m_Renderer.m_nWidth;
         for (size_t index = 0; index < pixelCount; ++index)
         {
             pRow[index] = static_cast<u16>(color);
@@ -39,8 +86,8 @@ void CTRenderer::FillPixelRows(unsigned startY, unsigned endY, CDisplay::TRawCol
 
     case 32:
     {
-        u32 *pRow = m_pBuffer32 + startY * m_nWidth;
-        const size_t pixelCount = static_cast<size_t>(rowCount) * m_nWidth;
+        u32 *pRow = m_Renderer.m_pBuffer32 + startY * m_Renderer.m_nWidth;
+        const size_t pixelCount = static_cast<size_t>(rowCount) * m_Renderer.m_nWidth;
         for (size_t index = 0; index < pixelCount; ++index)
         {
             pRow[index] = color;
@@ -51,25 +98,25 @@ void CTRenderer::FillPixelRows(unsigned startY, unsigned endY, CDisplay::TRawCol
     default:
         for (unsigned y = startY; y < endY; ++y)
         {
-            for (unsigned x = 0; x < m_nWidth; ++x)
+            for (unsigned x = 0; x < m_Renderer.m_nWidth; ++x)
             {
-                SetRawPixel(x, y, color);
+                m_Renderer.SetRawPixel(x, y, color);
             }
         }
         break;
     }
 }
 
-void CTRenderer::ScrollPixelRowsUp(unsigned startY, unsigned endY, unsigned deltaY)
+void CRendererProjector::ScrollPixelRowsUp(unsigned startY, unsigned endY, unsigned deltaY)
 {
-    if (startY >= endY || deltaY == 0 || startY >= m_nHeight)
+    if (startY >= endY || deltaY == 0 || startY >= m_Renderer.m_nHeight)
     {
         return;
     }
 
-    if (endY > m_nHeight)
+    if (endY > m_Renderer.m_nHeight)
     {
-        endY = m_nHeight;
+        endY = m_Renderer.m_nHeight;
     }
 
     if (startY + deltaY >= endY)
@@ -77,188 +124,117 @@ void CTRenderer::ScrollPixelRowsUp(unsigned startY, unsigned endY, unsigned delt
         return;
     }
 
-    const size_t bytesToMove = static_cast<size_t>(endY - startY - deltaY) * m_nPitch;
-    memmove(m_pBuffer8 + startY * m_nPitch,
-            m_pBuffer8 + (startY + deltaY) * m_nPitch,
+    const size_t bytesToMove = static_cast<size_t>(endY - startY - deltaY) * m_Renderer.m_nPitch;
+    memmove(m_Renderer.m_pBuffer8 + startY * m_Renderer.m_nPitch,
+            m_Renderer.m_pBuffer8 + (startY + deltaY) * m_Renderer.m_nPitch,
             bytesToMove);
 }
 
-void CTRenderer::ClearUnusedBottomArea(CDisplay::TRawColor background)
+void CRendererProjector::ClearUnusedBottomArea(CDisplay::TRawColor background)
 {
-    if (m_nUsedHeight >= m_nHeight)
+    if (m_Renderer.m_nUsedHeight >= m_Renderer.m_nHeight)
     {
         return;
     }
 
-    FillPixelRows(m_nUsedHeight, m_nHeight, background);
+    FillPixelRows(m_Renderer.m_nUsedHeight, m_Renderer.m_nHeight, background);
 
-    SetUpdateArea(m_nUsedHeight, m_nHeight - 1);
+    m_Renderer.SetUpdateArea(m_Renderer.m_nUsedHeight, m_Renderer.m_nHeight - 1);
 }
 
-void CTRenderer::RenderShadowCell(unsigned row, unsigned column)
+void CRendererProjector::RenderShadowCell(unsigned row, unsigned column)
 {
-    const unsigned rowCount = GetRowCount();
-    const unsigned cellHeight = GetBaseCharHeight();
-    if (row >= rowCount || column >= MaxTextColumns || cellHeight == 0 || m_pCharGen == nullptr)
+    const unsigned rowCount = m_Renderer.GetRowCount();
+    const unsigned cellHeight = m_Renderer.GetBaseCharHeight();
+    if (row >= rowCount || column >= CTRenderer::MaxTextColumns || cellHeight == 0 || m_Renderer.m_pCharGen == nullptr)
     {
         return;
     }
 
     const unsigned nPosY = row * cellHeight;
-    if (nPosY >= m_nHeight)
+    if (nPosY >= m_Renderer.m_nHeight)
     {
         return;
     }
 
-    const unsigned visibleColumns = GetColumnsForY(nPosY);
-    const unsigned cellWidth = GetCharCellWidthForY(nPosY);
+    const unsigned visibleColumns = m_Renderer.GetColumnsForY(nPosY);
+    const unsigned cellWidth = m_Renderer.GetCharCellWidthForY(nPosY);
     if (column >= visibleColumns || cellWidth == 0)
     {
         return;
     }
 
     const unsigned nPosX = column * cellWidth;
-    if (nPosX >= m_nWidth)
+    if (nPosX >= m_Renderer.m_nWidth)
     {
         return;
     }
 
-    const CDisplay::TRawColor savedForeground = m_ForegroundColor;
-    const CDisplay::TRawColor savedBackground = m_BackgroundColor;
-    const boolean savedBold = m_bBoldAttribute;
-    const boolean savedDim = m_bDimAttribute;
-    const boolean savedUnderline = m_bUnderlineAttribute;
-    const boolean savedBlink = m_bBlinkAttribute;
-    const boolean savedReverse = m_bReverseAttribute;
-    CCharGenerator *savedCharGen = m_pCharGen;
-
-    const TShadowCell(*cells)[MaxTextColumns] = GetActiveShadowCells();
+    const TShadowCell(*cells)[CTRenderer::MaxTextColumns] = m_Renderer.GetActiveShadowCells();
     const TShadowCell &cell = cells[row][column];
-
-    m_ForegroundColor = cell.foreground;
-    m_BackgroundColor = cell.background;
-    m_bBoldAttribute = cell.bold;
-    m_bDimAttribute = cell.dim;
-    m_bUnderlineAttribute = (cell.blink && !m_bTextBlinkVisible) ? FALSE : cell.underline;
-    m_bBlinkAttribute = cell.blink;
-    m_bReverseAttribute = cell.reverseVideo;
-
-    const bool useGraphics = cell.charSet == static_cast<unsigned>(CharSetGraphics) &&
-                             static_cast<unsigned char>(cell.ch) >= 0x60 &&
-                             static_cast<unsigned char>(cell.ch) <= 0x7E;
-    if (useGraphics && m_pGraphicsCharGen != nullptr)
-    {
-        m_pCharGen = m_pGraphicsCharGen;
-    }
-    else
-    {
-        m_pCharGen = savedCharGen;
-    }
-
-    const char renderChar = (cell.blink && !m_bTextBlinkVisible) ? ' ' : (cell.used ? cell.ch : ' ');
-    DisplayChar(renderChar, nPosX, nPosY, GetTextColor());
-
-    m_ForegroundColor = savedForeground;
-    m_BackgroundColor = savedBackground;
-    m_bBoldAttribute = savedBold;
-    m_bDimAttribute = savedDim;
-    m_bUnderlineAttribute = savedUnderline;
-    m_bBlinkAttribute = savedBlink;
-    m_bReverseAttribute = savedReverse;
-    m_pCharGen = savedCharGen;
+    const ELineAttribute attribute = m_Renderer.GetLineAttributeForRow(row);
+    const TProjectedCellStyle style = GetProjectedCellStyle(cell, attribute);
+    const char renderChar = (cell.blink && !m_Renderer.m_bTextBlinkVisible) ? ' ' : (cell.used ? cell.ch : ' ');
+    DisplayChar(renderChar, nPosX, nPosY, attribute, style);
 }
 
-void CTRenderer::RenderShadowRow(unsigned row)
+void CRendererProjector::RenderShadowRow(unsigned row)
 {
-    const unsigned rowCount = GetRowCount();
-    const unsigned cellHeight = GetBaseCharHeight();
-    if (row >= rowCount || cellHeight == 0 || m_pCharGen == nullptr)
+    const unsigned rowCount = m_Renderer.GetRowCount();
+    const unsigned cellHeight = m_Renderer.GetBaseCharHeight();
+    if (row >= rowCount || cellHeight == 0 || m_Renderer.m_pCharGen == nullptr)
     {
         return;
     }
 
     const unsigned nPosY = row * cellHeight;
-    if (nPosY >= m_nHeight)
+    if (nPosY >= m_Renderer.m_nHeight)
     {
         return;
     }
 
-    const unsigned visibleColumns = GetColumnsForY(nPosY);
-    const unsigned cellWidth = GetCharCellWidthForY(nPosY);
+    const unsigned visibleColumns = m_Renderer.GetColumnsForY(nPosY);
+    const unsigned cellWidth = m_Renderer.GetCharCellWidthForY(nPosY);
     if (visibleColumns == 0 || cellWidth == 0)
     {
         return;
     }
 
-    const CDisplay::TRawColor savedForeground = m_ForegroundColor;
-    const CDisplay::TRawColor savedBackground = m_BackgroundColor;
-    const boolean savedBold = m_bBoldAttribute;
-    const boolean savedDim = m_bDimAttribute;
-    const boolean savedUnderline = m_bUnderlineAttribute;
-    const boolean savedBlink = m_bBlinkAttribute;
-    const boolean savedReverse = m_bReverseAttribute;
-    CCharGenerator *savedCharGen = m_pCharGen;
+    const CDisplay::TRawColor savedBackground = m_Renderer.m_BackgroundColor;
 
     FillPixelRows(nPosY, nPosY + cellHeight, savedBackground);
 
-    const TShadowCell(*cells)[MaxTextColumns] = GetActiveShadowCells();
-    for (unsigned column = 0; column < visibleColumns && column < MaxTextColumns; ++column)
+    const TShadowCell(*cells)[CTRenderer::MaxTextColumns] = m_Renderer.GetActiveShadowCells();
+    const ELineAttribute attribute = m_Renderer.GetLineAttributeForRow(row);
+    for (unsigned column = 0; column < visibleColumns && column < CTRenderer::MaxTextColumns; ++column)
     {
         const TShadowCell &cell = cells[row][column];
 
-        m_ForegroundColor = cell.foreground;
-        m_BackgroundColor = cell.background;
-        m_bBoldAttribute = cell.bold;
-        m_bDimAttribute = cell.dim;
-        m_bUnderlineAttribute = (cell.blink && !m_bTextBlinkVisible) ? FALSE : cell.underline;
-        m_bBlinkAttribute = cell.blink;
-        m_bReverseAttribute = cell.reverseVideo;
-
-        const bool useGraphics = cell.charSet == static_cast<unsigned>(CharSetGraphics) &&
-                                 static_cast<unsigned char>(cell.ch) >= 0x60 &&
-                                 static_cast<unsigned char>(cell.ch) <= 0x7E;
-        if (useGraphics && m_pGraphicsCharGen != nullptr)
-        {
-            m_pCharGen = m_pGraphicsCharGen;
-        }
-        else
-        {
-            m_pCharGen = savedCharGen;
-        }
-
         const unsigned nPosX = column * cellWidth;
-        if (nPosX >= m_nWidth)
+        if (nPosX >= m_Renderer.m_nWidth)
         {
             break;
         }
 
-        const char renderChar = (cell.blink && !m_bTextBlinkVisible) ? ' ' : (cell.used ? cell.ch : ' ');
-        DisplayChar(renderChar, nPosX, nPosY, GetTextColor());
+        const TProjectedCellStyle style = GetProjectedCellStyle(cell, attribute);
+        const char renderChar = (cell.blink && !m_Renderer.m_bTextBlinkVisible) ? ' ' : (cell.used ? cell.ch : ' ');
+        DisplayChar(renderChar, nPosX, nPosY, attribute, style);
     }
-
-    m_ForegroundColor = savedForeground;
-    m_BackgroundColor = savedBackground;
-    m_bBoldAttribute = savedBold;
-    m_bDimAttribute = savedDim;
-    m_bUnderlineAttribute = savedUnderline;
-    m_bBlinkAttribute = savedBlink;
-    m_bReverseAttribute = savedReverse;
-    m_pCharGen = savedCharGen;
 
     if (row + 1 == rowCount)
     {
         ClearUnusedBottomArea(savedBackground);
     }
 
-    SetUpdateArea(nPosY, nPosY + cellHeight - 1);
+    m_Renderer.SetUpdateArea(nPosY, nPosY + cellHeight - 1);
 }
 
-void CTRenderer::RenderShadowScreen(void)
+void CRendererProjector::RenderShadowScreen(void)
 {
-    const unsigned rowCount = GetRowCount();
+    const unsigned rowCount = m_Renderer.GetRowCount();
     if (rowCount == 0)
     {
-        ClearUnusedBottomArea(m_BackgroundColor);
+        ClearUnusedBottomArea(m_Renderer.m_BackgroundColor);
         return;
     }
 
@@ -445,41 +421,48 @@ CDisplay::TRawColor CTRenderer::AdjustBrightness565(CDisplay::TRawColor color, f
     return static_cast<CDisplay::TRawColor>((resultR << 11) | (resultG << 5) | resultB);
 }
 
-void CTRenderer::DisplayChar(char chChar, unsigned nPosX, unsigned nPosY,
-                             CDisplay::TRawColor nColor)
+void CRendererProjector::DisplayChar(char chChar, unsigned nPosX, unsigned nPosY,
+                                     CDisplay::TRawColor nColor)
 {
-    const ELineAttribute attribute = GetLineAttributeForY(nPosY);
-    const CCharGenerator *charGen = m_pCharGen;
+    const ELineAttribute attribute = m_Renderer.GetLineAttributeForY(nPosY);
+    TProjectedCellStyle style{};
+    style.charGen = GetCharGeneratorForCell(m_Renderer.m_bUseG1 ? static_cast<unsigned>(m_Renderer.m_G1CharSet) : static_cast<unsigned>(m_Renderer.m_G0CharSet),
+                                            attribute);
+    style.foreground = nColor;
+    style.background = m_Renderer.GetTextBackgroundColor();
+    style.bold = m_Renderer.m_bBoldAttribute;
+    style.dim = m_Renderer.m_bDimAttribute;
+    style.underline = m_Renderer.m_bUnderlineAttribute;
 
-    if (attribute == LineAttributeDoubleHeightTop || attribute == LineAttributeDoubleHeightBottom)
-    {
-        if (m_pCharGen == m_pGraphicsCharGen && m_pGraphicsDoubleBothCharGen != nullptr)
-        {
-            charGen = m_pGraphicsDoubleBothCharGen;
-        }
-        else if (m_pDoubleBothCharGen != nullptr)
-        {
-            charGen = m_pDoubleBothCharGen;
-        }
-    }
+    DisplayChar(chChar, nPosX, nPosY, attribute, style);
+}
 
-    const unsigned cellWidth = GetCharCellWidthForLineAttribute(attribute);
-    const unsigned cellHeight = GetBaseCharHeight();
+void CRendererProjector::DisplayChar(char chChar,
+                                     unsigned nPosX,
+                                     unsigned nPosY,
+                                     ELineAttribute attribute,
+                                     const TProjectedCellStyle &style)
+{
+    const CCharGenerator *charGen = style.charGen;
+
+    const unsigned cellWidth = m_Renderer.GetCharCellWidthForLineAttribute(attribute);
+    const unsigned cellHeight = m_Renderer.GetBaseCharHeight();
 
     if (charGen == nullptr || cellWidth == 0 || cellHeight == 0)
     {
         return;
     }
 
-    if (nColor != m_BackgroundColor)
+    CDisplay::TRawColor glyphColor = style.foreground;
+    if (glyphColor != style.background)
     {
-        if (m_bBoldAttribute)
+        if (style.bold)
         {
-            nColor = AdjustBrightness565(nColor, m_BoldScaleFactor);
+            glyphColor = m_Renderer.AdjustBrightness565(glyphColor, m_Renderer.m_BoldScaleFactor);
         }
-        else if (m_bDimAttribute)
+        else if (style.dim)
         {
-            nColor = AdjustBrightness565(nColor, m_DimScaleFactor);
+            glyphColor = m_Renderer.AdjustBrightness565(glyphColor, m_Renderer.m_DimScaleFactor);
         }
     }
 
@@ -487,70 +470,70 @@ void CTRenderer::DisplayChar(char chChar, unsigned nPosX, unsigned nPosY,
     {
         for (unsigned x = 0; x < cellWidth; x++)
         {
-            const bool isGlyphPixel = SampleGlyphPixel(*charGen, chChar, attribute, x, y);
-            const CDisplay::TRawColor pixelColor = isGlyphPixel ? nColor : GetTextBackgroundColor();
-            SetRawPixel(nPosX + x, nPosY + y, pixelColor);
+            const bool isGlyphPixel = m_Renderer.SampleGlyphPixel(*charGen, chChar, attribute, x, y);
+            const CDisplay::TRawColor pixelColor = isGlyphPixel ? glyphColor : style.background;
+            m_Renderer.SetRawPixel(nPosX + x, nPosY + y, pixelColor);
         }
     }
 
-    if (m_bBoldAttribute)
+    if (style.bold)
     {
         for (unsigned y = 0; y < cellHeight; y++)
         {
             for (unsigned x = 1; x < cellWidth; x++)
             {
-                if (SampleGlyphPixel(*charGen, chChar, attribute, x - 1, y))
+                if (m_Renderer.SampleGlyphPixel(*charGen, chChar, attribute, x - 1, y))
                 {
-                    SetRawPixel(nPosX + x, nPosY + y, nColor);
+                    m_Renderer.SetRawPixel(nPosX + x, nPosY + y, glyphColor);
                 }
             }
         }
     }
 
-    if (m_bUnderlineAttribute)
+    if (style.underline)
     {
         const unsigned underlineRow = charGen->GetUnderline();
         if (underlineRow < cellHeight)
         {
             for (unsigned x = 0; x < cellWidth; x++)
             {
-                SetRawPixel(nPosX + x, nPosY + underlineRow, nColor);
+                m_Renderer.SetRawPixel(nPosX + x, nPosY + underlineRow, glyphColor);
             }
         }
     }
 
-    SetUpdateArea(nPosY, nPosY + cellHeight - 1);
+    m_Renderer.SetUpdateArea(nPosY, nPosY + cellHeight - 1);
 }
 
-void CTRenderer::EraseChar(unsigned nPosX, unsigned nPosY)
+void CRendererProjector::EraseChar(unsigned nPosX, unsigned nPosY)
 {
-    const unsigned row = GetRowIndexFromY(nPosY);
-    const unsigned column = GetColumnIndexFromX(nPosX, nPosY);
-    if (row >= MaxTextRows || column >= MaxTextColumns)
+    const unsigned row = m_Renderer.GetRowIndexFromY(nPosY);
+    const unsigned column = m_Renderer.GetColumnIndexFromX(nPosX, nPosY);
+    if (row >= CTRenderer::MaxTextRows || column >= CTRenderer::MaxTextColumns)
     {
         return;
     }
 
-    ClearShadowCells(row, column, column + 1);
+    m_Renderer.ClearShadowCells(row, column, column + 1);
     RenderShadowCell(row, column);
 }
 
-void CTRenderer::InvertCursor(void)
+void CRendererProjector::InvertCursor(void)
 {
-    if (!m_bCursorOn)
+    if (!m_Renderer.m_bCursorOn)
     {
         return;
     }
 
-    CDisplay::TRawColor *pPixelData = m_pCursorPixels;
-    const unsigned cursorWidth = GetCharCellWidthForY(m_nCursorY);
-    const unsigned cursorHeight = GetBaseCharHeight();
-    unsigned y0 = m_bCursorBlock ? 0 : m_pCharGen->GetUnderline();
+    CDisplay::TRawColor *pPixelData = m_Renderer.m_pCursorPixels;
+    const unsigned cursorWidth = m_Renderer.GetCharCellWidthForY(m_Renderer.m_nCursorY);
+    const unsigned cursorHeight = m_Renderer.GetBaseCharHeight();
+    unsigned y0 = m_Renderer.m_bCursorBlock ? 0 : m_Renderer.m_pCharGen->GetUnderline();
 
-    CDisplay::TRawColor invertMask = m_ForegroundColor ^ m_BackgroundColor;
+    CDisplay::TRawColor invertMask = m_Renderer.m_ForegroundColor ^ m_Renderer.m_BackgroundColor;
     if (invertMask == 0)
     {
-        switch (m_nDepth)
+        switch (m_Renderer.m_nDepth)
         {
         case 1:
             invertMask = 0x1;
@@ -573,20 +556,65 @@ void CTRenderer::InvertCursor(void)
     {
         for (unsigned x = 0; x < cursorWidth; x++)
         {
-            if (!m_bCursorVisible)
+            if (!m_Renderer.m_bCursorVisible)
             {
-                const CDisplay::TRawColor storedPixel = GetRawPixel(m_nCursorX + x, m_nCursorY + y);
+                const CDisplay::TRawColor storedPixel = m_Renderer.GetRawPixel(m_Renderer.m_nCursorX + x, m_Renderer.m_nCursorY + y);
                 *pPixelData++ = storedPixel;
-                SetRawPixel(m_nCursorX + x, m_nCursorY + y, storedPixel ^ invertMask);
+                m_Renderer.SetRawPixel(m_Renderer.m_nCursorX + x, m_Renderer.m_nCursorY + y, storedPixel ^ invertMask);
             }
             else
             {
-                SetRawPixel(m_nCursorX + x, m_nCursorY + y, *pPixelData++);
+                m_Renderer.SetRawPixel(m_Renderer.m_nCursorX + x, m_Renderer.m_nCursorY + y, *pPixelData++);
             }
         }
     }
 
-    m_bCursorVisible = !m_bCursorVisible;
+    m_Renderer.m_bCursorVisible = !m_Renderer.m_bCursorVisible;
 
-    SetUpdateArea(m_nCursorY + y0, m_nCursorY + cursorHeight - 1);
+    m_Renderer.SetUpdateArea(m_Renderer.m_nCursorY + y0, m_Renderer.m_nCursorY + cursorHeight - 1);
+}
+
+void CTRenderer::FillPixelRows(unsigned startY, unsigned endY, CDisplay::TRawColor color)
+{
+    m_Projector.FillPixelRows(startY, endY, color);
+}
+
+void CTRenderer::ScrollPixelRowsUp(unsigned startY, unsigned endY, unsigned deltaY)
+{
+    m_Projector.ScrollPixelRowsUp(startY, endY, deltaY);
+}
+
+void CTRenderer::ClearUnusedBottomArea(CDisplay::TRawColor background)
+{
+    m_Projector.ClearUnusedBottomArea(background);
+}
+
+void CTRenderer::RenderShadowCell(unsigned row, unsigned column)
+{
+    m_Projector.RenderShadowCell(row, column);
+}
+
+void CTRenderer::RenderShadowRow(unsigned row)
+{
+    m_Projector.RenderShadowRow(row);
+}
+
+void CTRenderer::RenderShadowScreen(void)
+{
+    m_Projector.RenderShadowScreen();
+}
+
+void CTRenderer::DisplayChar(char chChar, unsigned nPosX, unsigned nPosY, CDisplay::TRawColor nColor)
+{
+    m_Projector.DisplayChar(chChar, nPosX, nPosY, nColor);
+}
+
+void CTRenderer::EraseChar(unsigned nPosX, unsigned nPosY)
+{
+    m_Projector.EraseChar(nPosX, nPosY);
+}
+
+void CTRenderer::InvertCursor(void)
+{
+    m_Projector.InvertCursor();
 }

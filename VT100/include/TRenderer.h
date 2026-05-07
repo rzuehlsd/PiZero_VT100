@@ -35,6 +35,7 @@
 // Forward declarations and includes for classes used in this module
 #include "TColorPalette.h"
 #include "TFontConverter.h"
+#include "TRendererProjector.h"
 #include "TShadowBuffer.h"
 
 /**
@@ -314,6 +315,8 @@ public:
     void RestoreScreenBuffer(const void *buffer, size_t bufferSize);
 
 private:
+    friend class CRendererProjector;
+
     /// \brief Apply a font using either pixel-stable or row/column-stable cursor handling.
     boolean ApplyFont(const TFont &rFont,
                       CCharGenerator::TFontFlags FontFlags,
@@ -518,6 +521,7 @@ private:
     CCharGenerator *m_pGraphicsDoubleBothCharGen;
     EFontSelection m_CurrentFontSelection;
     CShadowBuffer m_ShadowBuffer;
+    CRendererProjector m_Projector;
 
     ECharacterSet m_G0CharSet;
     ECharacterSet m_G1CharSet;

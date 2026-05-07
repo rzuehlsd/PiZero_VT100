@@ -84,6 +84,7 @@ CTRenderer::CTRenderer(void)
       m_pDoubleBothCharGen(nullptr),
       m_pGraphicsDoubleBothCharGen(nullptr),
       m_CurrentFontSelection(EFontSelection::VT100Font10x20),
+      m_Projector(*this),
       m_G0CharSet(CharSetUS),
       m_G1CharSet(CharSetGraphics),
       m_bUseG1(FALSE),
@@ -352,7 +353,6 @@ void CTRenderer::ShiftShadowRowsDown(unsigned startRow, unsigned endRow, unsigne
 {
     m_ShadowBuffer.ShiftRowsDown(m_bAltScreenActive, startRow, endRow, count, GetCurrentShadowStyle());
 }
-
 
 boolean CTRenderer::ShadowRowHasBlink(unsigned row) const
 {
@@ -1538,7 +1538,6 @@ void CTRenderer::ScreenAlignmentTest(void)
     m_nCursorX = savedX;
     m_nCursorY = savedY;
 }
-
 
 void CTRenderer::SetPixel(unsigned nPosX, unsigned nPosY, TRendererColor Color)
 {
@@ -4077,7 +4076,6 @@ void CTRenderer::Scroll(void)
         ++m_ScrollNormalCount;
     }
 }
-
 
 void CTRenderer::doRenderTest(void)
 {
