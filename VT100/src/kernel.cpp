@@ -28,9 +28,12 @@
 
 // Include application components
 #include "TRenderer.h"
+#include "TRendererProjector.h"
+#include "TRendererSurface.h"
 #include "TFontConverter.h"
 #include "TKeyboard.h"
 #include "TConfig.h"
+#include "TShadowBuffer.h"
 #include "TUART.h"
 #include "TFileLog.h"
 #include "TWlanLog.h"
@@ -261,6 +264,9 @@ CKernel::CKernel(void)
       m_Net(nullptr, nullptr, nullptr, nullptr, DefaultHostname, NetDeviceTypeWLAN),
       m_WpaSupplicant(SupplicantConfig),
       m_pRenderer(nullptr),
+    m_pShadowBuffer(nullptr),
+    m_pRendererSurface(nullptr),
+    m_pRendererProjector(nullptr),
       m_pFontConverter(nullptr),
       m_pKeyboard(nullptr),
       m_pConfig(nullptr),
@@ -335,6 +341,15 @@ void CKernel::ToggleLocalMode()
 
 CKernel::~CKernel(void)
 {
+    delete m_pRendererProjector;
+    m_pRendererProjector = nullptr;
+
+    delete m_pRendererSurface;
+    m_pRendererSurface = nullptr;
+
+    delete m_pShadowBuffer;
+    m_pShadowBuffer = nullptr;
+
     delete m_pScreenLogGate;
 }
 
@@ -578,9 +593,40 @@ boolean CKernel::Initialize(void)
         bOK = FALSE;
     }
 
+    if (m_pShadowBuffer == nullptr)
+    {
+        m_pShadowBuffer = new CShadowBuffer();
+    }
+
+    if (m_pRendererSurface == nullptr)
+    {
+        m_pRendererSurface = new CRendererSurface();
+    }
+
+    if (m_pRendererProjector == nullptr && m_pShadowBuffer != nullptr && m_pRendererSurface != nullptr)
+    {
+        m_pRendererProjector = new CTRendererProjector(*m_pShadowBuffer, *m_pRendererSurface);
+    }
+
+    if (m_pRenderer == nullptr || m_pShadowBuffer == nullptr || m_pRendererSurface == nullptr || m_pRendererProjector == nullptr)
+    {
+        LOGERR("Failed to create renderer render-stack modules");
+        bOK = FALSE;
+    }
+    else
+    {
+        m_pRenderer->AttachRenderStack(m_pShadowBuffer, m_pRendererSurface, m_pRendererProjector);
+    }
+
     if (m_pRenderer == nullptr || !m_pRenderer->Initialize())
     {
         LOGERR("Failed to initialize renderer module");
+        bOK = FALSE;
+    }
+
+    if (bOK && m_pRendererProjector != nullptr && !m_pRendererProjector->Initialize())
+    {
+        LOGERR("Failed to initialize renderer projector task");
         bOK = FALSE;
     }
 

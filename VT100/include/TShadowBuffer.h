@@ -11,7 +11,9 @@
 
 #pragma once
 
+#include <circle/chargenerator.h>
 #include <circle/display.h>
+#include <circle/spinlock.h>
 #include <circle/types.h>
 
 /**
@@ -72,6 +74,40 @@ public:
         boolean underline;
         boolean blink;
         boolean reverseVideo;
+    };
+
+    /// @brief Snapshot of render-visible state consumed by the projector task.
+    struct TProjectorState
+    {
+        const CCharGenerator *charGen;
+        const CCharGenerator *graphicsCharGen;
+        const CCharGenerator *doubleBothCharGen;
+        const CCharGenerator *graphicsDoubleBothCharGen;
+        unsigned width;
+        unsigned height;
+        unsigned usedWidth;
+        unsigned usedHeight;
+        unsigned depth;
+        unsigned cursorX;
+        unsigned cursorY;
+        unsigned cursorBlinkPeriodTicks;
+        unsigned nextCursorBlink;
+        unsigned frameGeneration;
+        CDisplay::TRawColor foreground;
+        CDisplay::TRawColor background;
+        CDisplay::TRawColor defaultForeground;
+        CDisplay::TRawColor defaultBackground;
+        float boldScaleFactor;
+        float dimScaleFactor;
+        float reverseBackgroundScaleFactor;
+        float reverseForegroundScaleFactor;
+        boolean cursorOn;
+        boolean cursorBlock;
+        boolean cursorVisible;
+        boolean blinkingCursor;
+        boolean textBlinkVisible;
+        boolean altScreenActive;
+        boolean fullRefreshPending;
     };
 
     /// @brief Construct an empty shadow buffer with cleared line attributes.
@@ -158,6 +194,22 @@ public:
     /// @brief Access the active shadow cell matrix as const data.
     const TShadowCell (*GetActiveCells(boolean altScreenActive) const)[MaxTextColumns];
 
+    /// @brief Replace the projector-visible state snapshot.
+    void SetProjectorState(const TProjectorState &state);
+    /// @brief Copy the current projector-visible state snapshot.
+    TProjectorState GetProjectorState(void) const;
+    /// @brief Mark that the projector must redraw from the shadow model.
+    void MarkFullRefresh(void);
+    /// @brief Clear the full-refresh flag and report whether it had been set.
+    boolean ConsumeFullRefresh(void);
+    /// @brief Increment and return the frame generation counter.
+    unsigned BumpFrameGeneration(void);
+
+    /// @brief Acquire the shadow-buffer lock for snapshot-style compound reads.
+    void Acquire(void) const;
+    /// @brief Release the shadow-buffer lock.
+    void Release(void) const;
+
 private:
     /// @brief Reset one concrete shadow-cell matrix.
     void ResetBuffer(TShadowCell cells[MaxTextRows][MaxTextColumns], const TStyle &defaultStyle);
@@ -166,4 +218,6 @@ private:
     ELineAttribute m_AltScreenLineAttributes[MaxTextRows];
     TShadowCell m_ShadowCells[MaxTextRows][MaxTextColumns];
     TShadowCell m_AltScreenShadowCells[MaxTextRows][MaxTextColumns];
+    TProjectorState m_ProjectorState;
+    mutable CSpinLock m_SpinLock;
 };

@@ -172,9 +172,6 @@ private:
     CTKeyboard::TKeyStatusHandlerRaw m_pPrevKeyStatusRaw;
     struct TSetupSnapshot
     {
-        u8 *buffer;
-        size_t size;
-        bool valid;
         bool stateValid;
         CTRenderer::TRendererState rendererState;
     };

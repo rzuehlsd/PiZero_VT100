@@ -14,11 +14,14 @@
 #include <string.h>
 
 CShadowBuffer::CShadowBuffer(void)
+    : m_SpinLock(TASK_LEVEL)
 {
     memset(m_LineAttributes, 0, sizeof(m_LineAttributes));
     memset(m_AltScreenLineAttributes, 0, sizeof(m_AltScreenLineAttributes));
     memset(m_ShadowCells, 0, sizeof(m_ShadowCells));
     memset(m_AltScreenShadowCells, 0, sizeof(m_AltScreenShadowCells));
+    memset(&m_ProjectorState, 0, sizeof(m_ProjectorState));
+    m_ProjectorState.fullRefreshPending = TRUE;
 }
 
 void CShadowBuffer::ResetBuffer(TShadowCell cells[MaxTextRows][MaxTextColumns], const TStyle &defaultStyle)
@@ -47,11 +50,13 @@ void CShadowBuffer::ResetBuffers(const TStyle &defaultStyle)
     ResetBuffer(m_AltScreenShadowCells, defaultStyle);
     ResetLineAttributes();
     memset(m_AltScreenLineAttributes, 0, sizeof(m_AltScreenLineAttributes));
+    MarkFullRefresh();
 }
 
 void CShadowBuffer::ResetActiveBuffer(boolean altScreenActive, const TStyle &defaultStyle)
 {
     ResetBuffer(altScreenActive ? m_AltScreenShadowCells : m_ShadowCells, defaultStyle);
+    MarkFullRefresh();
 }
 
 void CShadowBuffer::ResetRow(boolean altScreenActive, unsigned row, const TStyle &style)
@@ -99,6 +104,8 @@ void CShadowBuffer::ClearCells(boolean altScreenActive,
         cells[row][column].reverseVideo = style.reverseVideo;
         cells[row][column].used = FALSE;
     }
+
+    MarkFullRefresh();
 }
 
 void CShadowBuffer::ShiftCellsLeft(boolean altScreenActive,
@@ -125,6 +132,7 @@ void CShadowBuffer::ShiftCellsLeft(boolean altScreenActive,
     }
 
     ClearCells(altScreenActive, row, MaxTextColumns - count, MaxTextColumns, style);
+    MarkFullRefresh();
 }
 
 void CShadowBuffer::ShiftCellsRight(boolean altScreenActive,
@@ -151,6 +159,7 @@ void CShadowBuffer::ShiftCellsRight(boolean altScreenActive,
     }
 
     ClearCells(altScreenActive, row, startColumn, startColumn + count, style);
+    MarkFullRefresh();
 }
 
 void CShadowBuffer::ShiftRowsUp(boolean altScreenActive,
@@ -188,6 +197,8 @@ void CShadowBuffer::ShiftRowsUp(boolean altScreenActive,
     {
         ResetRow(altScreenActive, row, style);
     }
+
+    MarkFullRefresh();
 }
 
 void CShadowBuffer::ShiftRowsDown(boolean altScreenActive,
@@ -225,6 +236,8 @@ void CShadowBuffer::ShiftRowsDown(boolean altScreenActive,
     {
         ResetRow(altScreenActive, row, style);
     }
+
+    MarkFullRefresh();
 }
 
 void CShadowBuffer::StoreCell(boolean altScreenActive,
@@ -249,6 +262,7 @@ void CShadowBuffer::StoreCell(boolean altScreenActive,
     cells[row][column].blink = style.blink;
     cells[row][column].reverseVideo = style.reverseVideo;
     cells[row][column].used = TRUE;
+    MarkFullRefresh();
 }
 
 CShadowBuffer::ELineAttribute CShadowBuffer::GetLineAttribute(unsigned row, unsigned rowCount) const
@@ -274,6 +288,7 @@ void CShadowBuffer::SetLineAttribute(unsigned row, unsigned rowCount, ELineAttri
     }
 
     m_LineAttributes[row] = attribute;
+    MarkFullRefresh();
 }
 
 void CShadowBuffer::ResetLineAttributes(void)
@@ -282,6 +297,7 @@ void CShadowBuffer::ResetLineAttributes(void)
     {
         m_LineAttributes[row] = LineAttributeNormal;
     }
+    MarkFullRefresh();
 }
 
 void CShadowBuffer::ShiftLineAttributesUp(unsigned startRow, unsigned endRow, unsigned count)
@@ -305,6 +321,8 @@ void CShadowBuffer::ShiftLineAttributesUp(unsigned startRow, unsigned endRow, un
     {
         m_LineAttributes[row] = LineAttributeNormal;
     }
+
+    MarkFullRefresh();
 }
 
 void CShadowBuffer::ShiftLineAttributesDown(unsigned startRow, unsigned endRow, unsigned count)
@@ -328,6 +346,8 @@ void CShadowBuffer::ShiftLineAttributesDown(unsigned startRow, unsigned endRow, 
     {
         m_LineAttributes[row] = LineAttributeNormal;
     }
+
+    MarkFullRefresh();
 }
 
 void CShadowBuffer::CopyLineAttributesToAlternate(void)
@@ -338,6 +358,7 @@ void CShadowBuffer::CopyLineAttributesToAlternate(void)
 void CShadowBuffer::RestoreLineAttributesFromAlternate(void)
 {
     memcpy(m_LineAttributes, m_AltScreenLineAttributes, sizeof(m_LineAttributes));
+    MarkFullRefresh();
 }
 
 const CShadowBuffer::ELineAttribute *CShadowBuffer::GetLineAttributes(void) const
@@ -348,6 +369,7 @@ const CShadowBuffer::ELineAttribute *CShadowBuffer::GetLineAttributes(void) cons
 void CShadowBuffer::RestoreLineAttributes(const ELineAttribute attributes[MaxTextRows])
 {
     memcpy(m_LineAttributes, attributes, sizeof(m_LineAttributes));
+    MarkFullRefresh();
 }
 
 boolean CShadowBuffer::RowHasBlink(boolean altScreenActive, unsigned row, unsigned rowCount) const
@@ -377,4 +399,53 @@ CShadowBuffer::TShadowCell (*CShadowBuffer::GetActiveCells(boolean altScreenActi
 const CShadowBuffer::TShadowCell (*CShadowBuffer::GetActiveCells(boolean altScreenActive) const)[MaxTextColumns]
 {
     return altScreenActive ? m_AltScreenShadowCells : m_ShadowCells;
+}
+
+void CShadowBuffer::SetProjectorState(const TProjectorState &state)
+{
+    Acquire();
+    m_ProjectorState = state;
+    Release();
+}
+
+CShadowBuffer::TProjectorState CShadowBuffer::GetProjectorState(void) const
+{
+    Acquire();
+    const TProjectorState state = m_ProjectorState;
+    Release();
+    return state;
+}
+
+void CShadowBuffer::MarkFullRefresh(void)
+{
+    m_ProjectorState.fullRefreshPending = TRUE;
+    ++m_ProjectorState.frameGeneration;
+}
+
+boolean CShadowBuffer::ConsumeFullRefresh(void)
+{
+    Acquire();
+    const boolean pending = m_ProjectorState.fullRefreshPending;
+    m_ProjectorState.fullRefreshPending = FALSE;
+    Release();
+    return pending;
+}
+
+unsigned CShadowBuffer::BumpFrameGeneration(void)
+{
+    Acquire();
+    ++m_ProjectorState.frameGeneration;
+    const unsigned generation = m_ProjectorState.frameGeneration;
+    Release();
+    return generation;
+}
+
+void CShadowBuffer::Acquire(void) const
+{
+    m_SpinLock.Acquire();
+}
+
+void CShadowBuffer::Release(void) const
+{
+    m_SpinLock.Release();
 }

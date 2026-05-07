@@ -1,5 +1,5 @@
 //------------------------------------------------------------------------------
-// Module:        CRendererProjector
+// Module:        CTRendererProjector
 // Description:   Projects renderer shadow state onto the framebuffer.
 // Author:        R. Zuehlsdorff, ralf.zuehlsdorff@t-online.de
 // Created:       2026-05-07
@@ -14,165 +14,652 @@
 #include "TRenderer.h"
 #include "TRendererSurface.h"
 
+#include <circle/sched/scheduler.h>
+#include <circle/timer.h>
 #include <string.h>
 
-CRendererProjector::CRendererProjector(CTRenderer &renderer,
-                                                                             CShadowBuffer &shadowBuffer,
-                                                                             CRendererSurface &surface)
-        : m_Renderer(renderer),
-            m_ShadowBuffer(shadowBuffer),
-            m_Surface(surface)
+namespace
 {
+    constexpr unsigned kProjectorMinimumRefreshMs = 1;
+    constexpr unsigned kDefaultRefreshHz = 60;
 }
 
-const CCharGenerator *CRendererProjector::GetCharGeneratorForCell(unsigned charSet, ELineAttribute attribute) const
+CTRendererProjector::CTRendererProjector(CShadowBuffer &shadowBuffer,
+                                       CRendererSurface &surface)
+    : m_ShadowBuffer(shadowBuffer),
+      m_Surface(surface),
+      m_nRefreshDelayMs(1000 / kDefaultRefreshHz),
+      m_nLastRenderedGeneration(static_cast<unsigned>(-1))
 {
-    return m_Renderer.GetProjectorCharGenerator(charSet,
-                                                static_cast<CTRenderer::ELineAttribute>(attribute));
+    SetName("RendererProjector");
+    Suspend();
 }
 
-CRendererProjector::TProjectedCellStyle CRendererProjector::GetProjectedCellStyle(const TShadowCell &cell,
+boolean CTRendererProjector::Initialize(unsigned refreshHz)
+{
+    if (refreshHz == 0)
+    {
+        refreshHz = kDefaultRefreshHz;
+    }
+
+    m_nRefreshDelayMs = 1000 / refreshHz;
+    if (m_nRefreshDelayMs < kProjectorMinimumRefreshMs)
+    {
+        m_nRefreshDelayMs = kProjectorMinimumRefreshMs;
+    }
+
+    Start();
+    return TRUE;
+}
+
+void CTRendererProjector::Run(void)
+{
+    while (!IsSuspended())
+    {
+        TProjectorState state = m_ShadowBuffer.GetProjectorState();
+        const boolean blinkChanged = AdvanceBlinkState(state);
+        const boolean needsRender = state.fullRefreshPending || state.frameGeneration != m_nLastRenderedGeneration || blinkChanged;
+
+        if (needsRender && state.width != 0 && state.height != 0)
+        {
+            RenderShadowScreen(state);
+            RenderCursor(state);
+
+            CDisplay::TArea area{};
+            area.x1 = 0;
+            area.x2 = state.width - 1;
+            area.y1 = 0;
+            area.y2 = state.height - 1;
+            m_Surface.FlushArea(area, m_Surface.GetBuffer());
+
+            state.fullRefreshPending = FALSE;
+            m_nLastRenderedGeneration = state.frameGeneration;
+            m_ShadowBuffer.SetProjectorState(state);
+        }
+
+        CScheduler::Get()->MsSleep(m_nRefreshDelayMs);
+    }
+}
+
+const CCharGenerator *CTRendererProjector::GetCharGeneratorForCell(const TProjectorState &state,
+                                                                  unsigned charSet,
+                                                                  ELineAttribute attribute) const
+{
+    const boolean useGraphics = charSet != 0;
+    const CCharGenerator *charGen = useGraphics && state.graphicsCharGen != nullptr
+                                        ? state.graphicsCharGen
+                                        : state.charGen;
+
+    if (attribute == CShadowBuffer::LineAttributeDoubleHeightTop ||
+        attribute == CShadowBuffer::LineAttributeDoubleHeightBottom)
+    {
+        if (useGraphics && state.graphicsDoubleBothCharGen != nullptr)
+        {
+            charGen = state.graphicsDoubleBothCharGen;
+        }
+        else if (state.doubleBothCharGen != nullptr)
+        {
+            charGen = state.doubleBothCharGen;
+        }
+    }
+
+    return charGen;
+}
+
+CTRendererProjector::TProjectedCellStyle CTRendererProjector::GetProjectedCellStyle(const TProjectorState &state,
+                                                                                  const TShadowCell &cell,
                                                                                   ELineAttribute attribute) const
 {
     TProjectedCellStyle style{};
-    style.charGen = m_Renderer.GetProjectorCharGenerator(cell.charSet,
-                                                         static_cast<CTRenderer::ELineAttribute>(attribute));
+    style.charGen = GetCharGeneratorForCell(state, cell.charSet, attribute);
     style.foreground = cell.reverseVideo
-                           ? m_Renderer.AdjustBrightness565(cell.foreground, m_Renderer.m_ReverseForegroundScaleFactor)
+                           ? AdjustBrightness565(cell.foreground, state.reverseForegroundScaleFactor)
                            : cell.foreground;
     style.background = cell.reverseVideo
-                           ? m_Renderer.AdjustBrightness565(cell.foreground, m_Renderer.m_ReverseBackgroundScaleFactor)
+                           ? AdjustBrightness565(cell.foreground, state.reverseBackgroundScaleFactor)
                            : cell.background;
     style.bold = cell.bold;
     style.dim = cell.dim;
-    style.underline = (cell.blink && !m_Renderer.m_bTextBlinkVisible) ? FALSE : cell.underline;
+    style.underline = (cell.blink && !state.textBlinkVisible) ? FALSE : cell.underline;
     return style;
 }
 
-void CRendererProjector::FillPixelRows(unsigned startY, unsigned endY, CDisplay::TRawColor color)
+unsigned CTRendererProjector::GetBaseCharWidth(const TProjectorState &state) const
 {
-    m_Surface.FillRows(startY, endY, color);
+    return state.charGen ? state.charGen->GetCharWidth() : 0;
 }
 
-void CRendererProjector::ScrollPixelRowsUp(unsigned startY, unsigned endY, unsigned deltaY)
+unsigned CTRendererProjector::GetBaseCharHeight(const TProjectorState &state) const
 {
-    m_Surface.ScrollRowsUp(startY, endY, deltaY);
+    return state.charGen ? state.charGen->GetCharHeight() : 0;
 }
 
-void CRendererProjector::ClearUnusedBottomArea(CDisplay::TRawColor background)
+unsigned CTRendererProjector::GetRowCount(const TProjectorState &state) const
 {
-    if (m_Renderer.m_nUsedHeight >= m_Renderer.m_nHeight)
+    const unsigned charHeight = GetBaseCharHeight(state);
+    if (charHeight == 0)
+    {
+        return 0;
+    }
+
+    unsigned rows = state.usedHeight / charHeight;
+    if (rows > CShadowBuffer::MaxTextRows)
+    {
+        rows = CShadowBuffer::MaxTextRows;
+    }
+
+    return rows;
+}
+
+unsigned CTRendererProjector::GetCharCellWidthForLineAttribute(const TProjectorState &state,
+                                                              ELineAttribute attribute) const
+{
+    const unsigned baseCharWidth = GetBaseCharWidth(state);
+    if (baseCharWidth == 0)
+    {
+        return 0;
+    }
+
+    if (attribute == CShadowBuffer::LineAttributeDoubleWidth || attribute == CShadowBuffer::LineAttributeDoubleHeightTop || attribute == CShadowBuffer::LineAttributeDoubleHeightBottom)
+    {
+        return baseCharWidth * 2;
+    }
+
+    return baseCharWidth;
+}
+
+unsigned CTRendererProjector::GetColumnsForLineAttribute(const TProjectorState &state,
+                                                        ELineAttribute attribute) const
+{
+    const unsigned charWidth = GetCharCellWidthForLineAttribute(state, attribute);
+    if (charWidth == 0)
+    {
+        return 0;
+    }
+
+    return state.usedWidth / charWidth;
+}
+
+boolean CTRendererProjector::SampleGlyphPixel(const CCharGenerator &charGen,
+                                             ELineAttribute attribute,
+                                             unsigned nPosX,
+                                             unsigned nPosY,
+                                             unsigned baseCharHeight,
+                                             char chChar) const
+{
+    const unsigned baseCharWidth = charGen.GetCharWidth();
+    const unsigned glyphHeight = charGen.GetCharHeight();
+    if (baseCharWidth == 0 || glyphHeight == 0)
+    {
+        return FALSE;
+    }
+
+    unsigned sourceX = nPosX;
+    unsigned sourceY = nPosY;
+
+    if (attribute == CShadowBuffer::LineAttributeDoubleHeightTop || attribute == CShadowBuffer::LineAttributeDoubleHeightBottom)
+    {
+        if (baseCharHeight == 0 || glyphHeight < baseCharHeight)
+        {
+            return FALSE;
+        }
+
+        if (attribute == CShadowBuffer::LineAttributeDoubleHeightBottom)
+        {
+            sourceY = nPosY + baseCharHeight;
+        }
+    }
+    else if (attribute == CShadowBuffer::LineAttributeDoubleWidth)
+    {
+        sourceX >>= 1;
+    }
+
+    if (sourceX >= baseCharWidth || sourceY >= glyphHeight)
+    {
+        return FALSE;
+    }
+
+    return charGen.GetPixel(chChar, sourceX, sourceY);
+}
+
+void CTRendererProjector::FillPixelRows(unsigned, unsigned, CDisplay::TRawColor)
+{
+    RequestRefresh();
+}
+
+void CTRendererProjector::ScrollPixelRowsUp(unsigned, unsigned, unsigned)
+{
+    RequestRefresh();
+}
+
+void CTRendererProjector::ClearUnusedBottomArea(CDisplay::TRawColor)
+{
+    RequestRefresh();
+}
+
+void CTRendererProjector::RenderShadowCell(unsigned, unsigned)
+{
+    RequestRefresh();
+}
+
+void CTRendererProjector::RenderShadowRow(unsigned)
+{
+    RequestRefresh();
+}
+
+void CTRendererProjector::RenderShadowScreen(void)
+{
+    RequestRefresh();
+}
+
+void CTRendererProjector::DisplayChar(char, unsigned, unsigned, CDisplay::TRawColor)
+{
+    RequestRefresh();
+}
+
+void CTRendererProjector::EraseChar(unsigned, unsigned)
+{
+    RequestRefresh();
+}
+
+void CTRendererProjector::InvertCursor(void)
+{
+    RequestRefresh();
+}
+
+CDisplay::TRawColor CTRendererProjector::AdjustBrightness565(CDisplay::TRawColor color, float factor) const
+{
+    auto clampComponent = [](float value, u32 maxValue) -> u32
+    {
+        if (value < 0.0f)
+        {
+            return 0;
+        }
+
+        if (value > static_cast<float>(maxValue))
+        {
+            return maxValue;
+        }
+
+        return static_cast<u32>(value + 0.5f);
+    };
+
+    const float r = static_cast<float>((color >> 11) & 0x1F);
+    const float g = static_cast<float>((color >> 5) & 0x3F);
+    const float b = static_cast<float>(color & 0x1F);
+
+    float scaledFactor = factor;
+    if (scaledFactor < 0.0f)
+    {
+        scaledFactor = 0.0f;
+    }
+
+    if (scaledFactor > 2.0f)
+    {
+        scaledFactor = 2.0f;
+    }
+
+    float newR;
+    float newG;
+    float newB;
+
+    if (scaledFactor <= 1.0f)
+    {
+        newR = r * scaledFactor;
+        newG = g * scaledFactor;
+        newB = b * scaledFactor;
+    }
+    else
+    {
+        newR = r * scaledFactor;
+        newG = g * scaledFactor;
+        newB = b * scaledFactor;
+
+        const float redClamp = (newR > 31.0f) ? (31.0f / newR) : 1.0f;
+        const float greenClamp = (newG > 63.0f) ? (63.0f / newG) : 1.0f;
+        const float blueClamp = (newB > 31.0f) ? (31.0f / newB) : 1.0f;
+
+        float clampScale = redClamp;
+        if (greenClamp < clampScale)
+        {
+            clampScale = greenClamp;
+        }
+        if (blueClamp < clampScale)
+        {
+            clampScale = blueClamp;
+        }
+
+        if (clampScale < 1.0f)
+        {
+            newR *= clampScale;
+            newG *= clampScale;
+            newB *= clampScale;
+        }
+
+        float mix = (scaledFactor - 1.0f) * 0.45f;
+        if (mix > 1.0f)
+        {
+            mix = 1.0f;
+        }
+        else if (mix < 0.0f)
+        {
+            mix = 0.0f;
+        }
+        if (mix > 0.0f)
+        {
+            const float redWeight = 0.30f;
+            const float greenWeight = 0.60f;
+            const float blueWeight = 0.10f;
+
+            newR += (31.0f - newR) * mix * redWeight;
+            newG += (63.0f - newG) * mix * greenWeight;
+            newB += (31.0f - newB) * mix * blueWeight;
+        }
+    }
+
+    const u32 resultR = clampComponent(newR, 0x1F);
+    const u32 resultG = clampComponent(newG, 0x3F);
+    const u32 resultB = clampComponent(newB, 0x1F);
+
+    return static_cast<CDisplay::TRawColor>((resultR << 11) | (resultG << 5) | resultB);
+}
+
+CDisplay::TRawColor CTRendererProjector::ApplyProjectedGlyphBrightness(const TProjectorState &state,
+                                                                      CDisplay::TRawColor color,
+                                                                      boolean bold,
+                                                                      boolean dim) const
+{
+    if (bold)
+    {
+        return AdjustBrightness565(color, state.boldScaleFactor);
+    }
+
+    if (dim)
+    {
+        return AdjustBrightness565(color, state.dimScaleFactor);
+    }
+
+    return color;
+}
+
+boolean CTRendererProjector::ShadowHasBlinkCells(boolean altScreenActive, unsigned rowCount) const
+{
+    for (unsigned row = 0; row < rowCount; ++row)
+    {
+        if (m_ShadowBuffer.RowHasBlink(altScreenActive, row, rowCount))
+        {
+            return TRUE;
+        }
+    }
+
+    return FALSE;
+}
+
+boolean CTRendererProjector::AdvanceBlinkState(TProjectorState &state)
+{
+    const unsigned rowCount = GetRowCount(state);
+    const boolean hasBlinkingText = ShadowHasBlinkCells(state.altScreenActive, rowCount);
+    const boolean cursorCanBlink = state.cursorOn && state.blinkingCursor;
+    if (!cursorCanBlink && !hasBlinkingText)
+    {
+        if (state.cursorOn && !state.blinkingCursor && !state.cursorVisible)
+        {
+            state.cursorVisible = TRUE;
+            return TRUE;
+        }
+        return FALSE;
+    }
+
+    const unsigned currentTicks = CTimer::Get()->GetTicks();
+    if ((int)(currentTicks - state.nextCursorBlink) < 0)
+    {
+        return FALSE;
+    }
+
+    if (hasBlinkingText)
+    {
+        state.textBlinkVisible = !state.textBlinkVisible;
+    }
+
+    if (cursorCanBlink)
+    {
+        state.cursorVisible = !state.cursorVisible;
+    }
+    else if (state.cursorOn)
+    {
+        state.cursorVisible = TRUE;
+    }
+
+    const unsigned blinkTicks = state.cursorBlinkPeriodTicks ? state.cursorBlinkPeriodTicks : 1;
+    state.nextCursorBlink = currentTicks + blinkTicks;
+    return TRUE;
+}
+
+void CTRendererProjector::DisplayChar(char chChar,
+                                     unsigned nPosX,
+                                     unsigned nPosY,
+                                     const TProjectorState &state,
+                                     ELineAttribute attribute,
+                                     const TProjectedCellStyle &style)
+{
+    const CCharGenerator *charGen = style.charGen;
+    const unsigned cellWidth = GetCharCellWidthForLineAttribute(state, attribute);
+    const unsigned cellHeight = GetBaseCharHeight(state);
+
+    if (charGen == nullptr || cellWidth == 0 || cellHeight == 0)
     {
         return;
     }
 
-    FillPixelRows(m_Renderer.m_nUsedHeight, m_Renderer.m_nHeight, background);
+    CDisplay::TRawColor glyphColor = style.foreground;
+    if (glyphColor != style.background)
+    {
+        glyphColor = ApplyProjectedGlyphBrightness(state, glyphColor, style.bold, style.dim);
+    }
 
-    m_Renderer.SetUpdateArea(m_Renderer.m_nUsedHeight, m_Renderer.m_nHeight - 1);
+    for (unsigned y = 0; y < cellHeight; ++y)
+    {
+        for (unsigned x = 0; x < cellWidth; ++x)
+        {
+            const boolean isGlyphPixel = SampleGlyphPixel(*charGen,
+                                                          attribute,
+                                                          x,
+                                                          y,
+                                                          cellHeight,
+                                                          chChar);
+            m_Surface.SetRawPixel(nPosX + x, nPosY + y, isGlyphPixel ? glyphColor : style.background);
+        }
+    }
+
+    if (style.bold)
+    {
+        for (unsigned y = 0; y < cellHeight; ++y)
+        {
+            for (unsigned x = 1; x < cellWidth; ++x)
+            {
+                if (SampleGlyphPixel(*charGen, attribute, x - 1, y, cellHeight, chChar))
+                {
+                    m_Surface.SetRawPixel(nPosX + x, nPosY + y, glyphColor);
+                }
+            }
+        }
+    }
+
+    if (style.underline)
+    {
+        unsigned underlineRow = charGen->GetUnderline();
+        if (underlineRow >= cellHeight)
+        {
+            underlineRow = cellHeight - 1;
+        }
+
+        for (unsigned x = 0; x < cellWidth; ++x)
+        {
+            m_Surface.SetRawPixel(nPosX + x, nPosY + underlineRow, glyphColor);
+        }
+    }
 }
 
-void CRendererProjector::RenderShadowCell(unsigned row, unsigned column)
+void CTRendererProjector::ClearUnusedBottomArea(const TProjectorState &state, CDisplay::TRawColor background)
 {
-    const unsigned rowCount = m_Renderer.GetRowCount();
-    const unsigned cellHeight = m_Renderer.GetBaseCharHeight();
-    if (row >= rowCount || column >= CTRenderer::MaxTextColumns || cellHeight == 0)
+    if (state.usedHeight >= state.height)
     {
         return;
     }
 
-    const unsigned nPosY = row * cellHeight;
-    if (nPosY >= m_Renderer.m_nHeight)
+    m_Surface.FillRows(state.usedHeight, state.height, background);
+}
+
+void CTRendererProjector::RenderShadowCell(const TProjectorState &state, unsigned row, unsigned column)
+{
+    const unsigned rowCount = GetRowCount(state);
+    const unsigned cellHeight = GetBaseCharHeight(state);
+    if (row >= rowCount || column >= CShadowBuffer::MaxTextColumns || cellHeight == 0)
     {
         return;
     }
 
-    const unsigned visibleColumns = m_Renderer.GetColumnsForY(nPosY);
-    const unsigned cellWidth = m_Renderer.GetCharCellWidthForY(nPosY);
+    const ELineAttribute attribute = m_ShadowBuffer.GetLineAttribute(row, rowCount);
+    const unsigned visibleColumns = GetColumnsForLineAttribute(state, attribute);
+    const unsigned cellWidth = GetCharCellWidthForLineAttribute(state, attribute);
     if (column >= visibleColumns || cellWidth == 0)
     {
         return;
     }
 
+    const unsigned nPosY = row * cellHeight;
     const unsigned nPosX = column * cellWidth;
-    if (nPosX >= m_Renderer.m_nWidth)
+    if (nPosX >= state.width || nPosY >= state.height)
     {
         return;
     }
 
-    const TShadowCell(*cells)[CTRenderer::MaxTextColumns] =
-        reinterpret_cast<const TShadowCell(*)[CTRenderer::MaxTextColumns]>(m_ShadowBuffer.GetActiveCells(m_Renderer.m_bAltScreenActive));
+    const TShadowCell(*cells)[CShadowBuffer::MaxTextColumns] = m_ShadowBuffer.GetActiveCells(state.altScreenActive);
     const TShadowCell &cell = cells[row][column];
-    const ELineAttribute attribute = m_ShadowBuffer.GetLineAttribute(row, rowCount);
-    const TProjectedCellStyle style = GetProjectedCellStyle(cell, attribute);
-    const char renderChar = (cell.blink && !m_Renderer.m_bTextBlinkVisible) ? ' ' : (cell.used ? cell.ch : ' ');
-    DisplayChar(renderChar, nPosX, nPosY, attribute, style);
+    const TProjectedCellStyle style = GetProjectedCellStyle(state, cell, attribute);
+    const char renderChar = (cell.blink && !state.textBlinkVisible) ? ' ' : (cell.used ? cell.ch : ' ');
+    DisplayChar(renderChar, nPosX, nPosY, state, attribute, style);
 }
 
-void CRendererProjector::RenderShadowRow(unsigned row)
+void CTRendererProjector::RenderShadowRow(const TProjectorState &state, unsigned row)
 {
-    const unsigned rowCount = m_Renderer.GetRowCount();
-    const unsigned cellHeight = m_Renderer.GetBaseCharHeight();
+    const unsigned rowCount = GetRowCount(state);
+    const unsigned cellHeight = GetBaseCharHeight(state);
     if (row >= rowCount || cellHeight == 0)
     {
         return;
     }
 
-    const unsigned nPosY = row * cellHeight;
-    if (nPosY >= m_Renderer.m_nHeight)
-    {
-        return;
-    }
-
-    const unsigned visibleColumns = m_Renderer.GetColumnsForY(nPosY);
-    const unsigned cellWidth = m_Renderer.GetCharCellWidthForY(nPosY);
-    if (visibleColumns == 0 || cellWidth == 0)
-    {
-        return;
-    }
-
-    const CDisplay::TRawColor savedBackground = m_Renderer.m_BackgroundColor;
-
-    FillPixelRows(nPosY, nPosY + cellHeight, savedBackground);
-
-    const TShadowCell(*cells)[CTRenderer::MaxTextColumns] =
-        reinterpret_cast<const TShadowCell(*)[CTRenderer::MaxTextColumns]>(m_ShadowBuffer.GetActiveCells(m_Renderer.m_bAltScreenActive));
     const ELineAttribute attribute = m_ShadowBuffer.GetLineAttribute(row, rowCount);
-    for (unsigned column = 0; column < visibleColumns && column < CTRenderer::MaxTextColumns; ++column)
+    const unsigned visibleColumns = GetColumnsForLineAttribute(state, attribute);
+    const unsigned cellWidth = GetCharCellWidthForLineAttribute(state, attribute);
+    const unsigned nPosY = row * cellHeight;
+    if (visibleColumns == 0 || cellWidth == 0 || nPosY >= state.height)
     {
-        const TShadowCell &cell = cells[row][column];
+        return;
+    }
 
+    m_Surface.FillRows(nPosY, nPosY + cellHeight, state.background);
+
+    const TShadowCell(*cells)[CShadowBuffer::MaxTextColumns] = m_ShadowBuffer.GetActiveCells(state.altScreenActive);
+    for (unsigned column = 0; column < visibleColumns && column < CShadowBuffer::MaxTextColumns; ++column)
+    {
         const unsigned nPosX = column * cellWidth;
-        if (nPosX >= m_Renderer.m_nWidth)
+        if (nPosX >= state.width)
         {
             break;
         }
 
-        const TProjectedCellStyle style = GetProjectedCellStyle(cell, attribute);
-        const char renderChar = (cell.blink && !m_Renderer.m_bTextBlinkVisible) ? ' ' : (cell.used ? cell.ch : ' ');
-        DisplayChar(renderChar, nPosX, nPosY, attribute, style);
+        const TShadowCell &cell = cells[row][column];
+        const TProjectedCellStyle style = GetProjectedCellStyle(state, cell, attribute);
+        const char renderChar = (cell.blink && !state.textBlinkVisible) ? ' ' : (cell.used ? cell.ch : ' ');
+        DisplayChar(renderChar, nPosX, nPosY, state, attribute, style);
     }
-
-    if (row + 1 == rowCount)
-    {
-        ClearUnusedBottomArea(savedBackground);
-    }
-
-    m_Renderer.SetUpdateArea(nPosY, nPosY + cellHeight - 1);
 }
 
-void CRendererProjector::RenderShadowScreen(void)
+void CTRendererProjector::RenderShadowScreen(const TProjectorState &state)
 {
-    const unsigned rowCount = m_Renderer.GetRowCount();
+    const unsigned rowCount = GetRowCount(state);
     if (rowCount == 0)
     {
-        ClearUnusedBottomArea(m_Renderer.m_BackgroundColor);
+        ClearUnusedBottomArea(state, state.background);
         return;
     }
 
     for (unsigned row = 0; row < rowCount; ++row)
     {
-        RenderShadowRow(row);
+        RenderShadowRow(state, row);
     }
+
+    ClearUnusedBottomArea(state, state.background);
+}
+
+void CTRendererProjector::RenderCursor(const TProjectorState &state)
+{
+    if (!state.cursorOn || !state.cursorVisible)
+    {
+        return;
+    }
+
+    const unsigned cellHeight = GetBaseCharHeight(state);
+    const unsigned rowCount = GetRowCount(state);
+    if (cellHeight == 0 || rowCount == 0)
+    {
+        return;
+    }
+
+    unsigned cursorRow = state.cursorY / cellHeight;
+    if (cursorRow >= rowCount)
+    {
+        cursorRow = rowCount - 1;
+    }
+
+    const ELineAttribute attribute = m_ShadowBuffer.GetLineAttribute(cursorRow, rowCount);
+    const unsigned cellWidth = GetCharCellWidthForLineAttribute(state, attribute);
+    const unsigned visibleColumns = GetColumnsForLineAttribute(state, attribute);
+    if (cellWidth == 0 || visibleColumns == 0)
+    {
+        return;
+    }
+
+    unsigned cursorColumn = state.cursorX / cellWidth;
+    if (cursorColumn >= visibleColumns)
+    {
+        cursorColumn = visibleColumns - 1;
+    }
+
+    const unsigned nPosX = cursorColumn * cellWidth;
+    const unsigned nPosY = cursorRow * cellHeight;
+    const TShadowCell(*cells)[CShadowBuffer::MaxTextColumns] = m_ShadowBuffer.GetActiveCells(state.altScreenActive);
+    const TShadowCell &cell = cells[cursorRow][cursorColumn];
+
+    if (state.cursorBlock)
+    {
+        TProjectedCellStyle style = GetProjectedCellStyle(state, cell, attribute);
+        const CDisplay::TRawColor savedForeground = style.foreground;
+        style.foreground = style.background;
+        style.background = savedForeground;
+        const char renderChar = (cell.blink && !state.textBlinkVisible) ? ' ' : (cell.used ? cell.ch : ' ');
+        DisplayChar(renderChar, nPosX, nPosY, state, attribute, style);
+        return;
+    }
+
+    const CCharGenerator *charGen = GetCharGeneratorForCell(state, cell.charSet, attribute);
+    unsigned underlineRow = (charGen != nullptr) ? charGen->GetUnderline() : (cellHeight - 1);
+    if (underlineRow >= cellHeight)
+    {
+        underlineRow = cellHeight - 1;
+    }
+
+    for (unsigned x = 0; x < cellWidth; ++x)
+    {
+        m_Surface.SetRawPixel(nPosX + x, nPosY + underlineRow, state.foreground);
+    }
+}
+
+void CTRendererProjector::RequestRefresh(void)
+{
+    m_ShadowBuffer.MarkFullRefresh();
 }
 
 void CTRenderer::SetRawPixel(unsigned nPosX, unsigned nPosY, CDisplay::TRawColor nColor)
@@ -350,209 +837,6 @@ CDisplay::TRawColor CTRenderer::AdjustBrightness565(CDisplay::TRawColor color, f
     const u32 resultB = clampComponent(newB, 0x1F);
 
     return static_cast<CDisplay::TRawColor>((resultR << 11) | (resultG << 5) | resultB);
-}
-
-const CCharGenerator *CTRenderer::GetProjectorCharGenerator(unsigned charSet, ELineAttribute attribute) const
-{
-    const bool useGraphics = charSet == static_cast<unsigned>(CharSetGraphics);
-    const CCharGenerator *charGen = useGraphics && m_pGraphicsCharGen != nullptr
-                                        ? m_pGraphicsCharGen
-                                        : m_pCharGen;
-
-    if (attribute == LineAttributeDoubleHeightTop ||
-        attribute == LineAttributeDoubleHeightBottom)
-    {
-        if (useGraphics && m_pGraphicsDoubleBothCharGen != nullptr)
-        {
-            charGen = m_pGraphicsDoubleBothCharGen;
-        }
-        else if (m_pDoubleBothCharGen != nullptr)
-        {
-            charGen = m_pDoubleBothCharGen;
-        }
-    }
-
-    return charGen;
-}
-
-CDisplay::TRawColor CTRenderer::ApplyProjectedGlyphBrightness(CDisplay::TRawColor color,
-                                                              boolean bold,
-                                                              boolean dim) const
-{
-    if (bold)
-    {
-        return AdjustBrightness565(color, m_BoldScaleFactor);
-    }
-
-    if (dim)
-    {
-        return AdjustBrightness565(color, m_DimScaleFactor);
-    }
-
-    return color;
-}
-
-void CRendererProjector::DisplayChar(char chChar, unsigned nPosX, unsigned nPosY,
-                                     CDisplay::TRawColor nColor)
-{
-    const ELineAttribute attribute = static_cast<ELineAttribute>(m_Renderer.GetLineAttributeForY(nPosY));
-    TProjectedCellStyle style{};
-    const unsigned activeCharSet = m_Renderer.m_bUseG1
-                                       ? static_cast<unsigned>(m_Renderer.m_G1CharSet)
-                                       : static_cast<unsigned>(m_Renderer.m_G0CharSet);
-    style.charGen = m_Renderer.GetProjectorCharGenerator(activeCharSet,
-                                                         static_cast<CTRenderer::ELineAttribute>(attribute));
-    style.foreground = nColor;
-    style.background = m_Renderer.GetTextBackgroundColor();
-    style.bold = m_Renderer.m_bBoldAttribute;
-    style.dim = m_Renderer.m_bDimAttribute;
-    style.underline = m_Renderer.m_bUnderlineAttribute;
-
-    DisplayChar(chChar, nPosX, nPosY, attribute, style);
-}
-
-void CRendererProjector::DisplayChar(char chChar,
-                                     unsigned nPosX,
-                                     unsigned nPosY,
-                                     ELineAttribute attribute,
-                                     const TProjectedCellStyle &style)
-{
-    const CCharGenerator *charGen = style.charGen;
-
-    const unsigned cellWidth = m_Renderer.GetCharCellWidthForLineAttribute(static_cast<CTRenderer::ELineAttribute>(attribute));
-    const unsigned cellHeight = m_Renderer.GetBaseCharHeight();
-
-    if (charGen == nullptr || cellWidth == 0 || cellHeight == 0)
-    {
-        return;
-    }
-
-    CDisplay::TRawColor glyphColor = style.foreground;
-    if (glyphColor != style.background)
-    {
-        glyphColor = m_Renderer.ApplyProjectedGlyphBrightness(glyphColor, style.bold, style.dim);
-    }
-
-    for (unsigned y = 0; y < cellHeight; y++)
-    {
-        for (unsigned x = 0; x < cellWidth; x++)
-        {
-            const bool isGlyphPixel = m_Renderer.SampleGlyphPixel(*charGen,
-                                                                  chChar,
-                                                                  static_cast<CTRenderer::ELineAttribute>(attribute),
-                                                                  x,
-                                                                  y);
-            const CDisplay::TRawColor pixelColor = isGlyphPixel ? glyphColor : style.background;
-            m_Surface.SetRawPixel(nPosX + x, nPosY + y, pixelColor);
-        }
-    }
-
-    if (style.bold)
-    {
-        for (unsigned y = 0; y < cellHeight; y++)
-        {
-            for (unsigned x = 1; x < cellWidth; x++)
-            {
-                if (m_Renderer.SampleGlyphPixel(*charGen,
-                                                chChar,
-                                                static_cast<CTRenderer::ELineAttribute>(attribute),
-                                                x - 1,
-                                                y))
-                {
-                    m_Surface.SetRawPixel(nPosX + x, nPosY + y, glyphColor);
-                }
-            }
-        }
-    }
-
-    if (style.underline)
-    {
-        const unsigned underlineRow = charGen->GetUnderline();
-        if (underlineRow < cellHeight)
-        {
-            for (unsigned x = 0; x < cellWidth; x++)
-            {
-                m_Surface.SetRawPixel(nPosX + x, nPosY + underlineRow, glyphColor);
-            }
-        }
-    }
-
-    m_Renderer.SetUpdateArea(nPosY, nPosY + cellHeight - 1);
-}
-
-void CRendererProjector::EraseChar(unsigned nPosX, unsigned nPosY)
-{
-    const unsigned row = m_Renderer.GetRowIndexFromY(nPosY);
-    const unsigned column = m_Renderer.GetColumnIndexFromX(nPosX, nPosY);
-    if (row >= CTRenderer::MaxTextRows || column >= CTRenderer::MaxTextColumns)
-    {
-        return;
-    }
-
-    m_Renderer.ClearShadowCells(row, column, column + 1);
-    RenderShadowCell(row, column);
-}
-
-void CRendererProjector::InvertCursor(void)
-{
-    if (!m_Renderer.m_bCursorOn)
-    {
-        return;
-    }
-
-    CDisplay::TRawColor *pPixelData = m_Renderer.m_pCursorPixels;
-    const unsigned cursorPosX = m_Renderer.m_nCursorX;
-    const unsigned cursorPosY = m_Renderer.m_nCursorY;
-    const unsigned cursorWidth = m_Renderer.GetCharCellWidthForY(cursorPosY);
-    const unsigned cursorHeight = m_Renderer.GetBaseCharHeight();
-    const unsigned y0 = m_Renderer.m_bCursorBlock
-                            ? 0
-                            : (m_Renderer.m_pCharGen != nullptr ? m_Renderer.m_pCharGen->GetUnderline() : 0);
-    CDisplay::TRawColor invertMask = m_Renderer.m_ForegroundColor ^ m_Renderer.m_BackgroundColor;
-    if (invertMask == 0)
-    {
-        switch (m_Renderer.m_nDepth)
-        {
-        case 1:
-            invertMask = 0x1;
-            break;
-        case 8:
-            invertMask = 0xFF;
-            break;
-        case 16:
-            invertMask = 0xFFFF;
-            break;
-        case 32:
-            invertMask = 0xFFFFFFFF;
-            break;
-        default:
-            invertMask = static_cast<CDisplay::TRawColor>(~0u);
-            break;
-        }
-    }
-
-    for (unsigned y = y0; y < cursorHeight; y++)
-    {
-        for (unsigned x = 0; x < cursorWidth; x++)
-        {
-            if (!m_Renderer.m_bCursorVisible)
-            {
-                const CDisplay::TRawColor storedPixel = m_Surface.GetRawPixel(cursorPosX + x,
-                                                                              cursorPosY + y,
-                                                                              m_Renderer.m_BackgroundColor);
-                *pPixelData++ = storedPixel;
-                m_Surface.SetRawPixel(cursorPosX + x, cursorPosY + y, storedPixel ^ invertMask);
-            }
-            else
-            {
-                m_Surface.SetRawPixel(cursorPosX + x, cursorPosY + y, *pPixelData++);
-            }
-        }
-    }
-
-    m_Renderer.m_bCursorVisible = !m_Renderer.m_bCursorVisible;
-
-    m_Renderer.SetUpdateArea(cursorPosY + y0, cursorPosY + cursorHeight - 1);
 }
 
 void CTRenderer::FillPixelRows(unsigned startY, unsigned endY, CDisplay::TRawColor color)

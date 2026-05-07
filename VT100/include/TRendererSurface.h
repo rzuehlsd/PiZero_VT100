@@ -31,7 +31,7 @@
  * @details The surface provides a narrow backend API tailored to the VT100
  * renderer: initialize the display, expose geometry, mutate raw pixels, and
  * flush changed areas to the hardware. CTRenderer retains VT100 semantics while
- * CRendererProjector uses this backend to project shadow-state changes.
+ * CTRendererProjector uses this backend to project shadow-state changes.
  */
 class CRendererSurface
 {

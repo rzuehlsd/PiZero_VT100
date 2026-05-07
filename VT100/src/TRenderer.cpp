@@ -111,9 +111,9 @@ CTRenderer::CTRenderer(void)
       m_pDoubleBothCharGen(nullptr),
       m_pGraphicsDoubleBothCharGen(nullptr),
       m_CurrentFontSelection(EFontSelection::VT100Font10x20),
-      m_pShadowBuffer(new CShadowBuffer()),
-    m_pSurface(new CRendererSurface()),
-    m_pProjector(new CRendererProjector(*this, *m_pShadowBuffer, *m_pSurface)),
+    m_pShadowBuffer(nullptr),
+    m_pSurface(nullptr),
+    m_pProjector(nullptr),
       m_G0CharSet(CharSetUS),
       m_G1CharSet(CharSetGraphics),
       m_bUseG1(FALSE),
@@ -198,10 +198,23 @@ CTRenderer::CTRenderer(void)
     memset(&m_SavedState, 0, sizeof(m_SavedState));
     memset(&m_AltScreenSavedState, 0, sizeof(m_AltScreenSavedState));
     memset(m_CSIParams, 0, sizeof(m_CSIParams));
-    m_pShadowBuffer->ResetBuffers(ToShadowBufferStyle(GetDefaultShadowStyle()));
 
     SetName("Renderer");
     Suspend();
+}
+
+void CTRenderer::AttachRenderStack(CShadowBuffer *pShadowBuffer,
+                                   CRendererSurface *pSurface,
+                                   CTRendererProjector *pProjector)
+{
+    m_pShadowBuffer = pShadowBuffer;
+    m_pSurface = pSurface;
+    m_pProjector = pProjector;
+
+    if (m_pShadowBuffer != nullptr)
+    {
+        m_pShadowBuffer->ResetBuffers(ToShadowBufferStyle(GetDefaultShadowStyle()));
+    }
 }
 
 namespace
@@ -686,13 +699,8 @@ CTRenderer::~CTRenderer(void)
     delete m_pGraphicsDoubleBothCharGen;
     m_pGraphicsDoubleBothCharGen = nullptr;
 
-    delete m_pProjector;
     m_pProjector = nullptr;
-
-    delete m_pSurface;
     m_pSurface = nullptr;
-
-    delete m_pShadowBuffer;
     m_pShadowBuffer = nullptr;
 }
 
@@ -904,6 +912,8 @@ boolean CTRenderer::Initialize(void)
         SetBlinkingCursor(config->GetCursorBlinking(), 500);
     }
 
+    PublishProjectorState();
+
     Start();
     return TRUE;
 }
@@ -1111,6 +1121,66 @@ bool CTRenderer::ApplyFont(const TFont &rFont,
     return true;
 }
 
+void CTRenderer::PublishProjectorState(void)
+{
+    CShadowBuffer::TProjectorState previous = m_pShadowBuffer->GetProjectorState();
+    CShadowBuffer::TProjectorState next = previous;
+
+    next.charGen = m_pCharGen;
+    next.graphicsCharGen = m_pGraphicsCharGen;
+    next.doubleBothCharGen = m_pDoubleBothCharGen;
+    next.graphicsDoubleBothCharGen = m_pGraphicsDoubleBothCharGen;
+    next.width = m_nWidth;
+    next.height = m_nHeight;
+    next.usedWidth = m_nUsedWidth;
+    next.usedHeight = m_nUsedHeight;
+    next.depth = m_nDepth;
+    next.cursorX = m_nCursorX;
+    next.cursorY = m_nCursorY;
+    next.cursorBlinkPeriodTicks = m_nCursorBlinkPeriodTicks;
+    next.foreground = m_ForegroundColor;
+    next.background = m_BackgroundColor;
+    next.defaultForeground = m_DefaultForegroundColor;
+    next.defaultBackground = m_DefaultBackgroundColor;
+    next.boldScaleFactor = m_BoldScaleFactor;
+    next.dimScaleFactor = m_DimScaleFactor;
+    next.reverseBackgroundScaleFactor = m_ReverseBackgroundScaleFactor;
+    next.reverseForegroundScaleFactor = m_ReverseForegroundScaleFactor;
+    next.cursorOn = m_bCursorOn;
+    next.cursorBlock = m_bCursorBlock;
+    next.blinkingCursor = m_bBlinkingCursor;
+    next.altScreenActive = m_bAltScreenActive;
+
+    if (previous.nextCursorBlink == 0 || previous.cursorBlinkPeriodTicks != m_nCursorBlinkPeriodTicks)
+    {
+        next.nextCursorBlink = m_nNextCursorBlink;
+    }
+
+    if (!next.cursorOn)
+    {
+        next.cursorVisible = FALSE;
+    }
+    else if (!next.blinkingCursor)
+    {
+        next.cursorVisible = TRUE;
+    }
+
+    CShadowBuffer::TProjectorState previousComparable = previous;
+    CShadowBuffer::TProjectorState nextComparable = next;
+    previousComparable.fullRefreshPending = FALSE;
+    nextComparable.fullRefreshPending = FALSE;
+    previousComparable.frameGeneration = 0;
+    nextComparable.frameGeneration = 0;
+
+    if (memcmp(&previousComparable, &nextComparable, sizeof(nextComparable)) != 0)
+    {
+        next.fullRefreshPending = TRUE;
+        next.frameGeneration = previous.frameGeneration + 1;
+    }
+
+    m_pShadowBuffer->SetProjectorState(next);
+}
+
 TRendererColor CTRenderer::MapColor(EColorSelection color)
 {
     switch (color)
@@ -1212,50 +1282,9 @@ void CTRenderer::Run()
     while (!IsSuspended())
     {
         m_SpinLock.Acquire();
-
-        const unsigned currentTicks = CTimer::Get()->GetTicks();
-        const boolean hasBlinkingText = ActiveShadowHasBlinkCells();
-        if (((m_bCursorOn && m_bBlinkingCursor) || hasBlinkingText) && (int)(currentTicks - m_nNextCursorBlink) >= 0)
-        {
-            const boolean cursorShouldToggle = m_bCursorOn && m_bBlinkingCursor;
-            const boolean cursorWasVisible = m_bCursorOn && m_bCursorVisible;
-
-            if (cursorWasVisible)
-            {
-                InvertCursor();
-            }
-
-            if (hasBlinkingText)
-            {
-                m_bTextBlinkVisible = !m_bTextBlinkVisible;
-                const unsigned rowCount = GetRowCount();
-                for (unsigned row = 0; row < rowCount; ++row)
-                {
-                    if (ShadowRowHasBlink(row))
-                    {
-                        RenderShadowRow(row);
-                    }
-                }
-            }
-
-            if (cursorShouldToggle)
-            {
-                if (!cursorWasVisible)
-                {
-                    InvertCursor();
-                }
-            }
-            else if (cursorWasVisible)
-            {
-                InvertCursor();
-            }
-
-            m_nNextCursorBlink = currentTicks + m_nCursorBlinkPeriodTicks;
-        }
+        PublishProjectorState();
 
         m_SpinLock.Release();
-
-        Update();
 
         const unsigned now = CTimer::Get()->GetTicks();
         const unsigned logInterval = MSEC2HZ(30000);

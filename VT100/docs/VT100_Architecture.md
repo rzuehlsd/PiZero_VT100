@@ -47,11 +47,11 @@ Project documentation model:
 
 Primary modules in `VT100/src`:
 
-- `kernel.cpp` (`CKernel`) — system bring-up, task orchestration, host routing
+- `kernel.cpp` (`CKernel`) — system bring-up, task orchestration, host routing, and ownership of the shared renderer stack
 - `TConfig.cpp` (`CTConfig`) — defaults, parser, validation, persistence (`SD:/VT100.txt`)
-- `TRenderer.cpp` (`CTRenderer`) — public renderer facade, parser host, terminal-state owner, and dirty-region coordinator
-- `TShadowBuffer.cpp` (`CShadowBuffer`) — authoritative normal/alternate screen text, style, and DEC line-size storage
-- `TRendererProjector.cpp` (`CRendererProjector`) — framebuffer projection helper that redraws shadow state and cursor pixels
+- `TRenderer.cpp` (`CTRenderer`) — public renderer facade, parser host, terminal-state owner, and shared projector-state publisher using a kernel-injected render stack
+- `TShadowBuffer.cpp` (`CShadowBuffer`) — authoritative normal/alternate screen text, style, DEC line-size storage, and lockable projector snapshot state
+- `TRendererProjector.cpp` (`CTRendererProjector`) — periodic framebuffer projection task that redraws shadow state and cursor overlay from the shared snapshot
 - `TRendererSurface.cpp` (`CRendererSurface`) — framebuffer backend that owns `CBcmFrameBuffer`, raw pixel storage, color conversion, and row-oriented pixel operations
 - `TFontConverter.cpp` + `VT100_FontConverter.cpp` — VT100 font conversion and lookup
 - `TKeyboard.cpp` (`CTKeyboard`) — USB keyboard processing, repeat, line-ending conversion
@@ -69,6 +69,9 @@ graph TD
   CKernel --> CTConfig
   CKernel --> CTFontConverter
   CKernel --> CTRenderer
+  CKernel --> CShadowBuffer
+  CKernel --> CRendererSurface
+  CKernel --> CTRendererProjector
   CKernel --> CTKeyboard
   CKernel --> CTUART
   CKernel --> CTSetup
@@ -84,11 +87,14 @@ graph TD
   CTKeyboard --> CTConfig
   CTRenderer --> CTConfig
   CTRenderer --> CTFontConverter
-  CTRenderer --> CShadowBuffer
-  CTRenderer --> CRendererProjector
-  CTRenderer --> CRendererSurface
-  CRendererProjector --> CShadowBuffer
-  CRendererProjector --> CRendererSurface
+  CTRenderer -. uses injected stack .-> CShadowBuffer
+  CTRenderer -. uses injected stack .-> CRendererSurface
+  CTRenderer -. refresh requests .-> CTRendererProjector
+  CTRenderer -. publishes .-> TProjectorState
+  CTRendererProjector --> CShadowBuffer
+  CTRendererProjector --> TProjectorState
+  CTRendererProjector --> CRendererSurface
+  CTRendererProjector --> CTask
 
   CTFileLog --> CLogger
   CTWlanHost --> CLogger
@@ -97,15 +103,18 @@ graph TD
 
   CTUART --> CSerialDevice
   CRendererSurface --> CBcmFrameBuffer
-  CRendererProjector --> CCharGenerator
+  CTRendererProjector --> CCharGenerator
+  CShadowBuffer --> TProjectorState
 ```
 
 Notes:
 
 - `CKernel` remains the integration hub and lifecycle owner of singleton task modules.
+- `CKernel` now owns `CShadowBuffer`, `CRendererSurface`, and `CTRendererProjector` and injects them into `CTRenderer` before renderer initialization.
 - `CTConfig` is the runtime configuration source of truth.
 - `CTSetup` edits runtime configuration through `CTConfig` setters and persists changes with `SaveToFile()`.
-- `CTRenderer` now owns `CShadowBuffer`, `CRendererProjector`, and `CRendererSurface` internally and exposes only the terminal-facing facade to the rest of the system.
+- `CTRenderer` no longer owns `CShadowBuffer`, `CTRendererProjector`, or `CRendererSurface`; it uses the kernel-owned render stack through `AttachRenderStack()` and exposes only the terminal-facing facade to the rest of the system.
+- `CTRendererProjector` no longer reads framebuffer-facing state from `CTRenderer`; it consumes only `CShadowBuffer` snapshot data plus `CRendererSurface`.
 
 ## 4. Boot and initialization sequence
 
@@ -129,6 +138,9 @@ sequenceDiagram
   participant Config as CTConfig
   participant Font as CTFontConverter
   participant Renderer as CTRenderer
+  participant Shadow as CShadowBuffer
+  participant Surface as CRendererSurface
+  participant Projector as CTRendererProjector
   participant Keyboard as CTKeyboard
   participant UART as CTUART
   participant Setup as CTSetup
@@ -138,14 +150,21 @@ sequenceDiagram
   Kernel->>Config: Initialize()
   Kernel->>Config: LoadFromFile()
   Kernel->>Font: Initialize()
+  Kernel->>Shadow: new / own shared model
+  Kernel->>Surface: new / own framebuffer backend
+  Kernel->>Projector: new(shared Shadow, Surface)
+  Kernel->>Renderer: AttachRenderStack(Shadow, Surface, Projector)
   Kernel->>Renderer: Initialize()
+  Renderer->>Shadow: PublishProjectorState()
+  Renderer->>Renderer: Start()
+  Kernel->>Projector: Initialize(60 Hz default)
   Kernel->>Keyboard: Configure(callbacks)
   Kernel->>Keyboard: Initialize()
   Kernel->>UART: Initialize(&interrupt, nullptr)
-  Kernel->>Setup: Initialize(renderer, config, keyboard)
   alt WLAN logging enabled
     Kernel->>Wlan: Initialize(..., port 2323, fallback)
   end
+  Kernel->>Setup: Initialize(renderer, config, keyboard)
   Main->>Kernel: Run()
 ```
 
@@ -160,7 +179,8 @@ The refactoring model captured in `docs/Refactoring_Note.md` is retained where i
 
 Implementation notes aligned with current code:
 
-- `CTRenderer` uses `TASK_LEVEL` spin locking to avoid long interrupt suppression during heavy framebuffer operations.
+- `CTRenderer` uses `TASK_LEVEL` spin locking while mutating parser/runtime state, and `CShadowBuffer` exposes its own `TASK_LEVEL` spin lock for projector snapshot access.
+- `CTRendererProjector` runs as its own cooperative `CTask` and refreshes the framebuffer at a fixed cadence instead of repainting synchronously inside renderer call sites.
 - `CTUART` task exists but serial data path is polled by kernel via `DrainSerialInput()`.
 - kernel run loop services serial, optional networking, scheduler yield, and HAL updates.
 
@@ -216,11 +236,13 @@ sequenceDiagram
 - trigger: raw HID key `0x45`
 - behavior: Setup A/B compatibility flow
 - page transitions: header rendering normalizes ANSI/DEC attribute, charset, and width state before drawing (prevents style leakage between Setup A and Setup B)
+- overlay restore: dialog entry saves the full `CTRenderer` state including shadow cells and DEC line attributes, and dialog exit restores from that saved renderer/shadow snapshot instead of replaying a separate raw-framebuffer backup
 
 ### 7.2 Modern setup (F11)
 
 - trigger: raw HID key `0x44` or `CTSetup::ShowModern()`
 - rendering: DEC graphics frame (`ESC ( 0`), centered normal-width title, three-column parameter/value/description rows
+- overlay model: dialog drawing goes through normal `CTRenderer::ClearDisplay()`, `Goto()`, and `Write()` paths so setup content is written into the authoritative shadow model and then projected to the framebuffer by `CTRendererProjector`
 - controls:
   - Up/Down select row
   - Left/Right edit value
@@ -366,40 +388,48 @@ Current renderer architecture is shadow-buffer-first:
 
 - text cells, attributes, and DEC line-size state are maintained in shadow storage as the authoritative terminal model
 - terminal mutations such as character writes, erase operations, insert/delete character or line operations, and state restore update shadow state first
-- the framebuffer is treated as a projection target behind `CRendererSurface`, which is refreshed from shadow state per cell, row, or full screen depending on the affected region
+- the framebuffer is treated as a projection target behind the kernel-owned `CRendererSurface`, which is refreshed by the kernel-owned periodic projector task from shadow state plus the published render snapshot
 - setup save/restore and shadow-based rerender paths rely on this separation so visible pixels can be rebuilt from terminal state instead of serving as the primary source of truth
 
 ### 9.1 Renderer pipeline split
 
-The renderer is currently divided into four cooperating parts:
+The renderer pipeline is currently divided into five cooperating parts:
 
-- `CTRenderer` owns parser state, terminal modes, cursor state, color/font selection, dirty-region decisions, and the public device/task API.
-- `CShadowBuffer` owns the authoritative terminal model for both the normal and alternate screens, including per-cell style snapshots and per-row DEC line-size attributes.
+- `CKernel` owns the shared renderer stack lifetime, wires the dependencies, and starts the projector task during system initialization.
+- `CTRenderer` owns parser state, terminal modes, color/font policy, and the public terminal-facing API; it publishes projector-visible state into the shared model but does not own framebuffer backends or projector lifetime.
+- `CShadowBuffer` owns the authoritative terminal model for both the normal and alternate screens, including per-cell style snapshots, per-row DEC line-size attributes, and the lockable projector snapshot consumed by the render task.
 - `CRendererSurface` owns the framebuffer device, raw pixel buffer, raw/logical color conversion, and row-oriented pixel mutations.
-- `CRendererProjector` consumes shadow-state plus current renderer runtime state and projects the affected cells, rows, or cursor region onto the framebuffer surface.
+- `CTRendererProjector` runs as a periodic task, is owned and started by `CKernel`, consumes only `CShadowBuffer` plus `CRendererSurface`, and redraws the full visible framebuffer whenever the shared snapshot generation or blink state changes.
 
-The practical consequence is that most terminal mutations no longer paint pixels directly as the primary state transition. Instead they follow a model-first path and project only the affected region afterward.
+The practical consequence is that terminal mutations no longer paint pixels directly as the primary state transition. Instead they follow a model-first path, mark the shared projector snapshot dirty, and let the periodic projector task rebuild the framebuffer from that state.
 
 ```mermaid
 flowchart LR
-  Input[Host or keyboard byte stream] --> Parser[CTRenderer parser and mode state]
+  Kernel[CKernel-owned lifecycle] --> Parser[CTRenderer parser and mode state]
+  Kernel --> Shadow[CShadowBuffer terminal model]
+  Kernel --> Projector[CTRendererProjector task]
+  Kernel --> Surface[CRendererSurface backend]
+  Input[Host or keyboard byte stream] --> Parser
   Parser --> Shadow[CShadowBuffer terminal model]
-  Shadow --> Dirty[Dirty cell or row decision in CTRenderer]
-  Dirty --> Projector[CRendererProjector]
-  Projector --> Surface[CRendererSurface backend]
+  Parser --> Snapshot[Published projector snapshot in CShadowBuffer]
+  Shadow --> Projector
+  Snapshot --> Projector
+  Projector --> Surface
   Surface --> Framebuffer[CBcmFrameBuffer raw pixels]
-  Projector --> Cursor[Cursor invert or restore path]
+  Projector --> Cursor[Cursor overlay at refresh cadence]
 ```
 
 Implementation-aligned responsibilities:
 
 - character writes, erase operations, insert/delete character or line operations, scroll-region mutations, and setup state restore update shadow state first
-- `CRendererProjector::RenderShadowCell()`, `RenderShadowRow()`, and `RenderShadowScreen()` rebuild framebuffer contents from shadow snapshots
+- `CTRenderer` publishes cursor, geometry, font-generator, color, and blink-policy data into `CShadowBuffer::TProjectorState`
+- `CKernel` creates the shared render stack, injects it into `CTRenderer`, and starts `CTRendererProjector` as an independent task during `Initialize()`
+- `CTRendererProjector` refreshes the framebuffer from `CShadowBuffer` on its own task cadence and uses the shared snapshot for cursor/blink timing and glyph selection
 - `CRendererSurface` centralizes raw pixel writes, row fills, row scrolls, incremental flushes, and color translation so projector logic no longer depends on `CBcmFrameBuffer` ownership in `CTRenderer`
-- cursor display remains a framebuffer operation because it temporarily inverts and restores live pixel data around the current text cell
-- the optimized pixel-row helpers stay inside the projector path so scroll and clear operations can still avoid unnecessary full rerenders
+- cursor display remains a framebuffer projection concern, but it is now rendered as part of the projector task instead of synchronous pixel inversion in renderer code paths
+- legacy renderer facade methods such as `RenderShadowRow()` or `InvertCursor()` now effectively request a projector refresh instead of performing immediate framebuffer work
 
-This keeps the public renderer interface narrower while preserving the same behavior at the call sites that still invoke renderer facade methods such as `RenderShadowRow()` or `InvertCursor()`.
+This keeps the public renderer interface narrower while preserving the same behavior at existing call sites and makes the framebuffer update cadence explicit and independent from VT100 parser execution.
 
 ### 9.2 DEC special graphics and charset switching
 

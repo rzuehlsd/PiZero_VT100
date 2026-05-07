@@ -36,7 +36,7 @@
 #include "TFontConverter.h"
 
 class CShadowBuffer;
-class CRendererProjector;
+class CTRendererProjector;
 class CRendererSurface;
 class CBcmFrameBuffer;
 
@@ -152,6 +152,11 @@ public:
     /// \brief Initialize framebuffer access and Circle device registration.
     /// \return TRUE on success, FALSE otherwise.
     boolean Initialize(void);
+
+    /// \brief Inject the shared render stack owned by CKernel.
+    void AttachRenderStack(CShadowBuffer *pShadowBuffer,
+                           CRendererSurface *pSurface,
+                           CTRendererProjector *pProjector);
 
     /// \brief Set the font to be used.
     /// \param rFont Font to be used for text rendering.
@@ -343,7 +348,7 @@ public:
     void RestoreScreenBuffer(const void *buffer, size_t bufferSize);
 
 private:
-    friend class CRendererProjector;
+    friend class CTRendererProjector;
 
     /// \brief Apply a font using either pixel-stable or row/column-stable cursor handling.
     boolean ApplyFont(const TFont &rFont,
@@ -355,6 +360,7 @@ private:
     CDisplay::TRawColor ApplyProjectedGlyphBrightness(CDisplay::TRawColor color,
                                                       boolean bold,
                                                       boolean dim) const;
+    void PublishProjectorState(void);
 
     unsigned GetBaseCharWidth(void) const;
     unsigned GetBaseCharHeight(void) const;
@@ -556,7 +562,7 @@ private:
     EFontSelection m_CurrentFontSelection;
     CShadowBuffer *m_pShadowBuffer;
     CRendererSurface *m_pSurface;
-    CRendererProjector *m_pProjector;
+    CTRendererProjector *m_pProjector;
 
     ECharacterSet m_G0CharSet;
     ECharacterSet m_G1CharSet;

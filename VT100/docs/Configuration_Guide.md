@@ -48,6 +48,7 @@ Modern setup save/apply behavior (current implementation):
 - Applied immediately on `Enter`: `text_color`, `background_color`, `font_selection`, `cursor_type`, `cursor_blinking`, `vt52_mode`, `smooth_scroll`, `smooth_scroll_ms`, `buzzer_volume`, `switch_txrx`.
 - Persisted and used by runtime logic without dedicated re-init: `line_ending`, `key_click`, `key_auto_repeat`, `wrap_around`, `margin_bell`.
 - Persisted and applied on subsystem init/reconnect/reboot: `baud_rate`, `serial_bits`, `serial_parity`, `flow_control`, `repeat_delay_ms`, `repeat_rate_cps`, `log_output`, `log_filename`, `wlan_host_autostart`, `host_id`.
+- Display restore model: opening a setup dialog saves the renderer state including shadow-screen content; closing the dialog restores that saved state instead of copying back a separate raw framebuffer snapshot.
 
 Local mode (`F10`) behavior:
 
@@ -149,6 +150,7 @@ When adding/changing a setting, update all of:
 - `F11` raw key (`0x44`) triggers modern setup behavior.
 - `F10` raw key (`0x43`) toggles runtime local mode (keyboard loopback).
 - Modern setup apply path goes through `CTConfig` setters, then persistence via `SaveToFile()`.
+- Setup drawing and restore now stay on the renderer's shadow-buffer-first path; setup screens are emitted through normal renderer text operations and restored from saved renderer/shadow state.
 - Legacy SET-UP B maps group 1 leftmost bit (mask `0x8`, VT100 “Scroll”) to `smooth_scroll`.
 - Legacy SET-UP B maps group 2 leftmost bit (mask `0x8`, VT100 “Bell”) to `margin_bell`.
 - Legacy SET-UP B maps group 2 rightmost shown bit (mask `0x1`, VT100 “Auto XON/XOFF”) to `flow_control`.

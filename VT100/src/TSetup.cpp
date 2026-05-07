@@ -210,7 +210,7 @@ CTSetup *CTSetup::Get(void)
 }
 
 CTSetup::CTSetup()
-    : CTask(), m_pRenderer(nullptr), m_pConfig(nullptr), m_pKeyboard(nullptr), m_pPrevKeyPressed(nullptr), m_pPrevKeyStatusRaw(nullptr), m_Snapshot{nullptr, 0, false, false, {}}, m_Visible(false), m_ExitRequested(false), m_SaveRequested(false), m_KeyPending(false), m_F12Down(false), m_F11Down(false), m_KeyBuffer{0}, m_DialogMode(DialogModeLegacy), m_Page(SetupPageA), m_SetupBToggle{0, 0, 0, 0}, m_SetupBTxSpeed(9600), m_SetupBRxSpeed(9600), m_SetupBField(SetupBFieldToggle1), m_SetupBBitIndex(0), m_TabRow(0), m_TabCols(0), m_TabEditCol(0), m_ModernSelected(ModernFieldLineEnding), m_ModernConfig{}, m_ModernHostIdOverwriteOnEdit(false), m_ModernLayoutValid(false), m_ModernLayout{}
+    : CTask(), m_pRenderer(nullptr), m_pConfig(nullptr), m_pKeyboard(nullptr), m_pPrevKeyPressed(nullptr), m_pPrevKeyStatusRaw(nullptr), m_Snapshot{false, {}}, m_Visible(false), m_ExitRequested(false), m_SaveRequested(false), m_KeyPending(false), m_F12Down(false), m_F11Down(false), m_KeyBuffer{0}, m_DialogMode(DialogModeLegacy), m_Page(SetupPageA), m_SetupBToggle{0, 0, 0, 0}, m_SetupBTxSpeed(9600), m_SetupBRxSpeed(9600), m_SetupBField(SetupBFieldToggle1), m_SetupBBitIndex(0), m_TabRow(0), m_TabCols(0), m_TabEditCol(0), m_ModernSelected(ModernFieldLineEnding), m_ModernConfig{}, m_ModernHostIdOverwriteOnEdit(false), m_ModernLayoutValid(false), m_ModernLayout{}
 {
     SetName("Setup");
     Suspend();
@@ -303,25 +303,6 @@ bool CTSetup::PrepareToShow()
         m_pKeyboard->SetKeyStatusHandlerRaw(KeyStatusHandlerRaw);
     }
 
-    size_t size = m_pRenderer->GetBufferSize();
-    if (size == 0)
-    {
-        return false;
-    }
-
-    if (m_Snapshot.buffer == nullptr || m_Snapshot.size != size)
-    {
-        delete[] m_Snapshot.buffer;
-        m_Snapshot.buffer = new u8[size];
-        m_Snapshot.size = size;
-    }
-
-    if (m_Snapshot.buffer != nullptr)
-    {
-        m_pRenderer->SaveScreenBuffer(m_Snapshot.buffer, size);
-        m_Snapshot.valid = true;
-    }
-
     m_pRenderer->SaveState(m_Snapshot.rendererState);
     m_Snapshot.stateValid = true;
     m_Visible = true;
@@ -343,14 +324,10 @@ void CTSetup::Hide()
 
     m_pRenderer->ForceHideCursor();
 
-    if (m_Snapshot.valid && m_Snapshot.buffer != nullptr)
-    {
-        m_pRenderer->RestoreScreenBuffer(m_Snapshot.buffer, m_Snapshot.size);
-    }
-
     if (m_Snapshot.stateValid)
     {
         m_pRenderer->RestoreState(m_Snapshot.rendererState);
+        m_Snapshot.stateValid = false;
     }
 
     m_Visible = false;

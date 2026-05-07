@@ -44,6 +44,9 @@ class CTSetup;
 class CVTTest;
 class CSocket;
 class CTWlanHost;
+class CShadowBuffer;
+class CRendererSurface;
+class CTRendererProjector;
 
 #include "hal.h"
 
@@ -153,6 +156,9 @@ private:
     // Tasks are created inside constructor and
     // initialized in kernel::Initialize()
     CTRenderer *m_pRenderer;
+    CShadowBuffer *m_pShadowBuffer;
+    CRendererSurface *m_pRendererSurface;
+    CTRendererProjector *m_pRendererProjector;
     CTFontConverter *m_pFontConverter;
     CTKeyboard *m_pKeyboard;
     CTConfig *m_pConfig;
