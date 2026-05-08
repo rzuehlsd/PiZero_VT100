@@ -565,7 +565,7 @@ void CVTTest::Tick(void)
         if (m_scrollLineIndex < kScrollLineCount)
         {
             m_pRenderer->Write(kScrollLines[m_scrollLineIndex], strlen(kScrollLines[m_scrollLineIndex]));
-            m_pRenderer->Write("\n", len("\n"));
+                m_pRenderer->Write("\r\n", len("\r\n"));
             m_scrollLineIndex++;
             m_scrollNextTick = now + MSEC2HZ(kScrollLineDelayMs);
             return;
