@@ -360,6 +360,11 @@ private:
     CDisplay::TRawColor ApplyProjectedGlyphBrightness(CDisplay::TRawColor color,
                                                       boolean bold,
                                                       boolean dim) const;
+    boolean IsSmoothScrollActive(void) const;
+    boolean ProcessInputByteLocked(char chChar);
+    void RealizePendingBottomScrollLocked(void);
+    size_t QueueDeferredInputLocked(const char *pBuffer, size_t nCount);
+    void DrainDeferredInputLocked(void);
     void PublishProjectorState(void);
 
     unsigned GetBaseCharWidth(void) const;
@@ -500,8 +505,6 @@ private:
     void Scroll(void);
     /// \brief Schedule smooth scroll animation for a region.
     boolean BeginSmoothScrollAnimation(unsigned nStartY, unsigned nEndY, boolean bScrollDown);
-    /// \brief Render one smooth scroll animation frame.
-    void RenderSmoothScrollFrame(void);
 
     /// \brief Render a character at an explicit position with specified color.
     void DisplayChar(char chChar, unsigned nPosX, unsigned nPosY, CDisplay::TRawColor nColor);
@@ -546,6 +549,7 @@ private:
     };
 
     static constexpr unsigned CSIParamMax = 16;
+    static constexpr size_t DeferredInputCapacity = 256 * 1024;
 
     enum ECharacterSet
     {
@@ -620,6 +624,12 @@ private:
     boolean m_bAltScreenSavedValid;
     u8 *m_pAltScreenSnapshot;
     size_t m_nAltScreenSnapshotSize;
+    u8 *m_pDeferredInputBuffer;
+    size_t m_nDeferredInputCapacity;
+    size_t m_nDeferredInputCount;
+    boolean m_bDrainingDeferredInput;
+    boolean m_bSmoothScrollAwaitingLineEnd;
+    boolean m_bPendingBottomScroll;
     TRendererState m_AltScreenSavedState;
     unsigned m_nParam1;
     unsigned m_nParam2;
@@ -636,19 +646,7 @@ private:
     boolean m_bDelayedUpdate;
     unsigned m_nLastUpdateTicks;
     boolean m_bSmoothScrollEnabled;
-    boolean m_bSmoothScrollActive;
-    boolean m_bSmoothScrollDown;
     unsigned m_nSmoothScrollLineMs;
-    unsigned m_nSmoothScrollStartY;
-    unsigned m_nSmoothScrollEndY;
-    unsigned m_nSmoothScrollOffset;
-    unsigned m_nSmoothScrollStep;
-    unsigned m_nSmoothScrollLastTick;
-    unsigned m_nSmoothScrollTickInterval;
-    u8 *m_pSmoothScrollSnapshot;
-    u8 *m_pSmoothScrollCompose;
-    size_t m_nSmoothScrollBufferSize;
-    unsigned m_nSmoothScrollStartTick;
     unsigned m_nSmoothScrollDebounceUntil; // tick until which we suppress smooth to avoid bursts
     unsigned m_nScrollStatsLastLogTick;
     unsigned long long m_ScrollNormalTicksAccum;

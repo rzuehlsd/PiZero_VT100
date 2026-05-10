@@ -259,6 +259,29 @@ void CRendererSurface::ScrollRowsUp(unsigned startY, unsigned endY, unsigned del
             bytesToMove);
 }
 
+void CRendererSurface::ScrollRowsDown(unsigned startY, unsigned endY, unsigned deltaY)
+{
+    if (m_pBuffer == nullptr || startY >= endY || deltaY == 0 || startY >= m_nHeight)
+    {
+        return;
+    }
+
+    if (endY > m_nHeight)
+    {
+        endY = m_nHeight;
+    }
+
+    if (startY + deltaY >= endY)
+    {
+        return;
+    }
+
+    const size_t bytesToMove = static_cast<size_t>(endY - startY - deltaY) * m_nPitch;
+    memmove(m_pBuffer + (startY + deltaY) * m_nPitch,
+            m_pBuffer + startY * m_nPitch,
+            bytesToMove);
+}
+
 void CRendererSurface::SetPixel(unsigned nPosX, unsigned nPosY, CDisplay::TRawColor nColor)
 {
     if (m_pFrameBuffer == nullptr || nPosX >= m_nWidth || nPosY >= m_nHeight)

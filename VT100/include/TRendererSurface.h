@@ -75,6 +75,8 @@ public:
     void FillRows(unsigned startY, unsigned endY, CDisplay::TRawColor color);
     /// @brief Scroll a half-open range of pixel rows upward in-place.
     void ScrollRowsUp(unsigned startY, unsigned endY, unsigned deltaY);
+    /// @brief Scroll a half-open range of pixel rows downward in-place.
+    void ScrollRowsDown(unsigned startY, unsigned endY, unsigned deltaY);
     /// @brief Write a single pixel to both the backing store and the hardware device.
     void SetPixel(unsigned nPosX, unsigned nPosY, CDisplay::TRawColor nColor);
     /// @brief Flush a changed framebuffer area from a caller-provided source pointer.

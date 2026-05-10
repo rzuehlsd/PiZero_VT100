@@ -111,9 +111,9 @@ CTRenderer::CTRenderer(void)
       m_pDoubleBothCharGen(nullptr),
       m_pGraphicsDoubleBothCharGen(nullptr),
       m_CurrentFontSelection(EFontSelection::VT100Font10x20),
-    m_pShadowBuffer(nullptr),
-    m_pSurface(nullptr),
-    m_pProjector(nullptr),
+      m_pShadowBuffer(nullptr),
+      m_pSurface(nullptr),
+      m_pProjector(nullptr),
       m_G0CharSet(CharSetUS),
       m_G1CharSet(CharSetGraphics),
       m_bUseG1(FALSE),
@@ -163,6 +163,12 @@ CTRenderer::CTRenderer(void)
       m_bAltScreenSavedValid(FALSE),
       m_pAltScreenSnapshot(nullptr),
       m_nAltScreenSnapshotSize(0),
+      m_pDeferredInputBuffer(nullptr),
+      m_nDeferredInputCapacity(0),
+      m_nDeferredInputCount(0),
+      m_bDrainingDeferredInput(FALSE),
+      m_bSmoothScrollAwaitingLineEnd(FALSE),
+      m_bPendingBottomScroll(FALSE),
       m_bAutoPage(FALSE),
       m_bCSIPrivate(FALSE),
       m_nCSIParamCount(0),
@@ -171,19 +177,7 @@ CTRenderer::CTRenderer(void)
       m_bCSILastWasSeparator(FALSE),
       m_bDelayedUpdate(FALSE),
       m_bSmoothScrollEnabled(TRUE),
-      m_bSmoothScrollActive(FALSE),
-      m_bSmoothScrollDown(FALSE),
       m_nSmoothScrollLineMs(170),
-      m_nSmoothScrollStartY(0),
-      m_nSmoothScrollEndY(0),
-      m_nSmoothScrollOffset(0),
-      m_nSmoothScrollStep(0),
-      m_nSmoothScrollLastTick(0),
-      m_nSmoothScrollTickInterval(MSEC2HZ(8)),
-      m_pSmoothScrollSnapshot(nullptr),
-      m_pSmoothScrollCompose(nullptr),
-      m_nSmoothScrollBufferSize(0),
-      m_nSmoothScrollStartTick(0),
       m_nSmoothScrollDebounceUntil(0),
       m_nScrollStatsLastLogTick(0),
       m_ScrollNormalTicksAccum(0),
@@ -677,15 +671,15 @@ CTRenderer::~CTRenderer(void)
     delete[] m_pCursorPixels;
     m_pCursorPixels = nullptr;
 
-    delete[] m_pSmoothScrollSnapshot;
-    m_pSmoothScrollSnapshot = nullptr;
-
-    delete[] m_pSmoothScrollCompose;
-    m_pSmoothScrollCompose = nullptr;
-
     delete[] m_pAltScreenSnapshot;
     m_pAltScreenSnapshot = nullptr;
     m_nAltScreenSnapshotSize = 0;
+
+    delete[] m_pDeferredInputBuffer;
+    m_pDeferredInputBuffer = nullptr;
+    m_nDeferredInputCapacity = 0;
+    m_nDeferredInputCount = 0;
+    m_bSmoothScrollAwaitingLineEnd = FALSE;
 
     delete m_pCharGen;
     m_pCharGen = nullptr;
@@ -853,18 +847,14 @@ boolean CTRenderer::Initialize(void)
     m_nPitch = m_pSurface->GetPitch();
     m_pBuffer8 = m_pSurface->GetBuffer();
 
-    m_nSmoothScrollBufferSize = m_nSize;
-    m_pSmoothScrollSnapshot = new u8[m_nSmoothScrollBufferSize];
-    if (!m_pSmoothScrollSnapshot)
+    m_nDeferredInputCapacity = DeferredInputCapacity;
+    m_pDeferredInputBuffer = new u8[m_nDeferredInputCapacity];
+    if (m_pDeferredInputBuffer == nullptr)
     {
         return FALSE;
     }
-
-    m_pSmoothScrollCompose = new u8[m_nSmoothScrollBufferSize];
-    if (!m_pSmoothScrollCompose)
-    {
-        return FALSE;
-    }
+    m_nDeferredInputCount = 0;
+    m_bSmoothScrollAwaitingLineEnd = FALSE;
 
     if (!SetFont(EFontSelection::VT100Font10x20, m_FontFlags))
     {
@@ -876,6 +866,19 @@ boolean CTRenderer::Initialize(void)
     m_DefaultForegroundColor = m_ForegroundColor;
     m_DefaultBackgroundColor = m_BackgroundColor;
     m_nNextCursorBlink = CTimer::Get()->GetTicks() + m_nCursorBlinkPeriodTicks;
+
+    // Apply configured theme before the first visible cursor flush so startup
+    // cursor colors match the selected palette immediately.
+    CTConfig *config = CTConfig::Get();
+    if (config != nullptr)
+    {
+        SetFont(config->GetFontSelection(), CCharGenerator::FontFlagsNone);
+        TRendererColor fg = MapColor(config->GetTextColor());
+        TRendererColor bg = MapColor(config->GetBackgroundColor());
+        SetColors(fg, bg);
+        SetCursorBlock(config->GetCursorBlock());
+        SetBlinkingCursor(config->GetCursorBlinking(), 500);
+    }
 
     CursorHome();
     ClearDisplayEnd();
@@ -899,18 +902,6 @@ boolean CTRenderer::Initialize(void)
     LOGNOTE("Renderer initialized");
 
     m_nScrollStatsLastLogTick = CTimer::Get()->GetTicks();
-
-    // Set initial font and colors from config (if available)
-    CTConfig *config = CTConfig::Get();
-    if (config != nullptr)
-    {
-        SetFont(config->GetFontSelection(), CCharGenerator::FontFlagsNone);
-        TRendererColor fg = MapColor(config->GetTextColor());
-        TRendererColor bg = MapColor(config->GetBackgroundColor());
-        SetColors(fg, bg);
-        SetCursorBlock(config->GetCursorBlock());
-        SetBlinkingCursor(config->GetCursorBlinking(), 500);
-    }
 
     PublishProjectorState();
 
@@ -1150,7 +1141,6 @@ void CTRenderer::PublishProjectorState(void)
     next.cursorBlock = m_bCursorBlock;
     next.blinkingCursor = m_bBlinkingCursor;
     next.altScreenActive = m_bAltScreenActive;
-
     if (previous.nextCursorBlink == 0 || previous.cursorBlinkPeriodTicks != m_nCursorBlinkPeriodTicks)
     {
         next.nextCursorBlink = m_nNextCursorBlink;
@@ -1412,14 +1402,31 @@ int CTRenderer::Write(const void *pBuffer, size_t nCount)
         InvertCursor();
     }
 
-    const char *pChar = (const char *)pBuffer;
+    const char *pChar = static_cast<const char *>(pBuffer);
+    size_t remaining = nCount;
     int nResult = 0;
 
-    while (nCount--)
+    if (m_nDeferredInputCount != 0 || (IsSmoothScrollActive() && !m_bSmoothScrollAwaitingLineEnd))
     {
-        Write(*pChar++);
+        nResult = static_cast<int>(QueueDeferredInputLocked(pChar, remaining));
+        remaining = 0;
+    }
+    else
+    {
+        while (remaining != 0)
+        {
+            const char chChar = *pChar++;
+            const boolean shouldDeferRemainder = ProcessInputByteLocked(chChar);
+            --remaining;
+            ++nResult;
 
-        nResult++;
+            if (shouldDeferRemainder)
+            {
+                nResult += static_cast<int>(QueueDeferredInputLocked(pChar, remaining));
+                remaining = 0;
+                break;
+            }
+        }
     }
 
     if (cursorWasVisible && m_bCursorOn)
@@ -1432,7 +1439,7 @@ int CTRenderer::Write(const void *pBuffer, size_t nCount)
     }
 
     // Update display
-    if (!m_bDelayedUpdate && !m_bSmoothScrollActive && m_UpdateArea.y1 <= m_UpdateArea.y2)
+    if (!m_bDelayedUpdate && !IsSmoothScrollActive() && m_UpdateArea.y1 <= m_UpdateArea.y2)
     {
         m_pSurface->FlushArea(m_UpdateArea, m_pBuffer8 + m_UpdateArea.y1 * m_nPitch);
 
@@ -1443,6 +1450,51 @@ int CTRenderer::Write(const void *pBuffer, size_t nCount)
     m_SpinLock.Release();
 
     return nResult;
+}
+
+boolean CTRenderer::ProcessInputByteLocked(char chChar)
+{
+    if (m_bPendingBottomScroll && chChar != '\r')
+    {
+        RealizePendingBottomScrollLocked();
+        if (IsSmoothScrollActive())
+        {
+            m_bSmoothScrollAwaitingLineEnd = TRUE;
+        }
+    }
+
+    const boolean smoothWasActive = IsSmoothScrollActive();
+    Write(chChar);
+
+    if (!IsSmoothScrollActive())
+    {
+        m_bSmoothScrollAwaitingLineEnd = FALSE;
+        return FALSE;
+    }
+
+    if (!smoothWasActive)
+    {
+        m_bSmoothScrollAwaitingLineEnd = TRUE;
+    }
+
+    if (m_bSmoothScrollAwaitingLineEnd && (chChar == '\n' || chChar == '\r'))
+    {
+        m_bSmoothScrollAwaitingLineEnd = FALSE;
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
+void CTRenderer::RealizePendingBottomScrollLocked(void)
+{
+    if (!m_bPendingBottomScroll)
+    {
+        return;
+    }
+
+    m_bPendingBottomScroll = FALSE;
+    Scroll();
 }
 
 void CTRenderer::ResetParserState(void)
@@ -1491,6 +1543,70 @@ void CTRenderer::FinalizeCSIParams(void)
     m_nCSIParamValue = 0;
     m_bCSIHaveValue = FALSE;
     m_bCSILastWasSeparator = FALSE;
+}
+
+size_t CTRenderer::QueueDeferredInputLocked(const char *pBuffer, size_t nCount)
+{
+    if (pBuffer == nullptr || nCount == 0 || m_pDeferredInputBuffer == nullptr || m_nDeferredInputCapacity == 0)
+    {
+        return 0;
+    }
+
+    const size_t freeBytes = (m_nDeferredInputCount < m_nDeferredInputCapacity)
+                                 ? (m_nDeferredInputCapacity - m_nDeferredInputCount)
+                                 : 0;
+    const size_t copyBytes = (nCount < freeBytes) ? nCount : freeBytes;
+    if (copyBytes != 0)
+    {
+        memcpy(m_pDeferredInputBuffer + m_nDeferredInputCount, pBuffer, copyBytes);
+        m_nDeferredInputCount += copyBytes;
+    }
+
+    if (copyBytes != nCount)
+    {
+        LOGWARN("Deferred input buffer overflow during smooth scroll, dropped %u bytes", static_cast<unsigned>(nCount - copyBytes));
+    }
+
+    return copyBytes;
+}
+
+void CTRenderer::DrainDeferredInputLocked(void)
+{
+    if (m_bDrainingDeferredInput || m_nDeferredInputCount == 0 || m_pDeferredInputBuffer == nullptr)
+    {
+        return;
+    }
+
+    m_bDrainingDeferredInput = TRUE;
+
+    size_t consumed = 0;
+    while (consumed < m_nDeferredInputCount)
+    {
+        if (IsSmoothScrollActive() && !m_bSmoothScrollAwaitingLineEnd)
+        {
+            break;
+        }
+
+        const boolean shouldDeferRemainder = ProcessInputByteLocked(static_cast<char>(m_pDeferredInputBuffer[consumed]));
+        ++consumed;
+
+        if (shouldDeferRemainder)
+        {
+            break;
+        }
+    }
+
+    if (consumed != 0)
+    {
+        const size_t remaining = m_nDeferredInputCount - consumed;
+        if (remaining != 0)
+        {
+            memmove(m_pDeferredInputBuffer, m_pDeferredInputBuffer + consumed, remaining);
+        }
+        m_nDeferredInputCount = remaining;
+    }
+
+    m_bDrainingDeferredInput = FALSE;
 }
 
 void CTRenderer::InsertChars(unsigned nCount)
@@ -1548,6 +1664,8 @@ void CTRenderer::ResetTerminalState(boolean clearScreen)
     m_nCSIParamValue = 0;
     m_bCSIHaveValue = FALSE;
     m_bCSILastWasSeparator = FALSE;
+    m_bPendingBottomScroll = FALSE;
+    m_bSmoothScrollAwaitingLineEnd = FALSE;
 
     m_bVT52Mode = FALSE;
     m_bOriginMode = FALSE;
@@ -1691,37 +1809,12 @@ void CTRenderer::Update()
 {
     m_SpinLock.Acquire();
 
-    if (m_bSmoothScrollActive)
+    if (!IsSmoothScrollActive())
     {
-        const unsigned now = CTimer::Get()->GetTicks();
-        if ((int)(now - m_nSmoothScrollLastTick) >= 0)
-        {
-            RenderSmoothScrollFrame();
-
-            if (m_nSmoothScrollOffset + m_nSmoothScrollStep < m_pCharGen->GetCharHeight())
-            {
-                m_nSmoothScrollOffset += m_nSmoothScrollStep;
-                m_nSmoothScrollLastTick = now + m_nSmoothScrollTickInterval;
-            }
-            else
-            {
-                CDisplay::TArea area;
-                area.x1 = 0;
-                area.x2 = m_nWidth - 1;
-                area.y1 = m_nSmoothScrollStartY;
-                area.y2 = m_nSmoothScrollEndY;
-                m_pSurface->FlushArea(area, m_pBuffer8 + area.y1 * m_nPitch);
-                if (m_nSmoothScrollStartTick != 0)
-                {
-                    m_ScrollSmoothTicksAccum += static_cast<unsigned>(now - m_nSmoothScrollStartTick);
-                    ++m_ScrollSmoothCount;
-                }
-                m_bSmoothScrollActive = FALSE;
-            }
-        }
+        DrainDeferredInputLocked();
     }
 
-    if (!m_bSmoothScrollActive && m_UpdateArea.y1 <= m_UpdateArea.y2)
+    if (!IsSmoothScrollActive() && m_UpdateArea.y1 <= m_UpdateArea.y2)
     {
         m_pSurface->FlushArea(m_UpdateArea, m_pBuffer8 + m_UpdateArea.y1 * m_nPitch);
 
@@ -1734,15 +1827,16 @@ void CTRenderer::Update()
 
 boolean CTRenderer::BeginSmoothScrollAnimation(unsigned nStartY, unsigned nEndY, boolean bScrollDown)
 {
-    if (!m_bSmoothScrollEnabled || m_pCharGen == nullptr || !m_pSmoothScrollSnapshot || !m_pSmoothScrollCompose)
+    if (!m_bSmoothScrollEnabled || m_pCharGen == nullptr || m_pShadowBuffer == nullptr)
     {
         return FALSE;
     }
 
     const unsigned now = CTimer::Get()->GetTicks();
+    CShadowBuffer::TProjectorState state = m_pShadowBuffer->GetProjectorState();
 
     // Debounce: if an animation is active or we recently animated, skip smooth and let caller fall back to instant
-    if (m_bSmoothScrollActive || (int)(m_nSmoothScrollDebounceUntil - now) > 0)
+    if (state.smoothScroll.active || (int)(m_nSmoothScrollDebounceUntil - now) > 0)
     {
         return FALSE;
     }
@@ -1758,97 +1852,24 @@ boolean CTRenderer::BeginSmoothScrollAnimation(unsigned nStartY, unsigned nEndY,
         return FALSE;
     }
 
-    const unsigned regionHeight = nEndY - nStartY + 1;
-    const size_t regionBytes = static_cast<size_t>(regionHeight) * m_nPitch;
-    if (regionBytes > m_nSmoothScrollBufferSize)
-    {
-        return FALSE;
-    }
-
-    memcpy(m_pSmoothScrollSnapshot, m_pBuffer8 + nStartY * m_nPitch, regionBytes);
-    m_nSmoothScrollStartY = nStartY;
-    m_nSmoothScrollEndY = nEndY;
-    m_bSmoothScrollDown = bScrollDown;
-    // Target roughly 6 lines/sec like real VT100: ~170ms per line, evenly spaced frames.
     const unsigned targetLineMs = m_nSmoothScrollLineMs != 0 ? m_nSmoothScrollLineMs : 1U;
-    unsigned frameMs = targetLineMs / charHeight;
-    if (frameMs == 0)
-    {
-        frameMs = 1;
-    }
-    m_nSmoothScrollTickInterval = MSEC2HZ(frameMs);
-    if (m_nSmoothScrollTickInterval == 0)
-    {
-        m_nSmoothScrollTickInterval = 1;
-    }
 
-    m_nSmoothScrollStep = 1;
-    m_nSmoothScrollOffset = m_nSmoothScrollStep;
-    m_nSmoothScrollLastTick = CTimer::Get()->GetTicks();
-    m_nSmoothScrollStartTick = m_nSmoothScrollLastTick;
+    m_pShadowBuffer->CaptureSmoothScrollSnapshot(m_bAltScreenActive);
+
+    state.smoothScroll.active = TRUE;
+    state.smoothScroll.scrollDown = bScrollDown;
+    state.smoothScroll.startRow = nStartY / charHeight;
+    state.smoothScroll.endRow = nEndY / charHeight;
+    state.smoothScroll.pixelOffset = 1;
+    state.smoothScroll.lineDurationUs = targetLineMs * 1000U;
+    state.smoothScroll.startTimeUs = 0;
+    state.fullRefreshPending = FALSE;
+    ++state.frameGeneration;
+    m_pShadowBuffer->SetProjectorState(state);
+
     const unsigned debounceMs = 50;
-    m_nSmoothScrollDebounceUntil = m_nSmoothScrollLastTick + MSEC2HZ(debounceMs);
-    m_bSmoothScrollActive = TRUE;
+    m_nSmoothScrollDebounceUntil = now + MSEC2HZ(debounceMs);
     return TRUE;
-}
-
-void CTRenderer::RenderSmoothScrollFrame(void)
-{
-    if (!m_bSmoothScrollActive)
-    {
-        return;
-    }
-
-    const unsigned regionHeight = m_nSmoothScrollEndY - m_nSmoothScrollStartY + 1;
-    const unsigned offset = m_nSmoothScrollOffset;
-
-    for (unsigned y = 0; y < regionHeight; ++y)
-    {
-        bool fillBackground = FALSE;
-        unsigned srcY = 0;
-
-        if (m_bSmoothScrollDown)
-        {
-            if (y < offset)
-            {
-                fillBackground = TRUE;
-            }
-            else
-            {
-                srcY = y - offset;
-            }
-        }
-        else
-        {
-            if (y + offset >= regionHeight)
-            {
-                fillBackground = TRUE;
-            }
-            else
-            {
-                srcY = y + offset;
-            }
-        }
-
-        u8 *pDst = m_pSmoothScrollCompose + y * m_nPitch;
-        if (!fillBackground)
-        {
-            const u8 *pSrc = m_pSmoothScrollSnapshot + srcY * m_nPitch;
-            memcpy(pDst, pSrc, m_nPitch);
-            continue;
-        }
-
-        // Show live buffer content (including newly drawn bottom lines) as soon as it scrolls into view
-        const u8 *pLive = m_pBuffer8 + (m_nSmoothScrollStartY + y) * m_nPitch;
-        memcpy(pDst, pLive, m_nPitch);
-    }
-
-    CDisplay::TArea area;
-    area.x1 = 0;
-    area.x2 = m_nWidth - 1;
-    area.y1 = m_nSmoothScrollStartY;
-    area.y2 = m_nSmoothScrollEndY;
-    m_pSurface->FlushArea(area, m_pSmoothScrollCompose);
 }
 
 void CTRenderer::Write(char chChar)
@@ -3691,10 +3712,25 @@ void CTRenderer::InsertMode(boolean bBegin)
 void CTRenderer::SetSmoothScrollEnabled(boolean bEnable)
 {
     m_bSmoothScrollEnabled = bEnable;
-    if (!m_bSmoothScrollEnabled)
+    if (!m_bSmoothScrollEnabled && m_pShadowBuffer != nullptr)
     {
-        m_bSmoothScrollActive = FALSE;
+        m_bPendingBottomScroll = FALSE;
+        CShadowBuffer::TProjectorState state = m_pShadowBuffer->GetProjectorState();
+        if (state.smoothScroll.active)
+        {
+            state.smoothScroll.active = FALSE;
+            state.smoothScroll.pixelOffset = 0;
+            state.fullRefreshPending = TRUE;
+            ++state.frameGeneration;
+            m_pShadowBuffer->SetProjectorState(state);
+        }
+        m_pShadowBuffer->ClearSmoothScrollSnapshot();
     }
+}
+
+boolean CTRenderer::IsSmoothScrollActive(void) const
+{
+    return m_pShadowBuffer != nullptr && m_pShadowBuffer->GetProjectorState().smoothScroll.active;
 }
 
 void CTRenderer::SetSmoothScrollLineMs(unsigned durationMs)
@@ -3727,7 +3763,14 @@ void CTRenderer::IndexDown(void)
     {
         if (!m_bAutoPage)
         {
-            Scroll();
+            if (m_bSmoothScrollEnabled)
+            {
+                m_bPendingBottomScroll = TRUE;
+            }
+            else
+            {
+                Scroll();
+            }
             m_nCursorY -= charHeight;
         }
         else

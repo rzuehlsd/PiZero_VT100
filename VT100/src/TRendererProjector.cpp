@@ -14,25 +14,113 @@
 #include "TRenderer.h"
 #include "TRendererSurface.h"
 
+#include <circle/logger.h>
 #include <circle/sched/scheduler.h>
 #include <circle/timer.h>
 #include <string.h>
+
+LOGMODULE("TRendererProjector");
 
 namespace
 {
     constexpr unsigned kProjectorMinimumRefreshMs = 1;
     constexpr unsigned kDefaultRefreshHz = 60;
+    constexpr unsigned kSmoothScrollRefreshHz = 200;
+    constexpr unsigned kSmoothScrollMaxPixelsPerFrame = 4;
 }
 
 CTRendererProjector::CTRendererProjector(CShadowBuffer &shadowBuffer,
-                                       CRendererSurface &surface)
+                                         CRendererSurface &surface)
     : m_ShadowBuffer(shadowBuffer),
       m_Surface(surface),
+      m_pRenderer(nullptr),
       m_nRefreshDelayMs(1000 / kDefaultRefreshHz),
-      m_nLastRenderedGeneration(static_cast<unsigned>(-1))
+      m_nLastRenderedGeneration(static_cast<unsigned>(-1)),
+      m_nLastSmoothPixelOffset(0),
+      m_bDeferredFullRefreshAfterSmoothScroll(FALSE),
+      m_bSmoothProfileCaptureActive(FALSE),
+      m_bSmoothProfileCaptureCompleted(FALSE),
+      m_nSmoothProfileSampleCount(0),
+      m_nSmoothProfileDroppedSamples(0)
 {
     SetName("RendererProjector");
     Suspend();
+}
+
+void CTRendererProjector::ResetSmoothScrollProfileCapture(void)
+{
+    m_bSmoothProfileCaptureActive = TRUE;
+    m_nSmoothProfileSampleCount = 0;
+    m_nSmoothProfileDroppedSamples = 0;
+}
+
+void CTRendererProjector::RecordSmoothScrollProfileSample(const TSmoothScrollProfileSample &sample)
+{
+    if (!m_bSmoothProfileCaptureActive)
+    {
+        return;
+    }
+
+    if (m_nSmoothProfileSampleCount < SmoothProfileCapacity)
+    {
+        m_SmoothProfileSamples[m_nSmoothProfileSampleCount++] = sample;
+    }
+    else
+    {
+        ++m_nSmoothProfileDroppedSamples;
+    }
+}
+
+void CTRendererProjector::DumpSmoothScrollProfileCapture(void)
+{
+    if (!m_bSmoothProfileCaptureActive)
+    {
+        return;
+    }
+
+    unsigned totalUs = 0;
+    unsigned shiftUs = 0;
+    unsigned redrawUs = 0;
+    unsigned flushUs = 0;
+    for (unsigned index = 0; index < m_nSmoothProfileSampleCount; ++index)
+    {
+        totalUs += m_SmoothProfileSamples[index].totalUs;
+        shiftUs += m_SmoothProfileSamples[index].shiftUs;
+        redrawUs += m_SmoothProfileSamples[index].redrawUs;
+        flushUs += m_SmoothProfileSamples[index].flushUs;
+    }
+
+    LOGNOTE("SmoothScrollProfile: samples=%u dropped=%u total=%uus shift=%uus redraw=%uus flush=%uus",
+            m_nSmoothProfileSampleCount,
+            m_nSmoothProfileDroppedSamples,
+            totalUs,
+            shiftUs,
+            redrawUs,
+            flushUs);
+
+    for (unsigned index = 0; index < m_nSmoothProfileSampleCount; ++index)
+    {
+        const TSmoothScrollProfileSample &sample = m_SmoothProfileSamples[index];
+        LOGNOTE("SmoothScrollProfile[%u]: dir=%s mode=%s offset=%u delta=%u rows=%u total=%uus shift=%uus redraw=%uus flush=%uus",
+                index,
+                sample.scrollDown ? "down" : "up",
+                sample.incremental ? "incremental" : "full",
+                sample.pixelOffset,
+                sample.deltaPixels,
+                sample.regionRows,
+                sample.totalUs,
+                sample.shiftUs,
+                sample.redrawUs,
+                sample.flushUs);
+    }
+
+    m_bSmoothProfileCaptureActive = FALSE;
+    m_bSmoothProfileCaptureCompleted = TRUE;
+}
+
+void CTRendererProjector::AttachRenderer(CTRenderer *pRenderer)
+{
+    m_pRenderer = pRenderer;
 }
 
 boolean CTRendererProjector::Initialize(unsigned refreshHz)
@@ -56,34 +144,230 @@ void CTRendererProjector::Run(void)
 {
     while (!IsSuspended())
     {
+        if (m_pRenderer != nullptr)
+        {
+            m_pRenderer->Update();
+        }
+
         TProjectorState state = m_ShadowBuffer.GetProjectorState();
+        if (state.smoothScroll.active && !m_bSmoothProfileCaptureActive && !m_bSmoothProfileCaptureCompleted)
+        {
+            ResetSmoothScrollProfileCapture();
+        }
+
         const boolean blinkChanged = AdvanceBlinkState(state);
-        const boolean needsRender = state.fullRefreshPending || state.frameGeneration != m_nLastRenderedGeneration || blinkChanged;
+        const boolean smoothWasActive = state.smoothScroll.active;
+        const boolean smoothChanged = AdvanceSmoothScrollState(state);
+        const boolean needsRender = state.fullRefreshPending || state.frameGeneration != m_nLastRenderedGeneration || blinkChanged || smoothChanged;
 
         if (needsRender && state.width != 0 && state.height != 0)
         {
-            RenderShadowScreen(state);
-            RenderCursor(state);
+            TSmoothScrollProfileSample sample{};
+            const u64 renderStartUs = CTimer::GetClockTicks64();
+            const unsigned rowCount = GetRowCount(state);
+            const unsigned cellHeight = GetBaseCharHeight(state);
+            const boolean smoothOnlyRender = !state.fullRefreshPending && smoothWasActive && rowCount != 0 && cellHeight != 0;
+            sample.incremental = smoothOnlyRender;
+            sample.scrollDown = state.smoothScroll.scrollDown;
+            sample.pixelOffset = state.smoothScroll.pixelOffset;
 
-            CDisplay::TArea area{};
-            area.x1 = 0;
-            area.x2 = state.width - 1;
-            area.y1 = 0;
-            area.y2 = state.height - 1;
-            m_Surface.FlushArea(area, m_Surface.GetBuffer());
+            if (smoothOnlyRender && blinkChanged)
+            {
+                m_bDeferredFullRefreshAfterSmoothScroll = TRUE;
+            }
 
-            state.fullRefreshPending = FALSE;
+            if (smoothOnlyRender)
+            {
+                unsigned smoothStartRow = state.smoothScroll.startRow < rowCount ? state.smoothScroll.startRow : (rowCount - 1);
+                unsigned smoothEndRow = state.smoothScroll.endRow < rowCount ? state.smoothScroll.endRow : (rowCount - 1);
+                sample.regionRows = smoothEndRow - smoothStartRow + 1;
+                const unsigned regionStartY = smoothStartRow * cellHeight;
+                const unsigned regionEndY = ((smoothEndRow + 1) * cellHeight <= state.height)
+                                                ? ((smoothEndRow + 1) * cellHeight)
+                                                : state.height;
+                boolean cursorInRegion = FALSE;
+                unsigned cursorRow = 0;
+
+                if (state.cursorOn && state.cursorVisible)
+                {
+                    cursorRow = state.cursorY / cellHeight;
+                    if (cursorRow >= rowCount)
+                    {
+                        cursorRow = rowCount - 1;
+                    }
+
+                    cursorInRegion = cursorRow >= smoothStartRow && cursorRow <= smoothEndRow;
+                }
+
+                const boolean hasSmoothSnapshot = m_ShadowBuffer.HasSmoothScrollSnapshot() && m_ShadowBuffer.GetSmoothScrollSnapshotAltScreen() == state.altScreenActive;
+
+                if (hasSmoothSnapshot && state.smoothScroll.active && state.smoothScroll.pixelOffset > m_nLastSmoothPixelOffset)
+                {
+                    const unsigned delta = state.smoothScroll.pixelOffset - m_nLastSmoothPixelOffset;
+                    sample.deltaPixels = delta;
+
+                    if (state.smoothScroll.scrollDown)
+                    {
+                        const u64 shiftStartUs = CTimer::GetClockTicks64();
+                        m_Surface.ScrollRowsDown(regionStartY, regionEndY, delta);
+                        sample.shiftUs = static_cast<unsigned>(CTimer::GetClockTicks64() - shiftStartUs);
+                        unsigned redrawEndY = regionStartY + delta + cellHeight;
+                        if (redrawEndY > regionEndY)
+                        {
+                            redrawEndY = regionEndY;
+                        }
+                        const u64 redrawStartUs = CTimer::GetClockTicks64();
+                        RenderSmoothScrollRegionBand(state, regionStartY, redrawEndY);
+                        sample.redrawUs = static_cast<unsigned>(CTimer::GetClockTicks64() - redrawStartUs);
+                    }
+                    else
+                    {
+                        const u64 shiftStartUs = CTimer::GetClockTicks64();
+                        m_Surface.ScrollRowsUp(regionStartY, regionEndY, delta);
+                        sample.shiftUs = static_cast<unsigned>(CTimer::GetClockTicks64() - shiftStartUs);
+                        unsigned redrawStartY = regionEndY > (delta + cellHeight) ? regionEndY - (delta + cellHeight) : regionStartY;
+                        if (redrawStartY < regionStartY)
+                        {
+                            redrawStartY = regionStartY;
+                        }
+                        const u64 redrawStartUs = CTimer::GetClockTicks64();
+                        RenderSmoothScrollRegionBand(state, redrawStartY, regionEndY);
+                        sample.redrawUs = static_cast<unsigned>(CTimer::GetClockTicks64() - redrawStartUs);
+                    }
+                }
+                else if (hasSmoothSnapshot && !state.smoothScroll.active && m_nLastSmoothPixelOffset != 0)
+                {
+                    const unsigned delta = cellHeight > m_nLastSmoothPixelOffset ? (cellHeight - m_nLastSmoothPixelOffset) : 0;
+                    sample.deltaPixels = delta;
+
+                    if (delta != 0)
+                    {
+                        const u64 shiftStartUs = CTimer::GetClockTicks64();
+                        if (state.smoothScroll.scrollDown)
+                        {
+                            m_Surface.ScrollRowsDown(regionStartY, regionEndY, delta);
+                        }
+                        else
+                        {
+                            m_Surface.ScrollRowsUp(regionStartY, regionEndY, delta);
+                        }
+                        sample.shiftUs = static_cast<unsigned>(CTimer::GetClockTicks64() - shiftStartUs);
+                    }
+
+                    const u64 redrawStartUs = CTimer::GetClockTicks64();
+                    if (state.smoothScroll.scrollDown)
+                    {
+                        const unsigned redrawEndRow = smoothStartRow < smoothEndRow ? (smoothStartRow + 1) : smoothStartRow;
+                        for (unsigned row = smoothStartRow; row <= redrawEndRow; ++row)
+                        {
+                            RenderShadowRow(state, row);
+                        }
+                    }
+                    else
+                    {
+                        const unsigned redrawStartRow = smoothEndRow > smoothStartRow ? (smoothEndRow - 1) : smoothEndRow;
+                        for (unsigned row = redrawStartRow; row <= smoothEndRow; ++row)
+                        {
+                            RenderShadowRow(state, row);
+                        }
+                    }
+                    sample.redrawUs = static_cast<unsigned>(CTimer::GetClockTicks64() - redrawStartUs);
+                }
+                else
+                {
+                    const u64 redrawStartUs = CTimer::GetClockTicks64();
+                    if (state.smoothScroll.active && hasSmoothSnapshot)
+                    {
+                        RenderSmoothScrollRegion(state);
+                    }
+                    else
+                    {
+                        for (unsigned row = smoothStartRow; row <= smoothEndRow; ++row)
+                        {
+                            RenderShadowRow(state, row);
+                        }
+                    }
+                    sample.redrawUs = static_cast<unsigned>(CTimer::GetClockTicks64() - redrawStartUs);
+                }
+
+                if (cursorInRegion)
+                {
+                    RenderCursor(state);
+                }
+
+                CDisplay::TArea area{};
+                area.x1 = 0;
+                area.x2 = state.width - 1;
+                area.y1 = regionStartY;
+                area.y2 = regionEndY - 1;
+
+                const u64 flushStartUs = CTimer::GetClockTicks64();
+                m_Surface.FlushArea(area, m_Surface.GetBuffer() + area.y1 * m_Surface.GetPitch());
+                sample.flushUs = static_cast<unsigned>(CTimer::GetClockTicks64() - flushStartUs);
+            }
+            else
+            {
+                m_bDeferredFullRefreshAfterSmoothScroll = FALSE;
+                sample.regionRows = rowCount;
+                const u64 redrawStartUs = CTimer::GetClockTicks64();
+                RenderShadowScreen(state);
+                RenderCursor(state);
+                sample.redrawUs = static_cast<unsigned>(CTimer::GetClockTicks64() - redrawStartUs);
+
+                CDisplay::TArea area{};
+                area.x1 = 0;
+                area.x2 = state.width - 1;
+                area.y1 = 0;
+                area.y2 = state.height - 1;
+                const u64 flushStartUs = CTimer::GetClockTicks64();
+                m_Surface.FlushArea(area, m_Surface.GetBuffer());
+                sample.flushUs = static_cast<unsigned>(CTimer::GetClockTicks64() - flushStartUs);
+            }
+
+            sample.totalUs = static_cast<unsigned>(CTimer::GetClockTicks64() - renderStartUs);
+            if (m_bSmoothProfileCaptureActive && (smoothWasActive || state.smoothScroll.active))
+            {
+                RecordSmoothScrollProfileSample(sample);
+            }
+
+            m_nLastSmoothPixelOffset = state.smoothScroll.active ? state.smoothScroll.pixelOffset : 0;
+
+            const boolean keepFullRefreshPending = smoothWasActive && !state.smoothScroll.active && m_bDeferredFullRefreshAfterSmoothScroll;
+            if (keepFullRefreshPending)
+            {
+                state.fullRefreshPending = TRUE;
+                m_bDeferredFullRefreshAfterSmoothScroll = FALSE;
+            }
+            else
+            {
+                state.fullRefreshPending = FALSE;
+            }
             m_nLastRenderedGeneration = state.frameGeneration;
             m_ShadowBuffer.SetProjectorState(state);
+            if (smoothWasActive && !state.smoothScroll.active)
+            {
+                m_ShadowBuffer.ClearSmoothScrollSnapshot();
+                DumpSmoothScrollProfileCapture();
+            }
         }
 
-        CScheduler::Get()->MsSleep(m_nRefreshDelayMs);
+        unsigned sleepMs = m_nRefreshDelayMs;
+        if (state.smoothScroll.active)
+        {
+            sleepMs = 1000 / kSmoothScrollRefreshHz;
+            if (sleepMs < kProjectorMinimumRefreshMs)
+            {
+                sleepMs = kProjectorMinimumRefreshMs;
+            }
+        }
+
+        CScheduler::Get()->MsSleep(sleepMs);
     }
 }
 
 const CCharGenerator *CTRendererProjector::GetCharGeneratorForCell(const TProjectorState &state,
-                                                                  unsigned charSet,
-                                                                  ELineAttribute attribute) const
+                                                                   unsigned charSet,
+                                                                   ELineAttribute attribute) const
 {
     const boolean useGraphics = charSet != 0;
     const CCharGenerator *charGen = useGraphics && state.graphicsCharGen != nullptr
@@ -107,8 +391,8 @@ const CCharGenerator *CTRendererProjector::GetCharGeneratorForCell(const TProjec
 }
 
 CTRendererProjector::TProjectedCellStyle CTRendererProjector::GetProjectedCellStyle(const TProjectorState &state,
-                                                                                  const TShadowCell &cell,
-                                                                                  ELineAttribute attribute) const
+                                                                                    const TShadowCell &cell,
+                                                                                    ELineAttribute attribute) const
 {
     TProjectedCellStyle style{};
     style.charGen = GetCharGeneratorForCell(state, cell.charSet, attribute);
@@ -152,7 +436,7 @@ unsigned CTRendererProjector::GetRowCount(const TProjectorState &state) const
 }
 
 unsigned CTRendererProjector::GetCharCellWidthForLineAttribute(const TProjectorState &state,
-                                                              ELineAttribute attribute) const
+                                                               ELineAttribute attribute) const
 {
     const unsigned baseCharWidth = GetBaseCharWidth(state);
     if (baseCharWidth == 0)
@@ -169,7 +453,7 @@ unsigned CTRendererProjector::GetCharCellWidthForLineAttribute(const TProjectorS
 }
 
 unsigned CTRendererProjector::GetColumnsForLineAttribute(const TProjectorState &state,
-                                                        ELineAttribute attribute) const
+                                                         ELineAttribute attribute) const
 {
     const unsigned charWidth = GetCharCellWidthForLineAttribute(state, attribute);
     if (charWidth == 0)
@@ -181,11 +465,11 @@ unsigned CTRendererProjector::GetColumnsForLineAttribute(const TProjectorState &
 }
 
 boolean CTRendererProjector::SampleGlyphPixel(const CCharGenerator &charGen,
-                                             ELineAttribute attribute,
-                                             unsigned nPosX,
-                                             unsigned nPosY,
-                                             unsigned baseCharHeight,
-                                             char chChar) const
+                                              ELineAttribute attribute,
+                                              unsigned nPosX,
+                                              unsigned nPosY,
+                                              unsigned baseCharHeight,
+                                              char chChar) const
 {
     const unsigned baseCharWidth = charGen.GetCharWidth();
     const unsigned glyphHeight = charGen.GetCharHeight();
@@ -365,9 +649,9 @@ CDisplay::TRawColor CTRendererProjector::AdjustBrightness565(CDisplay::TRawColor
 }
 
 CDisplay::TRawColor CTRendererProjector::ApplyProjectedGlyphBrightness(const TProjectorState &state,
-                                                                      CDisplay::TRawColor color,
-                                                                      boolean bold,
-                                                                      boolean dim) const
+                                                                       CDisplay::TRawColor color,
+                                                                       boolean bold,
+                                                                       boolean dim) const
 {
     if (bold)
     {
@@ -435,12 +719,78 @@ boolean CTRendererProjector::AdvanceBlinkState(TProjectorState &state)
     return TRUE;
 }
 
+boolean CTRendererProjector::AdvanceSmoothScrollState(TProjectorState &state)
+{
+    if (!state.smoothScroll.active)
+    {
+        return FALSE;
+    }
+
+    const unsigned cellHeight = GetBaseCharHeight(state);
+    if (cellHeight < 2 || !m_ShadowBuffer.HasSmoothScrollSnapshot())
+    {
+        state.smoothScroll.active = FALSE;
+        state.smoothScroll.pixelOffset = 0;
+        return TRUE;
+    }
+
+    const u64 currentTimeUs = CTimer::GetClockTicks64();
+    if (state.smoothScroll.startTimeUs == 0)
+    {
+        state.smoothScroll.startTimeUs = currentTimeUs;
+        return FALSE;
+    }
+
+    const unsigned lineDurationUs = state.smoothScroll.lineDurationUs != 0 ? state.smoothScroll.lineDurationUs : 1U;
+    const u64 elapsedUs = currentTimeUs - state.smoothScroll.startTimeUs;
+    const unsigned maxOffset = cellHeight - 1;
+    if (elapsedUs >= lineDurationUs && state.smoothScroll.pixelOffset >= maxOffset)
+    {
+        state.smoothScroll.active = FALSE;
+        state.smoothScroll.pixelOffset = 0;
+        return TRUE;
+    }
+
+    unsigned targetOffset = maxOffset;
+    if (elapsedUs < lineDurationUs)
+    {
+        targetOffset = 1;
+        if (maxOffset > 1)
+        {
+            targetOffset += static_cast<unsigned>((elapsedUs * maxOffset) / lineDurationUs);
+            if (targetOffset > maxOffset)
+            {
+                targetOffset = maxOffset;
+            }
+        }
+    }
+
+    if (targetOffset <= state.smoothScroll.pixelOffset)
+    {
+        return FALSE;
+    }
+
+    unsigned newOffset = state.smoothScroll.pixelOffset + kSmoothScrollMaxPixelsPerFrame;
+    if (newOffset > targetOffset)
+    {
+        newOffset = targetOffset;
+    }
+    if (newOffset > maxOffset)
+    {
+        newOffset = maxOffset;
+    }
+
+    state.smoothScroll.pixelOffset = newOffset;
+
+    return TRUE;
+}
+
 void CTRendererProjector::DisplayChar(char chChar,
-                                     unsigned nPosX,
-                                     unsigned nPosY,
-                                     const TProjectorState &state,
-                                     ELineAttribute attribute,
-                                     const TProjectedCellStyle &style)
+                                      unsigned nPosX,
+                                      unsigned nPosY,
+                                      const TProjectorState &state,
+                                      ELineAttribute attribute,
+                                      const TProjectedCellStyle &style)
 {
     const CCharGenerator *charGen = style.charGen;
     const unsigned cellWidth = GetCharCellWidthForLineAttribute(state, attribute);
@@ -496,6 +846,81 @@ void CTRendererProjector::DisplayChar(char chChar,
         for (unsigned x = 0; x < cellWidth; ++x)
         {
             m_Surface.SetRawPixel(nPosX + x, nPosY + underlineRow, glyphColor);
+        }
+    }
+}
+
+void CTRendererProjector::DisplayCharSlice(char chChar,
+                                           unsigned nPosX,
+                                           unsigned nPosY,
+                                           const TProjectorState &state,
+                                           ELineAttribute attribute,
+                                           const TProjectedCellStyle &style,
+                                           unsigned sourcePixelY,
+                                           unsigned destinationPixelY,
+                                           unsigned sliceHeight)
+{
+    const CCharGenerator *charGen = style.charGen;
+    const unsigned cellWidth = GetCharCellWidthForLineAttribute(state, attribute);
+    const unsigned cellHeight = GetBaseCharHeight(state);
+    if (charGen == nullptr || cellWidth == 0 || cellHeight == 0 || sliceHeight == 0 || sourcePixelY >= cellHeight)
+    {
+        return;
+    }
+
+    if (sourcePixelY + sliceHeight > cellHeight)
+    {
+        sliceHeight = cellHeight - sourcePixelY;
+    }
+
+    CDisplay::TRawColor glyphColor = style.foreground;
+    if (glyphColor != style.background)
+    {
+        glyphColor = ApplyProjectedGlyphBrightness(state, glyphColor, style.bold, style.dim);
+    }
+
+    for (unsigned y = 0; y < sliceHeight; ++y)
+    {
+        const unsigned glyphY = sourcePixelY + y;
+        const unsigned drawY = nPosY + destinationPixelY + y;
+        for (unsigned x = 0; x < cellWidth; ++x)
+        {
+            const boolean isGlyphPixel = SampleGlyphPixel(*charGen, attribute, x, glyphY, cellHeight, chChar);
+            m_Surface.SetRawPixel(nPosX + x, drawY, isGlyphPixel ? glyphColor : style.background);
+        }
+    }
+
+    if (style.bold)
+    {
+        for (unsigned y = 0; y < sliceHeight; ++y)
+        {
+            const unsigned glyphY = sourcePixelY + y;
+            const unsigned drawY = nPosY + destinationPixelY + y;
+            for (unsigned x = 1; x < cellWidth; ++x)
+            {
+                if (SampleGlyphPixel(*charGen, attribute, x - 1, glyphY, cellHeight, chChar))
+                {
+                    m_Surface.SetRawPixel(nPosX + x, drawY, glyphColor);
+                }
+            }
+        }
+    }
+
+    if (style.underline)
+    {
+        unsigned underlineRow = charGen->GetUnderline();
+        if (underlineRow >= cellHeight)
+        {
+            underlineRow = cellHeight - 1;
+        }
+
+        if (underlineRow >= sourcePixelY && underlineRow < sourcePixelY + sliceHeight)
+        {
+            const unsigned drawY = nPosY + destinationPixelY + (underlineRow - sourcePixelY);
+            for (unsigned x = 0; x < cellWidth; ++x)
+            {
+                m_Surface.SetRawPixel(nPosX + x, drawY, glyphColor);
+            }
         }
     }
 }
@@ -586,12 +1011,272 @@ void CTRendererProjector::RenderShadowScreen(const TProjectorState &state)
         return;
     }
 
+    unsigned smoothStartRow = 0;
+    unsigned smoothEndRow = 0;
+    const boolean smoothActive = state.smoothScroll.active && m_ShadowBuffer.HasSmoothScrollSnapshot() && m_ShadowBuffer.GetSmoothScrollSnapshotAltScreen() == state.altScreenActive;
+    if (smoothActive)
+    {
+        smoothStartRow = state.smoothScroll.startRow < rowCount ? state.smoothScroll.startRow : (rowCount - 1);
+        smoothEndRow = state.smoothScroll.endRow < rowCount ? state.smoothScroll.endRow : (rowCount - 1);
+    }
+
     for (unsigned row = 0; row < rowCount; ++row)
     {
+        if (smoothActive && row >= smoothStartRow && row <= smoothEndRow)
+        {
+            continue;
+        }
+
         RenderShadowRow(state, row);
     }
 
+    if (smoothActive)
+    {
+        RenderSmoothScrollRegion(state);
+    }
+
     ClearUnusedBottomArea(state, state.background);
+}
+
+void CTRendererProjector::RenderShadowRowSlice(const TProjectorState &state,
+                                               unsigned sourceRow,
+                                               unsigned destinationRow,
+                                               unsigned sourcePixelY,
+                                               unsigned destinationPixelY,
+                                               unsigned sliceHeight,
+                                               boolean useSnapshot)
+{
+    const unsigned rowCount = GetRowCount(state);
+    const unsigned cellHeight = GetBaseCharHeight(state);
+    if (sourceRow >= rowCount || destinationRow >= rowCount || cellHeight == 0 || sliceHeight == 0)
+    {
+        return;
+    }
+
+    const ELineAttribute attribute = useSnapshot
+                                         ? m_ShadowBuffer.GetSmoothScrollSnapshotLineAttribute(sourceRow, rowCount)
+                                         : m_ShadowBuffer.GetLineAttribute(sourceRow, rowCount);
+    const unsigned visibleColumns = GetColumnsForLineAttribute(state, attribute);
+    const unsigned cellWidth = GetCharCellWidthForLineAttribute(state, attribute);
+    const unsigned nPosY = destinationRow * cellHeight;
+    if (visibleColumns == 0 || cellWidth == 0 || nPosY >= state.height)
+    {
+        return;
+    }
+
+    const TShadowCell(*cells)[CShadowBuffer::MaxTextColumns] = useSnapshot
+                                                                   ? m_ShadowBuffer.GetSmoothScrollSnapshotCells()
+                                                                   : m_ShadowBuffer.GetActiveCells(state.altScreenActive);
+    for (unsigned column = 0; column < visibleColumns && column < CShadowBuffer::MaxTextColumns; ++column)
+    {
+        const unsigned nPosX = column * cellWidth;
+        if (nPosX >= state.width)
+        {
+            break;
+        }
+
+        const TShadowCell &cell = cells[sourceRow][column];
+        const TProjectedCellStyle style = GetProjectedCellStyle(state, cell, attribute);
+        const char renderChar = (cell.blink && !state.textBlinkVisible) ? ' ' : (cell.used ? cell.ch : ' ');
+        DisplayCharSlice(renderChar,
+                         nPosX,
+                         nPosY,
+                         state,
+                         attribute,
+                         style,
+                         sourcePixelY,
+                         destinationPixelY,
+                         sliceHeight);
+    }
+}
+
+void CTRendererProjector::RenderSmoothScrollRegion(const TProjectorState &state)
+{
+    if (!m_ShadowBuffer.HasSmoothScrollSnapshot() || m_ShadowBuffer.GetSmoothScrollSnapshotAltScreen() != state.altScreenActive)
+    {
+        return;
+    }
+
+    const unsigned rowCount = GetRowCount(state);
+    const unsigned cellHeight = GetBaseCharHeight(state);
+    if (rowCount == 0 || cellHeight < 2)
+    {
+        return;
+    }
+
+    unsigned startRow = state.smoothScroll.startRow;
+    unsigned endRow = state.smoothScroll.endRow;
+    if (startRow >= rowCount)
+    {
+        startRow = rowCount - 1;
+    }
+    if (endRow >= rowCount)
+    {
+        endRow = rowCount - 1;
+    }
+    if (startRow > endRow)
+    {
+        return;
+    }
+
+    unsigned offset = state.smoothScroll.pixelOffset;
+    if (offset == 0 || offset >= cellHeight)
+    {
+        return;
+    }
+
+    for (unsigned destinationRow = startRow; destinationRow <= endRow; ++destinationRow)
+    {
+        const unsigned rowTop = destinationRow * cellHeight;
+        m_Surface.FillRows(rowTop, rowTop + cellHeight, state.background);
+
+        if (state.smoothScroll.scrollDown)
+        {
+            if (destinationRow == startRow)
+            {
+                RenderShadowRowSlice(state, destinationRow, destinationRow, 0, 0, offset, FALSE);
+            }
+            else
+            {
+                RenderShadowRowSlice(state, destinationRow - 1, destinationRow, cellHeight - offset, 0, offset, TRUE);
+            }
+
+            RenderShadowRowSlice(state, destinationRow, destinationRow, 0, offset, cellHeight - offset, TRUE);
+        }
+        else
+        {
+            RenderShadowRowSlice(state, destinationRow, destinationRow, offset, 0, cellHeight - offset, TRUE);
+
+            const boolean useSnapshot = destinationRow < endRow;
+            const unsigned sourceRow = useSnapshot ? (destinationRow + 1) : destinationRow;
+            RenderShadowRowSlice(state,
+                                 sourceRow,
+                                 destinationRow,
+                                 0,
+                                 cellHeight - offset,
+                                 offset,
+                                 useSnapshot ? TRUE : FALSE);
+        }
+    }
+}
+
+void CTRendererProjector::RenderSmoothScrollRegionBand(const TProjectorState &state,
+                                                       unsigned startY,
+                                                       unsigned endY)
+{
+    if (!m_ShadowBuffer.HasSmoothScrollSnapshot() || m_ShadowBuffer.GetSmoothScrollSnapshotAltScreen() != state.altScreenActive)
+    {
+        return;
+    }
+
+    const unsigned rowCount = GetRowCount(state);
+    const unsigned cellHeight = GetBaseCharHeight(state);
+    if (rowCount == 0 || cellHeight < 2 || startY >= endY || startY >= state.height)
+    {
+        return;
+    }
+
+    if (endY > state.height)
+    {
+        endY = state.height;
+    }
+
+    unsigned startRow = state.smoothScroll.startRow;
+    unsigned endRow = state.smoothScroll.endRow;
+    if (startRow >= rowCount)
+    {
+        startRow = rowCount - 1;
+    }
+    if (endRow >= rowCount)
+    {
+        endRow = rowCount - 1;
+    }
+    if (startRow > endRow)
+    {
+        return;
+    }
+
+    const unsigned regionStartY = startRow * cellHeight;
+    const unsigned regionEndY = ((endRow + 1) * cellHeight <= state.height)
+                                    ? ((endRow + 1) * cellHeight)
+                                    : state.height;
+    if (startY < regionStartY)
+    {
+        startY = regionStartY;
+    }
+    if (endY > regionEndY)
+    {
+        endY = regionEndY;
+    }
+    if (startY >= endY)
+    {
+        return;
+    }
+
+    m_Surface.FillRows(startY, endY, state.background);
+
+    const unsigned offset = state.smoothScroll.pixelOffset;
+    if (offset == 0 || offset >= cellHeight)
+    {
+        return;
+    }
+
+    auto renderClippedSlice = [&](unsigned sourceRow,
+                                  unsigned destinationRow,
+                                  unsigned sourcePixelY,
+                                  unsigned destinationPixelY,
+                                  unsigned sliceHeight,
+                                  boolean useSnapshot)
+    {
+        const unsigned rowTop = destinationRow * cellHeight;
+        const unsigned sliceStartY = rowTop + destinationPixelY;
+        const unsigned sliceEndY = sliceStartY + sliceHeight;
+        if (sliceHeight == 0 || sliceEndY <= startY || sliceStartY >= endY)
+        {
+            return;
+        }
+
+        const unsigned clippedStartY = sliceStartY < startY ? startY : sliceStartY;
+        const unsigned clippedEndY = sliceEndY > endY ? endY : sliceEndY;
+        const unsigned clipOffset = clippedStartY - sliceStartY;
+        RenderShadowRowSlice(state,
+                             sourceRow,
+                             destinationRow,
+                             sourcePixelY + clipOffset,
+                             destinationPixelY + clipOffset,
+                             clippedEndY - clippedStartY,
+                             useSnapshot);
+    };
+
+    for (unsigned destinationRow = startRow; destinationRow <= endRow; ++destinationRow)
+    {
+        if (state.smoothScroll.scrollDown)
+        {
+            if (destinationRow == startRow)
+            {
+                renderClippedSlice(destinationRow, destinationRow, 0, 0, offset, FALSE);
+            }
+            else
+            {
+                renderClippedSlice(destinationRow - 1, destinationRow, cellHeight - offset, 0, offset, TRUE);
+            }
+
+            renderClippedSlice(destinationRow, destinationRow, 0, offset, cellHeight - offset, TRUE);
+        }
+        else
+        {
+            renderClippedSlice(destinationRow, destinationRow, offset, 0, cellHeight - offset, TRUE);
+
+            const boolean useSnapshot = destinationRow < endRow;
+            const unsigned sourceRow = useSnapshot ? (destinationRow + 1) : destinationRow;
+            renderClippedSlice(sourceRow,
+                               destinationRow,
+                               0,
+                               cellHeight - offset,
+                               offset,
+                               useSnapshot ? TRUE : FALSE);
+        }
+    }
 }
 
 void CTRendererProjector::RenderCursor(const TProjectorState &state)

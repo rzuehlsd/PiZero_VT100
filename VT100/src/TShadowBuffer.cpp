@@ -20,7 +20,11 @@ CShadowBuffer::CShadowBuffer(void)
     memset(m_AltScreenLineAttributes, 0, sizeof(m_AltScreenLineAttributes));
     memset(m_ShadowCells, 0, sizeof(m_ShadowCells));
     memset(m_AltScreenShadowCells, 0, sizeof(m_AltScreenShadowCells));
+    memset(m_SmoothScrollSnapshotLineAttributes, 0, sizeof(m_SmoothScrollSnapshotLineAttributes));
+    memset(m_SmoothScrollSnapshotCells, 0, sizeof(m_SmoothScrollSnapshotCells));
     memset(&m_ProjectorState, 0, sizeof(m_ProjectorState));
+    m_bSmoothScrollSnapshotValid = FALSE;
+    m_bSmoothScrollSnapshotAltScreen = FALSE;
     m_ProjectorState.fullRefreshPending = TRUE;
 }
 
@@ -401,6 +405,63 @@ const CShadowBuffer::TShadowCell (*CShadowBuffer::GetActiveCells(boolean altScre
     return altScreenActive ? m_AltScreenShadowCells : m_ShadowCells;
 }
 
+void CShadowBuffer::CaptureSmoothScrollSnapshot(boolean altScreenActive)
+{
+    Acquire();
+    memcpy(m_SmoothScrollSnapshotCells,
+           altScreenActive ? m_AltScreenShadowCells : m_ShadowCells,
+           sizeof(m_SmoothScrollSnapshotCells));
+    memcpy(m_SmoothScrollSnapshotLineAttributes,
+           m_LineAttributes,
+           sizeof(m_SmoothScrollSnapshotLineAttributes));
+    m_bSmoothScrollSnapshotAltScreen = altScreenActive;
+    m_bSmoothScrollSnapshotValid = TRUE;
+    Release();
+}
+
+void CShadowBuffer::ClearSmoothScrollSnapshot(void)
+{
+    Acquire();
+    m_bSmoothScrollSnapshotValid = FALSE;
+    Release();
+}
+
+boolean CShadowBuffer::HasSmoothScrollSnapshot(void) const
+{
+    Acquire();
+    const boolean valid = m_bSmoothScrollSnapshotValid;
+    Release();
+    return valid;
+}
+
+boolean CShadowBuffer::GetSmoothScrollSnapshotAltScreen(void) const
+{
+    Acquire();
+    const boolean altScreen = m_bSmoothScrollSnapshotAltScreen;
+    Release();
+    return altScreen;
+}
+
+const CShadowBuffer::TShadowCell (*CShadowBuffer::GetSmoothScrollSnapshotCells(void) const)[MaxTextColumns]
+{
+    return m_SmoothScrollSnapshotCells;
+}
+
+CShadowBuffer::ELineAttribute CShadowBuffer::GetSmoothScrollSnapshotLineAttribute(unsigned row, unsigned rowCount) const
+{
+    if (rowCount == 0)
+    {
+        return LineAttributeNormal;
+    }
+
+    if (row >= rowCount)
+    {
+        row = rowCount - 1;
+    }
+
+    return m_SmoothScrollSnapshotLineAttributes[row];
+}
+
 void CShadowBuffer::SetProjectorState(const TProjectorState &state)
 {
     Acquire();
@@ -418,7 +479,10 @@ CShadowBuffer::TProjectorState CShadowBuffer::GetProjectorState(void) const
 
 void CShadowBuffer::MarkFullRefresh(void)
 {
-    m_ProjectorState.fullRefreshPending = TRUE;
+    if (!m_ProjectorState.smoothScroll.active)
+    {
+        m_ProjectorState.fullRefreshPending = TRUE;
+    }
     ++m_ProjectorState.frameGeneration;
 }
 

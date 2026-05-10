@@ -79,6 +79,17 @@ public:
     /// @brief Snapshot of render-visible state consumed by the projector task.
     struct TProjectorState
     {
+        struct TSmoothScrollState
+        {
+            boolean active;
+            boolean scrollDown;
+            unsigned startRow;
+            unsigned endRow;
+            unsigned pixelOffset;
+            unsigned lineDurationUs;
+            u64 startTimeUs;
+        };
+
         const CCharGenerator *charGen;
         const CCharGenerator *graphicsCharGen;
         const CCharGenerator *doubleBothCharGen;
@@ -108,6 +119,7 @@ public:
         boolean textBlinkVisible;
         boolean altScreenActive;
         boolean fullRefreshPending;
+        TSmoothScrollState smoothScroll;
     };
 
     /// @brief Construct an empty shadow buffer with cleared line attributes.
@@ -193,6 +205,18 @@ public:
     TShadowCell (*GetActiveCells(boolean altScreenActive))[MaxTextColumns];
     /// @brief Access the active shadow cell matrix as const data.
     const TShadowCell (*GetActiveCells(boolean altScreenActive) const)[MaxTextColumns];
+    /// @brief Snapshot the active screen for projector-owned smooth scrolling.
+    void CaptureSmoothScrollSnapshot(boolean altScreenActive);
+    /// @brief Clear the stored smooth-scroll snapshot.
+    void ClearSmoothScrollSnapshot(void);
+    /// @brief Check whether a smooth-scroll snapshot is available.
+    boolean HasSmoothScrollSnapshot(void) const;
+    /// @brief Query which screen variant the smooth-scroll snapshot belongs to.
+    boolean GetSmoothScrollSnapshotAltScreen(void) const;
+    /// @brief Access the smooth-scroll snapshot cells.
+    const TShadowCell (*GetSmoothScrollSnapshotCells(void) const)[MaxTextColumns];
+    /// @brief Query the line attribute for one row from the smooth-scroll snapshot.
+    ELineAttribute GetSmoothScrollSnapshotLineAttribute(unsigned row, unsigned rowCount) const;
 
     /// @brief Replace the projector-visible state snapshot.
     void SetProjectorState(const TProjectorState &state);
@@ -218,6 +242,10 @@ private:
     ELineAttribute m_AltScreenLineAttributes[MaxTextRows];
     TShadowCell m_ShadowCells[MaxTextRows][MaxTextColumns];
     TShadowCell m_AltScreenShadowCells[MaxTextRows][MaxTextColumns];
+    ELineAttribute m_SmoothScrollSnapshotLineAttributes[MaxTextRows];
+    TShadowCell m_SmoothScrollSnapshotCells[MaxTextRows][MaxTextColumns];
+    boolean m_bSmoothScrollSnapshotValid;
+    boolean m_bSmoothScrollSnapshotAltScreen;
     TProjectorState m_ProjectorState;
     mutable CSpinLock m_SpinLock;
 };

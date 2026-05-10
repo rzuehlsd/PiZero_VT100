@@ -264,9 +264,9 @@ CKernel::CKernel(void)
       m_Net(nullptr, nullptr, nullptr, nullptr, DefaultHostname, NetDeviceTypeWLAN),
       m_WpaSupplicant(SupplicantConfig),
       m_pRenderer(nullptr),
-    m_pShadowBuffer(nullptr),
-    m_pRendererSurface(nullptr),
-    m_pRendererProjector(nullptr),
+      m_pShadowBuffer(nullptr),
+      m_pRendererSurface(nullptr),
+      m_pRendererProjector(nullptr),
       m_pFontConverter(nullptr),
       m_pKeyboard(nullptr),
       m_pConfig(nullptr),
@@ -616,6 +616,7 @@ boolean CKernel::Initialize(void)
     else
     {
         m_pRenderer->AttachRenderStack(m_pShadowBuffer, m_pRendererSurface, m_pRendererProjector);
+        m_pRendererProjector->AttachRenderer(m_pRenderer);
     }
 
     if (m_pRenderer == nullptr || !m_pRenderer->Initialize())

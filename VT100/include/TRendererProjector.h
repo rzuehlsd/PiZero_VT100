@@ -19,6 +19,7 @@
 #include "TShadowBuffer.h"
 
 class CRendererSurface;
+class CTRenderer;
 
 /**
  * @file TRendererProjector.h
@@ -43,6 +44,19 @@ public:
     using TShadowCell = CShadowBuffer::TShadowCell;
     using TProjectorState = CShadowBuffer::TProjectorState;
 
+    struct TSmoothScrollProfileSample
+    {
+        unsigned pixelOffset;
+        unsigned deltaPixels;
+        unsigned regionRows;
+        unsigned totalUs;
+        unsigned shiftUs;
+        unsigned redrawUs;
+        unsigned flushUs;
+        boolean incremental;
+        boolean scrollDown;
+    };
+
     /// @brief Bundles the resolved glyph generator and projected cell colors.
     struct TProjectedCellStyle
     {
@@ -58,7 +72,10 @@ public:
     /// @param shadowBuffer Shadow-state model used as the projection source.
     /// @param surface Framebuffer backend used for raw pixel mutations and flushes.
     explicit CTRendererProjector(CShadowBuffer &shadowBuffer,
-                                CRendererSurface &surface);
+                                 CRendererSurface &surface);
+
+    /// @brief Attach the renderer whose animation state is projected by this task.
+    void AttachRenderer(CTRenderer *pRenderer);
 
     /// @brief Start the periodic framebuffer refresh task.
     boolean Initialize(unsigned refreshHz = 60);
@@ -101,6 +118,15 @@ private:
                      const TProjectorState &state,
                      ELineAttribute attribute,
                      const TProjectedCellStyle &style);
+    void DisplayCharSlice(char chChar,
+                          unsigned nPosX,
+                          unsigned nPosY,
+                          const TProjectorState &state,
+                          ELineAttribute attribute,
+                          const TProjectedCellStyle &style,
+                          unsigned sourcePixelY,
+                          unsigned destinationPixelY,
+                          unsigned sliceHeight);
 
     unsigned GetBaseCharWidth(const TProjectorState &state) const;
     unsigned GetBaseCharHeight(const TProjectorState &state) const;
@@ -120,15 +146,39 @@ private:
                                                       boolean dim) const;
     boolean ShadowHasBlinkCells(boolean altScreenActive, unsigned rowCount) const;
     boolean AdvanceBlinkState(TProjectorState &state);
+    boolean AdvanceSmoothScrollState(TProjectorState &state);
     void RenderCursor(const TProjectorState &state);
+    void RenderSmoothScrollRegion(const TProjectorState &state);
+    void RenderSmoothScrollRegionBand(const TProjectorState &state,
+                                      unsigned startY,
+                                      unsigned endY);
     void RenderShadowCell(const TProjectorState &state, unsigned row, unsigned column);
     void RenderShadowRow(const TProjectorState &state, unsigned row);
+    void RenderShadowRowSlice(const TProjectorState &state,
+                              unsigned sourceRow,
+                              unsigned destinationRow,
+                              unsigned sourcePixelY,
+                              unsigned destinationPixelY,
+                              unsigned sliceHeight,
+                              boolean useSnapshot);
     void RenderShadowScreen(const TProjectorState &state);
     void ClearUnusedBottomArea(const TProjectorState &state, CDisplay::TRawColor background);
     void RequestRefresh(void);
+    void ResetSmoothScrollProfileCapture(void);
+    void RecordSmoothScrollProfileSample(const TSmoothScrollProfileSample &sample);
+    void DumpSmoothScrollProfileCapture(void);
 
     CShadowBuffer &m_ShadowBuffer;
     CRendererSurface &m_Surface;
+    CTRenderer *m_pRenderer;
     unsigned m_nRefreshDelayMs;
     unsigned m_nLastRenderedGeneration;
+    unsigned m_nLastSmoothPixelOffset;
+    boolean m_bDeferredFullRefreshAfterSmoothScroll;
+    boolean m_bSmoothProfileCaptureActive;
+    boolean m_bSmoothProfileCaptureCompleted;
+    unsigned m_nSmoothProfileSampleCount;
+    unsigned m_nSmoothProfileDroppedSamples;
+    static constexpr unsigned SmoothProfileCapacity = 64;
+    TSmoothScrollProfileSample m_SmoothProfileSamples[SmoothProfileCapacity];
 };
