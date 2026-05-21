@@ -479,11 +479,13 @@ CShadowBuffer::TProjectorState CShadowBuffer::GetProjectorState(void) const
 
 void CShadowBuffer::MarkFullRefresh(void)
 {
+    Acquire();
     if (!m_ProjectorState.smoothScroll.active)
     {
         m_ProjectorState.fullRefreshPending = TRUE;
     }
     ++m_ProjectorState.frameGeneration;
+    Release();
 }
 
 boolean CShadowBuffer::ConsumeFullRefresh(void)

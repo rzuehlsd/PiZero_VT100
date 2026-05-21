@@ -32,6 +32,8 @@ public:
     void ShowModern();
     void Hide();
     bool IsVisible() const;
+    void HandleVisibleKeyPressed(const char *pString);
+    void HandleVisibleRawKeyStatus(unsigned char ucModifiers, const unsigned char RawKeys[6]);
 
     void Run(void) override;
 
@@ -157,6 +159,8 @@ private:
     void ChangeModernValue(int delta);
     void FormatModernValue(TModernField field, char *pBuffer, size_t bufferSize) const;
     bool HandleModernTextEdit(const char *pString);
+    void ProcessQueuedKeyPressed(const char *pString);
+    void ProcessQueuedRawKeyStatus(unsigned char ucModifiers, const unsigned char RawKeys[6]);
 
     static void KeyPressedHandler(const char *pString);
     static void KeyStatusHandlerRaw(unsigned char ucModifiers, const unsigned char RawKeys[6]);
@@ -168,8 +172,6 @@ private:
     CTRenderer *m_pRenderer;
     CTConfig *m_pConfig;
     CTKeyboard *m_pKeyboard;
-    CTKeyboard::TKeyPressedHandler m_pPrevKeyPressed;
-    CTKeyboard::TKeyStatusHandlerRaw m_pPrevKeyStatusRaw;
     struct TSetupSnapshot
     {
         bool stateValid;
@@ -177,12 +179,16 @@ private:
     };
     TSetupSnapshot m_Snapshot;
     bool m_Visible;
+    bool m_TaskStarted;
     bool m_ExitRequested;
     bool m_SaveRequested;
     bool m_KeyPending;
+    bool m_RawKeyPending;
     bool m_F12Down;
     bool m_F11Down;
     char m_KeyBuffer[32];
+    unsigned char m_PendingRawModifiers;
+    unsigned char m_PendingRawKeys[6];
     TDialogMode m_DialogMode;
     TSetupPage m_Page;
     unsigned m_SetupBToggle[4];

@@ -103,7 +103,31 @@ Reconstructed from git commit history and intended as a concise daily summary of
 - Codebase changes: changed `CTRenderer::BeginSmoothScrollAnimation()` to start without forcing an initial full refresh, and taught `CTRendererProjector::Run()` to treat both the first active frame and the final completion step as incremental region updates with pixel shifting plus localized redraw instead of full-region rerasterization; validated with `make -j4`.
 - Implemented features: prevented cursor/text blink timing from kicking an active smooth-scroll animation back onto the expensive full-render path, while still forcing one catch-up full refresh immediately after the scroll completes when needed.
 - Codebase changes: relaxed the projector's smooth-scroll gating to keep active animations incremental even when `AdvanceBlinkState()` toggles visibility, added one deferred-post-scroll full-refresh flag in `CTRendererProjector`, and validated the change with `make -j4`.
+- Implemented features: prevented renderer-side projector-state publishes from reintroducing the expensive start-of-scroll full-render fallback when state changes arrive during an already active smooth-scroll animation.
+- Codebase changes: added a shared deferred full-refresh flag to `TProjectorState`, changed `CTRenderer::PublishProjectorState()` to defer full refreshes while smooth-scroll is active (while still bumping frame generation), and taught `CTRendererProjector::Run()` to honor that deferred refresh immediately after the animation completes; validated with `make -j4`.
+- Implemented features: made setup dialog redraws independent of the smooth-scroll deferred-input path so modal configuration screens keep reacting while the normal terminal stream remains paused.
+- Codebase changes: added a renderer-local setup-dialog write bypass, enabled it while `CTSetup` owns the keyboard/screen, and removed the earlier ineffective deferred-key retry in `CTSetup::Run()`; validation pending.
+- Implemented features: added a kernel-side modal-input fallback so visible setup dialogs still receive key and raw function-key events even if the dynamic keyboard handler swap is bypassed.
+- Codebase changes: exposed narrow `CTSetup` visible-dialog dispatch methods and changed the global kernel key/raw handlers to delegate directly to setup while the dialog is visible before any normal VTTest/local-mode/host routing; validation pending.
 - Codebase changes: reworked kernel integration paths for renderer/font modules.
+
+## 2026-05-18
+- Implemented features: removed the recent setup-dialog keyboard-routing workarounds and added a targeted render-path probe that cancels any active smooth-scroll state and forces a full projector refresh before a setup dialog takes over the screen.
+- Codebase changes: removed the kernel-side setup input fallback plus the renderer setup write-bypass hooks, deleted the temporary `CTSetup` visible-dispatch API, added `CTRenderer::AbortSmoothScrollAndForceFullRefresh()` and called it from `CTSetup::PrepareToShow()`, and prepared the setup overlay path for validation against the suspected smooth-scroll refresh regression.
+
+## 2026-05-20
+- Implemented features: hardened setup-dialog redraw visibility by serializing projector full-refresh requests against the shared shadow-buffer projector state.
+- Codebase changes: wrapped `CShadowBuffer::MarkFullRefresh()` in the existing shadow-buffer spinlock so setup redraw requests and projector refresh generations cannot race the locked projector-state readers/writers introduced by the smooth-scroll projector path.
+- Implemented features: added targeted setup-dialog input diagnostics and stopped silently discarding queued legacy setup keys.
+- Codebase changes: instrumented `CTSetup` key/raw-key handlers plus the kernel fallback key paths with concise log lines, and changed the setup task's pending-key path to log and handle queued keys instead of clearing them without any trace.
+- Implemented features: corrected setup dialog re-entry so the suspended setup task is resumed instead of being started again on later openings.
+- Codebase changes: added one-time task start tracking in `CTSetup`, changed dialog activation to call `Resume()` after the initial `Start()`, removed the duplicate `Start()` call from `Show()`, and reset the exit flag on legacy setup entry.
+- Implemented features: routed visible setup-dialog input through the stable kernel keyboard handlers instead of relying on runtime callback swapping inside `CTSetup`.
+- Codebase changes: added narrow visible-dialog dispatch entry points on `CTSetup`, removed the setup-time keyboard handler override/restore logic, and changed the global kernel cooked/raw keyboard handlers to forward directly to the visible setup dialog before any normal VTTest, local-mode, or host routing.
+
+## 2026-05-21
+- Implemented features: moved setup-dialog input handling into the setup task so all setup redraws now run in task context instead of directly from keyboard callbacks.
+- Codebase changes: changed `CTSetup` cooked/raw key callbacks to queue pending events only, added task-side processing helpers for queued key and raw-key handling, and kept setup diagnostics on the task-side processing path to validate the suspected `TASK_LEVEL` renderer-write constraint.
 
 ## 2026-02-23
 
