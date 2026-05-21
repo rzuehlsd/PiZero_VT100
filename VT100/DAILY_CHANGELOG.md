@@ -128,6 +128,14 @@ Reconstructed from git commit history and intended as a concise daily summary of
 ## 2026-05-21
 - Implemented features: moved setup-dialog input handling into the setup task so all setup redraws now run in task context instead of directly from keyboard callbacks.
 - Codebase changes: changed `CTSetup` cooked/raw key callbacks to queue pending events only, added task-side processing helpers for queued key and raw-key handling, and kept setup diagnostics on the task-side processing path to validate the suspected `TASK_LEVEL` renderer-write constraint.
+- Implemented features: hardened setup dialog input handling for the connected shell-client case by serializing callback-to-task handoff of pending keys.
+- Codebase changes: added a `TASK_LEVEL` spinlock around the single-slot pending key/raw-key buffers in `CTSetup` so keyboard callbacks and the setup task no longer race while shell-client/network activity is active.
+- Implemented features: cleaned up the setup-dialog integration after the fix and aligned the public documentation with the current task-context input model.
+- Codebase changes: removed temporary setup diagnostics and dead callback helpers from `CTSetup` and `kernel`, added concise header comments for the queued-input handoff, and updated the README plus setup architecture/configuration docs to describe the current visible-dialog routing and shell-client behavior consistently.
+- Implemented features: stabilized setup dialogs during longer raw shell-client sessions by preserving cooked-key and raw-key event order instead of overwriting a single pending slot.
+- Codebase changes: replaced the `CTSetup` single-slot pending key/raw-key handoff with a small FIFO so raw press/release snapshots and cooked key sequences are processed in order by the setup task under shell-client load.
+- Implemented features: aligned shell-client host RX behavior with the stable serial-host path while setup dialogs are visible.
+- Codebase changes: changed `CTWlanHost::Tick()` to skip socket RX processing whenever the setup dialog blocks screen output, matching the existing serial-host early return and avoiding extra shell-client workload while setup is active.
 
 ## 2026-02-23
 

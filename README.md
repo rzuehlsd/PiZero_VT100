@@ -215,7 +215,7 @@ Create or edit `VT100.txt` on the boot partition. The firmware loads it on start
 | `wlan_host_autostart` | 0–2 | 0 | Current implementation policy: 0=off, 1=log mode, 2=outbound shell-client mode |
 | `text_color` | 0–3 | 1 | Foreground palette: 0=black, 1=white, 2=amber, 3=green |
 
-On screen configuration can be done by using one of the VT100 Set Up Dialogs A and B which can be triggered by F12 key and in an additional extended configuration dialog that also covers parameter of VT100.txt configuration file. This Dialog is triggered by F11 key.
+On-screen configuration is available through the VT100 SET-UP dialogs A and B, opened with `F12`, and through an extended configuration dialog opened with `F11`. The extended dialog covers the persisted `VT100.txt` parameters as well as the runtime-applied visual settings.
 
 #### VT100 SETUP Screen A Parameter Mapping (current status)
 
@@ -257,7 +257,7 @@ The table below maps original VT100 SET-UP B terms to the current firmware confi
 
 #### VT100 Extended Setup Dialog (F11)
 
-Press `F11` to open the extende setup dialog. The dialog uses DEC special graphics box drawing, keeps the active terminal color/font theme, uses a centered normal-width title, and shows a three-column `parameter` / `value` / `description` view for all persisted `VT100.txt` keys, including `smooth_scroll`, `smooth_scroll_ms`, and `host_id`. Press `F12` for the legacy VT100 setup screens; their title now renders as a true two-line DEC double-height header with `TO EXIT PRESS "SET-UP"` directly below it, matching the original VT100 layout more closely.
+Press `F11` to open the extended setup dialog. The dialog uses DEC special graphics box drawing, keeps the active terminal color/font theme, uses a centered normal-width title, and shows a three-column `parameter` / `value` / `description` view for all persisted `VT100.txt` keys, including `smooth_scroll`, `smooth_scroll_ms`, and `host_id`. Press `F12` for the legacy VT100 setup screens; their title renders as a true two-line DEC double-height header with `TO EXIT PRESS "SET-UP"` directly below it, matching the original VT100 layout more closely.
 
 Controls:
 
@@ -271,6 +271,7 @@ Runtime apply on `Return` (current firmware):
 - Immediate runtime apply: renderer visuals (`text_color`, `background_color`, `font_selection`, cursor type/blink, VT52 mode, `smooth_scroll`, `smooth_scroll_ms`) and HAL settings (`buzzer_volume`, `switch_txrx`).
 - Persisted and used by runtime logic without dedicated re-init: `line_ending`, `key_click`, `key_auto_repeat`, `wrap_around`, `margin_bell`.
 - Persisted (applied on subsystem init / reconnect / reboot): serial framing (`baud_rate`, `serial_bits`, `serial_parity`, `flow_control`), keyboard repeat timing (`repeat_delay_ms`, `repeat_rate_cps`), logging targets (`log_output`, `log_filename`), and WLAN host settings (`wlan_host_autostart`, `host_id`).
+- While a setup dialog is visible, cooked and raw keyboard events are routed into `CTSetup` and processed in the setup task context so redraws remain stable even when the shell-client connection is active.
 
 ### DEC Local Mode (F10)
 

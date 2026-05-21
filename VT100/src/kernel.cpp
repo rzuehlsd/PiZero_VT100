@@ -179,15 +179,6 @@ static void onKeyPressed(const char *pString)
     CKernel *kernel = CKernel::Get();
     if (kernel != nullptr)
     {
-        if (kernel->IsScreenOutputBlocked())
-        {
-            const unsigned char b0 = static_cast<unsigned char>(pString[0]);
-            const unsigned char b1 = static_cast<unsigned char>(pString[1]);
-            const unsigned char b2 = static_cast<unsigned char>(pString[2]);
-            const unsigned char b3 = static_cast<unsigned char>(pString[3]);
-            LOGNOTE("Kernel key while setup visible: b0=%02X b1=%02X b2=%02X b3=%02X", b0, b1, b2, b3);
-        }
-
         if (kernel->HandleVTTestKey(pString))
         {
             return;
@@ -222,18 +213,6 @@ static void onKeyPressedRaw(unsigned char ucModifiers, const unsigned char RawKe
     {
         setup->HandleVisibleRawKeyStatus(ucModifiers, RawKeys);
         return;
-    }
-
-    CKernel *kernel = CKernel::Get();
-    if (kernel != nullptr && kernel->IsScreenOutputBlocked())
-    {
-        LOGNOTE("Kernel raw while setup visible: %02X %02X %02X %02X %02X %02X",
-                RawKeys[0],
-                RawKeys[1],
-                RawKeys[2],
-                RawKeys[3],
-                RawKeys[4],
-                RawKeys[5]);
     }
 
     static bool s_f12Down = false;

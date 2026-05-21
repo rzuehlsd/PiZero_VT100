@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <circle/spinlock.h>
 #include <circle/types.h>
 #include <circle/sched/task.h>
 #include <stddef.h>
@@ -32,7 +33,12 @@ public:
     void ShowModern();
     void Hide();
     bool IsVisible() const;
+    /// \brief Queue cooked key input for the visible dialog.
+    /// \details The keyboard callback only captures the latest pending input.
+    /// Rendering and state changes are deferred to Run() so dialog redraws stay
+    /// in task context even while WLAN or shell-client tasks are active.
     void HandleVisibleKeyPressed(const char *pString);
+    /// \brief Queue raw key status for the visible dialog.
     void HandleVisibleRawKeyStatus(unsigned char ucModifiers, const unsigned char RawKeys[6]);
 
     void Run(void) override;
@@ -131,6 +137,21 @@ private:
         unsigned startIndex;
     };
 
+    enum TPendingInputType
+    {
+        PendingInputNone,
+        PendingInputKey,
+        PendingInputRaw
+    };
+
+    struct TPendingInputEvent
+    {
+        TPendingInputType type;
+        char key[32];
+        unsigned char modifiers;
+        unsigned char rawKeys[6];
+    };
+
     void Render();
     void RenderPageA();
     void RenderPageB();
@@ -161,9 +182,10 @@ private:
     bool HandleModernTextEdit(const char *pString);
     void ProcessQueuedKeyPressed(const char *pString);
     void ProcessQueuedRawKeyStatus(unsigned char ucModifiers, const unsigned char RawKeys[6]);
-
-    static void KeyPressedHandler(const char *pString);
-    static void KeyStatusHandlerRaw(unsigned char ucModifiers, const unsigned char RawKeys[6]);
+    void EnqueuePendingKey(const char *pString);
+    void EnqueuePendingRaw(unsigned char ucModifiers, const unsigned char RawKeys[6]);
+    bool DequeuePendingInput(TPendingInputEvent &event);
+    void ResetPendingInputQueue();
 
     void OnKeyPressed(const char *pString);
     void OnRawKeyStatus(unsigned char ucModifiers, const unsigned char RawKeys[6]);
@@ -182,13 +204,15 @@ private:
     bool m_TaskStarted;
     bool m_ExitRequested;
     bool m_SaveRequested;
-    bool m_KeyPending;
-    bool m_RawKeyPending;
     bool m_F12Down;
     bool m_F11Down;
-    char m_KeyBuffer[32];
-    unsigned char m_PendingRawModifiers;
-    unsigned char m_PendingRawKeys[6];
+    // Protects the pending input FIFO shared by keyboard callbacks and Run().
+    CSpinLock m_PendingInputLock;
+    static const unsigned PendingInputQueueSize = 16;
+    TPendingInputEvent m_PendingInputQueue[PendingInputQueueSize];
+    unsigned m_PendingInputReadIndex;
+    unsigned m_PendingInputWriteIndex;
+    unsigned m_PendingInputCount;
     TDialogMode m_DialogMode;
     TSetupPage m_Page;
     unsigned m_SetupBToggle[4];

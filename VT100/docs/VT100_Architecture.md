@@ -243,6 +243,7 @@ sequenceDiagram
 - trigger: raw HID key `0x44` or `CTSetup::ShowModern()`
 - rendering: DEC graphics frame (`ESC ( 0`), centered normal-width title, three-column parameter/value/description rows
 - overlay model: dialog drawing goes through normal `CTRenderer::ClearDisplay()`, `Goto()`, and `Write()` paths so setup content is written into the authoritative shadow model and then projected to the framebuffer by `CTRendererProjector`
+- execution model: cooked and raw key callbacks only queue the latest pending dialog input; `CTSetup::Run()` consumes that pending input and performs all dialog redraws in task context so renderer writes stay valid while shell-client and WLAN tasks are active
 - controls:
   - Up/Down select row
   - Left/Right edit value
@@ -254,6 +255,11 @@ sequenceDiagram
 Handled navigation sequences in setup input path:
 
 - `ESC [ A`, `ESC [ B`, `ESC [ C`, `ESC [ D`, `ESC [ H`, `ESC [ F`
+
+Visibility and routing rules:
+
+- while `CTSetup::IsVisible()` is true, cooked and raw keyboard input are forwarded to `CTSetup` before VTTest, local-mode, UART, or shell-client host routing
+- shell-client and UART RX are dropped while the dialog is visible so the overlay remains stable until restore
 
 Keyboard auto-repeat currently includes:
 

@@ -368,6 +368,11 @@ void CTWlanHost::Tick()
     CSocket *sock = m_pSocket;
     m_StateLock.Release();
 
+    if (connected && sock != nullptr && IsScreenOutputBlocked())
+    {
+        return;
+    }
+
     if (connected && sock != nullptr)
     {
         u8 rx[FRAME_BUFFER_SIZE];

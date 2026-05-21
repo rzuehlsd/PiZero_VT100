@@ -8,7 +8,6 @@
 
 #include "TSetup.h"
 
-#include <circle/logger.h>
 #include <circle/string.h>
 #include <circle/sched/scheduler.h>
 #include <string.h>
@@ -17,38 +16,8 @@
 #include "TConfig.h"
 #include "kernel.h"
 
-LOGMODULE("TSetup");
-
 namespace
 {
-    static void LogSetupKeyEvent(const char *stage, unsigned mode, unsigned page, const char *pString)
-    {
-        unsigned length = 0;
-        unsigned char bytes[4] = {0, 0, 0, 0};
-
-        if (pString != nullptr)
-        {
-            while (pString[length] != '\0')
-            {
-                if (length < 4)
-                {
-                    bytes[length] = static_cast<unsigned char>(pString[length]);
-                }
-                ++length;
-            }
-        }
-
-        LOGNOTE("Setup %s: mode=%u page=%u len=%u b0=%02X b1=%02X b2=%02X b3=%02X",
-                stage,
-                mode,
-                page,
-                length,
-                bytes[0],
-                bytes[1],
-                bytes[2],
-                bytes[3]);
-    }
-
     class CScopedMarginBellMute
     {
     public:
@@ -241,10 +210,12 @@ CTSetup *CTSetup::Get(void)
 }
 
 CTSetup::CTSetup()
-    : CTask(), m_pRenderer(nullptr), m_pConfig(nullptr), m_pKeyboard(nullptr), m_Snapshot{false, {}}, m_Visible(false), m_TaskStarted(false), m_ExitRequested(false), m_SaveRequested(false), m_KeyPending(false), m_RawKeyPending(false), m_F12Down(false), m_F11Down(false), m_KeyBuffer{0}, m_PendingRawModifiers(0), m_PendingRawKeys{0, 0, 0, 0, 0, 0}, m_DialogMode(DialogModeLegacy), m_Page(SetupPageA), m_SetupBToggle{0, 0, 0, 0}, m_SetupBTxSpeed(9600), m_SetupBRxSpeed(9600), m_SetupBField(SetupBFieldToggle1), m_SetupBBitIndex(0), m_TabRow(0), m_TabCols(0), m_TabEditCol(0), m_ModernSelected(ModernFieldLineEnding), m_ModernConfig{}, m_ModernHostIdOverwriteOnEdit(false), m_ModernLayoutValid(false), m_ModernLayout{}
+    : CTask(), m_pRenderer(nullptr), m_pConfig(nullptr), m_pKeyboard(nullptr), m_Snapshot{false, {}}, m_Visible(false), m_TaskStarted(false), m_ExitRequested(false), m_SaveRequested(false), m_F12Down(false), m_F11Down(false), m_PendingInputLock(TASK_LEVEL), m_PendingInputQueue{}, m_PendingInputReadIndex(0), m_PendingInputWriteIndex(0), m_PendingInputCount(0), m_DialogMode(DialogModeLegacy), m_Page(SetupPageA), m_SetupBToggle{0, 0, 0, 0}, m_SetupBTxSpeed(9600), m_SetupBRxSpeed(9600), m_SetupBField(SetupBFieldToggle1), m_SetupBBitIndex(0), m_TabRow(0), m_TabCols(0), m_TabEditCol(0), m_ModernSelected(ModernFieldLineEnding), m_ModernConfig{}, m_ModernHostIdOverwriteOnEdit(false), m_ModernLayoutValid(false), m_ModernLayout{}
 {
     SetName("Setup");
     Suspend();
+
+    ResetPendingInputQueue();
 }
 
 bool CTSetup::Initialize(CTRenderer *renderer, CTConfig *config, CTKeyboard *keyboard)
@@ -358,15 +329,11 @@ void CTSetup::Hide()
     m_Visible = false;
     m_ExitRequested = false;
     m_SaveRequested = false;
-    m_KeyPending = false;
-    m_RawKeyPending = false;
     m_F12Down = false;
     m_F11Down = false;
     m_DialogMode = DialogModeLegacy;
     m_ModernLayoutValid = false;
-    m_KeyBuffer[0] = '\0';
-    m_PendingRawModifiers = 0;
-    memset(m_PendingRawKeys, 0, sizeof(m_PendingRawKeys));
+    ResetPendingInputQueue();
 
     if (!IsSuspended())
     {
@@ -445,36 +412,17 @@ void CTSetup::Run(void)
             continue;
         }
 
-        if (m_KeyPending)
+        TPendingInputEvent pendingEvent{};
+        if (DequeuePendingInput(pendingEvent))
         {
-            char pendingKey[sizeof(m_KeyBuffer)];
-            strncpy(pendingKey, m_KeyBuffer, sizeof(pendingKey) - 1);
-            pendingKey[sizeof(pendingKey) - 1] = '\0';
-            m_KeyPending = false;
-            m_KeyBuffer[0] = '\0';
-
-            LogSetupKeyEvent("task-key", static_cast<unsigned>(m_DialogMode), static_cast<unsigned>(m_Page), pendingKey);
-            ProcessQueuedKeyPressed(pendingKey);
-            continue;
-        }
-
-        if (m_RawKeyPending)
-        {
-            unsigned char pendingModifiers = m_PendingRawModifiers;
-            unsigned char pendingRawKeys[6];
-            memcpy(pendingRawKeys, m_PendingRawKeys, sizeof(pendingRawKeys));
-            m_RawKeyPending = false;
-
-            LOGNOTE("Setup task raw: mode=%u page=%u %02X %02X %02X %02X %02X %02X",
-                    static_cast<unsigned>(m_DialogMode),
-                    static_cast<unsigned>(m_Page),
-                    pendingRawKeys[0],
-                    pendingRawKeys[1],
-                    pendingRawKeys[2],
-                    pendingRawKeys[3],
-                    pendingRawKeys[4],
-                    pendingRawKeys[5]);
-            ProcessQueuedRawKeyStatus(pendingModifiers, pendingRawKeys);
+            if (pendingEvent.type == PendingInputKey)
+            {
+                ProcessQueuedKeyPressed(pendingEvent.key);
+            }
+            else if (pendingEvent.type == PendingInputRaw)
+            {
+                ProcessQueuedRawKeyStatus(pendingEvent.modifiers, pendingEvent.rawKeys);
+            }
             continue;
         }
 
@@ -482,22 +430,90 @@ void CTSetup::Run(void)
     }
 }
 
-void CTSetup::KeyPressedHandler(const char *pString)
+void CTSetup::EnqueuePendingKey(const char *pString)
 {
-    CTSetup *instance = CTSetup::Get();
-    if (instance != nullptr)
+    if (pString == nullptr)
     {
-        instance->OnKeyPressed(pString);
+        return;
     }
+
+    m_PendingInputLock.Acquire();
+
+    if (m_PendingInputCount >= PendingInputQueueSize)
+    {
+        m_PendingInputReadIndex = (m_PendingInputReadIndex + 1) % PendingInputQueueSize;
+        --m_PendingInputCount;
+    }
+
+    TPendingInputEvent &event = m_PendingInputQueue[m_PendingInputWriteIndex];
+    event.type = PendingInputKey;
+    strncpy(event.key, pString, sizeof(event.key) - 1);
+    event.key[sizeof(event.key) - 1] = '\0';
+    event.modifiers = 0;
+    memset(event.rawKeys, 0, sizeof(event.rawKeys));
+
+    m_PendingInputWriteIndex = (m_PendingInputWriteIndex + 1) % PendingInputQueueSize;
+    ++m_PendingInputCount;
+
+    m_PendingInputLock.Release();
 }
 
-void CTSetup::KeyStatusHandlerRaw(unsigned char ucModifiers, const unsigned char RawKeys[6])
+void CTSetup::EnqueuePendingRaw(unsigned char ucModifiers, const unsigned char RawKeys[6])
 {
-    CTSetup *instance = CTSetup::Get();
-    if (instance != nullptr)
+    if (RawKeys == nullptr)
     {
-        instance->OnRawKeyStatus(ucModifiers, RawKeys);
+        return;
     }
+
+    m_PendingInputLock.Acquire();
+
+    if (m_PendingInputCount >= PendingInputQueueSize)
+    {
+        m_PendingInputReadIndex = (m_PendingInputReadIndex + 1) % PendingInputQueueSize;
+        --m_PendingInputCount;
+    }
+
+    TPendingInputEvent &event = m_PendingInputQueue[m_PendingInputWriteIndex];
+    event.type = PendingInputRaw;
+    event.key[0] = '\0';
+    event.modifiers = ucModifiers;
+    memcpy(event.rawKeys, RawKeys, sizeof(event.rawKeys));
+
+    m_PendingInputWriteIndex = (m_PendingInputWriteIndex + 1) % PendingInputQueueSize;
+    ++m_PendingInputCount;
+
+    m_PendingInputLock.Release();
+}
+
+bool CTSetup::DequeuePendingInput(TPendingInputEvent &event)
+{
+    bool haveEvent = false;
+
+    m_PendingInputLock.Acquire();
+    if (m_PendingInputCount > 0)
+    {
+        event = m_PendingInputQueue[m_PendingInputReadIndex];
+        m_PendingInputQueue[m_PendingInputReadIndex].type = PendingInputNone;
+        m_PendingInputQueue[m_PendingInputReadIndex].key[0] = '\0';
+        memset(m_PendingInputQueue[m_PendingInputReadIndex].rawKeys, 0,
+               sizeof(m_PendingInputQueue[m_PendingInputReadIndex].rawKeys));
+        m_PendingInputReadIndex = (m_PendingInputReadIndex + 1) % PendingInputQueueSize;
+        --m_PendingInputCount;
+        haveEvent = true;
+    }
+    m_PendingInputLock.Release();
+
+    return haveEvent;
+}
+
+void CTSetup::ResetPendingInputQueue()
+{
+    m_PendingInputLock.Acquire();
+    memset(m_PendingInputQueue, 0, sizeof(m_PendingInputQueue));
+    m_PendingInputReadIndex = 0;
+    m_PendingInputWriteIndex = 0;
+    m_PendingInputCount = 0;
+    m_PendingInputLock.Release();
 }
 
 void CTSetup::OnKeyPressed(const char *pString)
@@ -512,9 +528,7 @@ void CTSetup::OnKeyPressed(const char *pString)
         return;
     }
 
-    strncpy(m_KeyBuffer, pString, sizeof(m_KeyBuffer) - 1);
-    m_KeyBuffer[sizeof(m_KeyBuffer) - 1] = '\0';
-    m_KeyPending = true;
+    EnqueuePendingKey(pString);
 }
 
 void CTSetup::ProcessQueuedKeyPressed(const char *pString)
@@ -664,8 +678,6 @@ void CTSetup::ProcessQueuedKeyPressed(const char *pString)
         m_ExitRequested = true;
         return;
     }
-
-    LOGNOTE("Setup task key ignored: no binding");
 }
 
 void CTSetup::OnRawKeyStatus(unsigned char ucModifiers, const unsigned char RawKeys[6])
@@ -675,9 +687,7 @@ void CTSetup::OnRawKeyStatus(unsigned char ucModifiers, const unsigned char RawK
         return;
     }
 
-    m_PendingRawModifiers = ucModifiers;
-    memcpy(m_PendingRawKeys, RawKeys, sizeof(m_PendingRawKeys));
-    m_RawKeyPending = true;
+    EnqueuePendingRaw(ucModifiers, RawKeys);
 }
 
 void CTSetup::ProcessQueuedRawKeyStatus(unsigned char ucModifiers, const unsigned char RawKeys[6])
@@ -700,7 +710,6 @@ void CTSetup::ProcessQueuedRawKeyStatus(unsigned char ucModifiers, const unsigne
 
     if (f11Down && !m_F11Down)
     {
-        LOGNOTE("Setup raw: F11 press mode=%u page=%u", static_cast<unsigned>(m_DialogMode), static_cast<unsigned>(m_Page));
         m_DialogMode = DialogModeModern;
         m_ModernSelected = ModernFieldLineEnding;
         InitializeModernFromConfig();
@@ -718,7 +727,6 @@ void CTSetup::ProcessQueuedRawKeyStatus(unsigned char ucModifiers, const unsigne
 
     if (f12Down && !m_F12Down)
     {
-        LOGNOTE("Setup raw: F12 press mode=%u page=%u", static_cast<unsigned>(m_DialogMode), static_cast<unsigned>(m_Page));
         if (m_Page == SetupPageA)
         {
             m_Page = SetupPageB;
