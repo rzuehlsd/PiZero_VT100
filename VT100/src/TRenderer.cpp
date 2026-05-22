@@ -1159,13 +1159,24 @@ void CTRenderer::PublishProjectorState(void)
     CShadowBuffer::TProjectorState nextComparable = next;
     previousComparable.fullRefreshPending = FALSE;
     nextComparable.fullRefreshPending = FALSE;
+    previousComparable.deferredFullRefreshPending = FALSE;
+    nextComparable.deferredFullRefreshPending = FALSE;
     previousComparable.frameGeneration = 0;
     nextComparable.frameGeneration = 0;
 
     if (memcmp(&previousComparable, &nextComparable, sizeof(nextComparable)) != 0)
     {
-        next.fullRefreshPending = TRUE;
         next.frameGeneration = previous.frameGeneration + 1;
+        if (next.smoothScroll.active)
+        {
+            next.fullRefreshPending = FALSE;
+            next.deferredFullRefreshPending = TRUE;
+        }
+        else
+        {
+            next.fullRefreshPending = TRUE;
+            next.deferredFullRefreshPending = FALSE;
+        }
     }
 
     m_pShadowBuffer->SetProjectorState(next);
@@ -1384,6 +1395,35 @@ void CTRenderer::SetColors(TRendererColor Foreground, TRendererColor Background)
     m_SpinLock.Release();
 }
 
+void CTRenderer::AbortSmoothScrollAndForceFullRefresh(void)
+{
+    m_SpinLock.Acquire();
+
+    m_bPendingBottomScroll = FALSE;
+    m_bSmoothScrollAwaitingLineEnd = FALSE;
+
+    if (m_pShadowBuffer != nullptr)
+    {
+        CShadowBuffer::TProjectorState state = m_pShadowBuffer->GetProjectorState();
+        const boolean hadSmoothState = state.smoothScroll.active || state.deferredFullRefreshPending;
+
+        state.smoothScroll.active = FALSE;
+        state.smoothScroll.pixelOffset = 0;
+        state.smoothScroll.startTimeUs = 0;
+        state.deferredFullRefreshPending = FALSE;
+        state.fullRefreshPending = TRUE;
+        ++state.frameGeneration;
+        m_pShadowBuffer->SetProjectorState(state);
+
+        if (hadSmoothState)
+        {
+            m_pShadowBuffer->ClearSmoothScrollSnapshot();
+        }
+    }
+
+    m_SpinLock.Release();
+}
+
 int CTRenderer::Write(const void *pBuffer, size_t nCount)
 {
 #ifdef REALTIME
@@ -1405,7 +1445,6 @@ int CTRenderer::Write(const void *pBuffer, size_t nCount)
     const char *pChar = static_cast<const char *>(pBuffer);
     size_t remaining = nCount;
     int nResult = 0;
-
     if (m_nDeferredInputCount != 0 || (IsSmoothScrollActive() && !m_bSmoothScrollAwaitingLineEnd))
     {
         nResult = static_cast<int>(QueueDeferredInputLocked(pChar, remaining));

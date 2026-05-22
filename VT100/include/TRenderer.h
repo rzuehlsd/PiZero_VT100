@@ -211,6 +211,11 @@ public:
     /// \return Number of written characters.
     int Write(const void *pBuffer, size_t nCount) override;
 
+    /// \brief Cancel active smooth scroll and force a full projector refresh.
+    /// \details Used before modal setup overlays take over the screen so the
+    /// render stack starts from a stable, non-incremental framebuffer state.
+    void AbortSmoothScrollAndForceFullRefresh(void);
+
     /// \brief Reset ANSI parser state (used by VT tests).
     void ResetParserState(void);
 

@@ -332,15 +332,22 @@ void CTRendererProjector::Run(void)
 
             m_nLastSmoothPixelOffset = state.smoothScroll.active ? state.smoothScroll.pixelOffset : 0;
 
-            const boolean keepFullRefreshPending = smoothWasActive && !state.smoothScroll.active && m_bDeferredFullRefreshAfterSmoothScroll;
+            const boolean keepFullRefreshPending = smoothWasActive &&
+                                                   !state.smoothScroll.active &&
+                                                   (m_bDeferredFullRefreshAfterSmoothScroll || state.deferredFullRefreshPending);
             if (keepFullRefreshPending)
             {
                 state.fullRefreshPending = TRUE;
+                state.deferredFullRefreshPending = FALSE;
                 m_bDeferredFullRefreshAfterSmoothScroll = FALSE;
             }
             else
             {
                 state.fullRefreshPending = FALSE;
+                if (!state.smoothScroll.active)
+                {
+                    state.deferredFullRefreshPending = FALSE;
+                }
             }
             m_nLastRenderedGeneration = state.frameGeneration;
             m_ShadowBuffer.SetProjectorState(state);

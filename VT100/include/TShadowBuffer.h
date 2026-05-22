@@ -119,6 +119,7 @@ public:
         boolean textBlinkVisible;
         boolean altScreenActive;
         boolean fullRefreshPending;
+        boolean deferredFullRefreshPending;
         TSmoothScrollState smoothScroll;
     };
 
