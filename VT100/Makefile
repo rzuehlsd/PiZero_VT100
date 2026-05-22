@@ -136,17 +136,17 @@ $(BINDIR):
 
 $(BUILDDIR)/%.o: $(SRCDIR)/%.cpp | $(BUILDDIR)
 	@echo "  CPP   $@"
-	@$(CPP) $(CPPFLAGS) -c -o $@ $<
+	@$(CPP) $(CPPFLAGS) -MMD -MP -MF $(@:.o=.d) -c -o $@ $<
 
 
 $(BUILDDIR)/%.o: $(SRCDIR)/%.c | $(BUILDDIR)
 	@echo "  CC    $@"
-	@$(CC) $(CFLAGS) $(C_STANDARD) -MD -c -o $@ $<
+	@$(CC) $(CFLAGS) $(C_STANDARD) -MMD -MP -MF $(@:.o=.d) -c -o $@ $<
 
 
 $(BUILDDIR)/%.o: $(SRCDIR)/%.S | $(BUILDDIR)
 	@echo "  AS    $@"
-	@$(AS) $(AFLAGS) -c -o $@ $<
+	@$(AS) $(AFLAGS) -MMD -MP -MF $(@:.o=.d) -c -o $@ $<
 
 # $(BUILDDIR)/%.d: $(SRCDIR)/%.cpp | $(BUILDDIR)
 # 	@$(CPP) $(CPPFLAGS) -M -MG -MT $(BUILDDIR)/$*.o -MT $@ -MF $@ $<

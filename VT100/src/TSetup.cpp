@@ -103,7 +103,7 @@ namespace
 
     static const char *kModernFieldDescriptions[kModernFieldCount] = {
         "Line ending: LF/CRLF/CR",
-        "Baud rate 300-115200 (default 115200)",
+        "Baud rate preset 50-921600 (default 115200)",
         "Data bits: 7 or 8 (default 8)",
         "Parity: none/even/odd (default none)",
         "Cursor: underline/block",
@@ -113,7 +113,7 @@ namespace
         "Font: 8x20/10x20/10x20Solid",
         "Text color: black/white/amber/green (default white)",
         "Background: black/white/amber/green (default black)",
-        "Buzzer volume 0-100%",
+        "Buzzer volume 0-80%",
         "Key click on/off",
         "Auto-repeat on/off",
         "Smooth scroll on/off",

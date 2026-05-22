@@ -58,7 +58,7 @@ When implementation changes affect behavior, update these documents in lockstep 
 
 The application initialises USB keyboard input, the framebuffer, GPIO, UART, and WLAN within Circle and runs a cooperative task loop that keeps the terminal responsive even under heavy serial traffic. Classic aesthetics are preserved by rendering converted VT100 ROM fonts at 1024x768, while modern conveniences such as remote logging remain available.
 
-The current renderer keeps terminal text, attributes, and DEC line-size state primarily in a shadow buffer and then projects only the affected cells, rows, or the full screen onto the framebuffer. This makes state restore, scrolling, insert/delete operations, and external `vttest`-style screen rewrites behave against one consistent terminal model instead of depending on already-drawn pixels.
+The current renderer keeps terminal text, attributes, and DEC line-size state primarily in a shadow buffer and then projects that model onto the framebuffer through a dedicated projector task. During active smooth scrolling the projector stays on the incremental region-update path and defers any required catch-up full refresh until the animation completes. This makes state restore, scrolling, insert/delete operations, and external `vttest`-style screen rewrites behave against one consistent terminal model instead of depending on already-drawn pixels.
 
 ## Scope and Goals
 
@@ -96,7 +96,7 @@ The current renderer keeps terminal text, attributes, and DEC line-size state pr
   - [x] WLAN logging and shell-client mode successfully validated with local loopback and raw TCP helper tooling
 - [x] GPIO16-controlled TX/RX swap to simulate Null Modem cables with straight DB9 cables
 - [x] Configuration of system via VT100 Setup Screens A and B for supported parameters
-- [x] Separate on-screen setup dialog covering all file-based configuration parameters, including `smooth_scroll` and `smooth_scroll_ms` (F11)
+- [x] Separate on-screen setup dialog covering the 23 persisted `VT100.txt` keys that are implemented there, including `smooth_scroll`, `smooth_scroll_ms`, and `host_id` (F11)
 
 
 
@@ -107,7 +107,7 @@ The following table gives an overview of implementation highlights:
 | **Core Terminal** | ANSI/VT100 parser, ROM-derived fonts, shadow-buffer-first framebuffer renderer with DEC line-size control and visible blink attributes |
 | **Input** | USB keyboard with F12 legacy setup, F11 modern setup, F10 local mode toggle, optional key click |
 | **Serial** | Configurable UART baud rates, software flow control (XON/XOFF), GPIO16 TX/RX swap |
-| **Display & Audio** | Runtime font switching, colour themes, buzzer tones, smooth-scroll tuning, periodic status tasks |
+| **Display & Audio** | Runtime font switching, colour themes, buzzer tones, projector-owned smooth-scroll tuning, periodic status tasks |
 | **Configuration** | SD-based `VT100.txt`, Circle `cmdline.txt`/`config.txt`, manual SD-card editing |
 | **Logging** | Bitmask-controlled outputs (screen, file, WLAN), telnet console, timestamped files |
 | **Networking** | WLAN bring-up with WPA supplicant, telnet banner showing `ip:2323` |
@@ -215,7 +215,7 @@ Create or edit `VT100.txt` on the boot partition. The firmware loads it on start
 | `wlan_host_autostart` | 0–2 | 0 | Current implementation policy: 0=off, 1=log mode, 2=outbound shell-client mode |
 | `text_color` | 0–3 | 1 | Foreground palette: 0=black, 1=white, 2=amber, 3=green |
 
-On-screen configuration is available through the VT100 SET-UP dialogs A and B, opened with `F12`, and through an extended configuration dialog opened with `F11`. The extended dialog covers the persisted `VT100.txt` parameters as well as the runtime-applied visual settings.
+On-screen configuration is available through the VT100 SET-UP dialogs A and B, opened with `F12`, and through an extended configuration dialog opened with `F11`. The extended dialog covers 23 persisted `VT100.txt` keys plus the runtime-applied visual settings; `flow_control`, `wrap_around`, and `margin_bell` remain on the legacy VT100-style `F12` path.
 
 #### VT100 SETUP Screen A Parameter Mapping (current status)
 
@@ -257,7 +257,7 @@ The table below maps original VT100 SET-UP B terms to the current firmware confi
 
 #### VT100 Extended Setup Dialog (F11)
 
-Press `F11` to open the extended setup dialog. The dialog uses DEC special graphics box drawing, keeps the active terminal color/font theme, uses a centered normal-width title, and shows a three-column `parameter` / `value` / `description` view for all persisted `VT100.txt` keys, including `smooth_scroll`, `smooth_scroll_ms`, and `host_id`. Press `F12` for the legacy VT100 setup screens; their title renders as a true two-line DEC double-height header with `TO EXIT PRESS "SET-UP"` directly below it, matching the original VT100 layout more closely.
+Press `F11` to open the extended setup dialog. The dialog uses DEC special graphics box drawing, keeps the active terminal color/font theme, uses a centered normal-width title, and shows a three-column `parameter` / `value` / `description` view for the 23 persisted `VT100.txt` keys exposed there, including `smooth_scroll`, `smooth_scroll_ms`, and `host_id`. The remaining persisted keys `flow_control`, `wrap_around`, and `margin_bell` stay mapped to the VT100-compatible `F12` setup flow. Before the overlay takes over the screen, the renderer aborts any active smooth-scroll animation and forces a stable projector refresh so the dialog always starts from a complete framebuffer state. Press `F12` for the legacy VT100 setup screens; their title renders as a true two-line DEC double-height header with `TO EXIT PRESS "SET-UP"` directly below it, matching the original VT100 layout more closely.
 
 Controls:
 
@@ -269,9 +269,10 @@ Controls:
 Runtime apply on `Return` (current firmware):
 
 - Immediate runtime apply: renderer visuals (`text_color`, `background_color`, `font_selection`, cursor type/blink, VT52 mode, `smooth_scroll`, `smooth_scroll_ms`) and HAL settings (`buzzer_volume`, `switch_txrx`).
-- Persisted and used by runtime logic without dedicated re-init: `line_ending`, `key_click`, `key_auto_repeat`, `wrap_around`, `margin_bell`.
-- Persisted (applied on subsystem init / reconnect / reboot): serial framing (`baud_rate`, `serial_bits`, `serial_parity`, `flow_control`), keyboard repeat timing (`repeat_delay_ms`, `repeat_rate_cps`), logging targets (`log_output`, `log_filename`), and WLAN host settings (`wlan_host_autostart`, `host_id`).
-- While a setup dialog is visible, cooked and raw keyboard events are routed into `CTSetup` and processed in the setup task context so redraws remain stable even when the shell-client connection is active.
+- Persisted and used by runtime logic without dedicated re-init: `line_ending`, `key_click`, `key_auto_repeat`.
+- Persisted (applied on subsystem init / reconnect / reboot): serial framing (`baud_rate`, `serial_bits`, `serial_parity`), keyboard repeat timing (`repeat_delay_ms`, `repeat_rate_cps`), logging targets (`log_output`, `log_filename`), and WLAN host settings (`wlan_host_autostart`, `host_id`).
+- Persisted legacy-setup-only keys: `flow_control`, `wrap_around`, and `margin_bell` are edited through `F12`, not through the modern `F11` table.
+- While a setup dialog is visible, cooked and raw keyboard events are routed into `CTSetup`, queued in a small FIFO, and then processed in the setup task context so redraws remain stable even when the shell-client connection is active.
 
 ### DEC Local Mode (F10)
 
@@ -372,7 +373,7 @@ switch_txrx=0
 log_output=0
 
 
-# wlan_host_autostart: 0=off, 1=log mode after connect, 2=auto-enable shell-client mode
+# wlan_host_autostart: 0=off, 1=remote log mode, 2=outbound shell-client mode
 wlan_host_autostart=0
 
 # host_id: default shell-client target when wlan_host_autostart=2

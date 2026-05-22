@@ -43,13 +43,20 @@ Modern setup controls:
 - Enter: save and persist to `SD:/VT100.txt`
 - Esc: cancel changes
 
+Modern setup coverage (current implementation):
+
+- `F11` edits 23 persisted keys: `line_ending`, `baud_rate`, `serial_bits`, `serial_parity`, `cursor_type`, `cursor_blinking`, `vt_test`, `vt52_mode`, `font_selection`, `text_color`, `background_color`, `buzzer_volume`, `key_click`, `key_auto_repeat`, `smooth_scroll`, `smooth_scroll_ms`, `repeat_delay_ms`, `repeat_rate_cps`, `switch_txrx`, `wlan_host_autostart`, `host_id`, `log_output`, and `log_filename`.
+- `F12` remains the edit surface for the persisted VT100-style keys `flow_control`, `wrap_around`, and `margin_bell`, plus the runtime-only Setup A tab-stop map.
+
 Modern setup save/apply behavior (current implementation):
 
 - Applied immediately on `Enter`: `text_color`, `background_color`, `font_selection`, `cursor_type`, `cursor_blinking`, `vt52_mode`, `smooth_scroll`, `smooth_scroll_ms`, `buzzer_volume`, `switch_txrx`.
-- Persisted and used by runtime logic without dedicated re-init: `line_ending`, `key_click`, `key_auto_repeat`, `wrap_around`, `margin_bell`.
-- Persisted and applied on subsystem init/reconnect/reboot: `baud_rate`, `serial_bits`, `serial_parity`, `flow_control`, `repeat_delay_ms`, `repeat_rate_cps`, `log_output`, `log_filename`, `wlan_host_autostart`, `host_id`.
+- Persisted and used by runtime logic without dedicated re-init: `line_ending`, `key_click`, `key_auto_repeat`.
+- Persisted and applied on subsystem init/reconnect/reboot: `baud_rate`, `serial_bits`, `serial_parity`, `repeat_delay_ms`, `repeat_rate_cps`, `log_output`, `log_filename`, `wlan_host_autostart`, `host_id`.
+- Persisted but edited through legacy setup (`F12`): `flow_control`, `wrap_around`, `margin_bell`.
 - Display restore model: opening a setup dialog saves the renderer state including shadow-screen content; closing the dialog restores that saved state instead of copying back a separate raw framebuffer snapshot.
-- Input execution model: while a setup dialog is visible, keyboard callbacks only queue the latest cooked/raw input and `CTSetup::Run()` performs the actual state changes and redraws in task context.
+- Overlay handoff model: opening a setup dialog aborts any active smooth-scroll animation and forces a full projector refresh before the overlay draws, so the dialog never inherits a partial incremental frame.
+- Input execution model: while a setup dialog is visible, keyboard callbacks queue cooked and raw input into a small FIFO and `CTSetup::Run()` performs the actual state changes and redraws in task context.
 
 Local mode (`F10`) behavior:
 
@@ -87,6 +94,11 @@ Persisted by `CTConfig::SaveToFile()`:
 24. `host_id` (string, `IPv4[:port]`, empty means prompt locally on VT100)
 25. `log_output` (0..7; 0=none, 1=screen, 2=file, 3=wlan, 4=screen+file, 5=screen+wlan, 6=file+wlan, 7=screen+file+wlan)
 26. `log_filename` (string, max 63 chars)
+
+Dialog mapping note:
+
+- Persisted keys exposed in modern setup (`F11`): items 1-9, 11-17, 19-21, 23-26.
+- Persisted keys that remain on legacy setup (`F12`): item 10 `flow_control`, item 18 `wrap_around`, item 22 `margin_bell`.
 
 ### A4) WLAN usage (operator level)
 
@@ -152,7 +164,9 @@ When adding/changing a setting, update all of:
 - `F10` raw key (`0x43`) toggles runtime local mode (keyboard loopback).
 - Modern setup apply path goes through `CTConfig` setters, then persistence via `SaveToFile()`.
 - Setup drawing and restore now stay on the renderer's shadow-buffer-first path; setup screens are emitted through normal renderer text operations and restored from saved renderer/shadow state.
+- `CTSetup::PrepareToShow()` calls `CTRenderer::AbortSmoothScrollAndForceFullRefresh()` before drawing the overlay so setup entry always starts from a stable projector state.
 - Visible setup dialogs temporarily capture keyboard input before any VTTest, local-mode, UART, or shell-client routing, and shell/UART RX is ignored until the dialog closes.
+- The modern setup table (`F11`) intentionally excludes the VT100-style legacy keys `flow_control`, `wrap_around`, and `margin_bell`; those remain mapped to `F12`.
 - Legacy SET-UP B maps group 1 leftmost bit (mask `0x8`, VT100 “Scroll”) to `smooth_scroll`.
 - Legacy SET-UP B maps group 2 leftmost bit (mask `0x8`, VT100 “Bell”) to `margin_bell`.
 - Legacy SET-UP B maps group 2 rightmost shown bit (mask `0x1`, VT100 “Auto XON/XOFF”) to `flow_control`.

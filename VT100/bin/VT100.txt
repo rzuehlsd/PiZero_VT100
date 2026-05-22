@@ -82,7 +82,7 @@ switch_txrx=0
 # 7=screen+file+wlan
 log_output=0
 
-# wlan_host_autostart: 0=off, 1=log mode, 2=outbound shell-client mode
+# wlan_host_autostart: 0=off, 1=remote log mode, 2=outbound shell-client mode
 wlan_host_autostart=0
 
 # host_id: default shell-client target when wlan_host_autostart=2

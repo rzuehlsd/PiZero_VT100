@@ -170,7 +170,7 @@ sequenceDiagram
 
 ## 5. Task model and interaction pattern
 
-The refactoring model captured in `docs/Refactoring_Note.md` is retained where it still matches code:
+The current task and interaction model is:
 
 - singleton access per subsystem (`Get()`)
 - explicit `Initialize()` stage before task activity
@@ -242,8 +242,10 @@ sequenceDiagram
 
 - trigger: raw HID key `0x44` or `CTSetup::ShowModern()`
 - rendering: DEC graphics frame (`ESC ( 0`), centered normal-width title, three-column parameter/value/description rows
+- parameter coverage: the modern dialog edits 23 persisted `VT100.txt` keys; the persisted VT100-style keys `flow_control`, `wrap_around`, and `margin_bell` remain on the legacy `F12` setup path
 - overlay model: dialog drawing goes through normal `CTRenderer::ClearDisplay()`, `Goto()`, and `Write()` paths so setup content is written into the authoritative shadow model and then projected to the framebuffer by `CTRendererProjector`
-- execution model: cooked and raw key callbacks only queue the latest pending dialog input; `CTSetup::Run()` consumes that pending input and performs all dialog redraws in task context so renderer writes stay valid while shell-client and WLAN tasks are active
+- smooth-scroll interaction: `CTSetup::PrepareToShow()` first calls `CTRenderer::AbortSmoothScrollAndForceFullRefresh()` so the modal overlay starts from a stable, fully refreshed framebuffer state instead of inheriting an in-flight incremental scroll frame
+- execution model: cooked and raw key callbacks queue dialog input into a small FIFO; `CTSetup::Run()` consumes that FIFO and performs all dialog redraws in task context so renderer writes stay valid while shell-client and WLAN tasks are active
 - controls:
   - Up/Down select row
   - Left/Right edit value
@@ -405,9 +407,9 @@ The renderer pipeline is currently divided into five cooperating parts:
 - `CTRenderer` owns parser state, terminal modes, color/font policy, and the public terminal-facing API; it publishes projector-visible state into the shared model but does not own framebuffer backends or projector lifetime.
 - `CShadowBuffer` owns the authoritative terminal model for both the normal and alternate screens, including per-cell style snapshots, per-row DEC line-size attributes, and the lockable projector snapshot consumed by the render task.
 - `CRendererSurface` owns the framebuffer device, raw pixel buffer, raw/logical color conversion, and row-oriented pixel mutations.
-- `CTRendererProjector` runs as a periodic task, is owned and started by `CKernel`, consumes only `CShadowBuffer` plus `CRendererSurface`, and redraws the full visible framebuffer whenever the shared snapshot generation or blink state changes.
+- `CTRendererProjector` runs as a periodic task, is owned and started by `CKernel`, consumes only `CShadowBuffer` plus `CRendererSurface`, performs incremental region updates while smooth-scroll animation is active, and falls back to a full visible-framebuffer redraw when the shared snapshot requests it.
 
-The practical consequence is that terminal mutations no longer paint pixels directly as the primary state transition. Instead they follow a model-first path, mark the shared projector snapshot dirty, and let the periodic projector task rebuild the framebuffer from that state.
+The practical consequence is that terminal mutations no longer paint pixels directly as the primary state transition. Instead they follow a model-first path, mark the shared projector snapshot dirty, and let the periodic projector task rebuild the framebuffer from that state. During active smooth scrolling, full-refresh requests are deferred through the shared snapshot and consumed only after the animation has completed so the projector can stay on its cheaper incremental path.
 
 ```mermaid
 flowchart LR
@@ -429,8 +431,9 @@ Implementation-aligned responsibilities:
 
 - character writes, erase operations, insert/delete character or line operations, scroll-region mutations, and setup state restore update shadow state first
 - `CTRenderer` publishes cursor, geometry, font-generator, color, and blink-policy data into `CShadowBuffer::TProjectorState`
+- `CTRenderer` also publishes `fullRefreshPending` versus `deferredFullRefreshPending` so smooth-scroll animations can keep their incremental redraw path while still forcing one catch-up full refresh after the motion ends when needed.
 - `CKernel` creates the shared render stack, injects it into `CTRenderer`, and starts `CTRendererProjector` as an independent task during `Initialize()`
-- `CTRendererProjector` refreshes the framebuffer from `CShadowBuffer` on its own task cadence and uses the shared snapshot for cursor/blink timing and glyph selection
+- `CTRendererProjector` refreshes the framebuffer from `CShadowBuffer` on its own task cadence and uses the shared snapshot for cursor/blink timing, glyph selection, incremental smooth-scroll composition, and deferred post-animation full refresh handling
 - `CRendererSurface` centralizes raw pixel writes, row fills, row scrolls, incremental flushes, and color translation so projector logic no longer depends on `CBcmFrameBuffer` ownership in `CTRenderer`
 - cursor display remains a framebuffer projection concern, but it is now rendered as part of the projector task instead of synchronous pixel inversion in renderer code paths
 - legacy renderer facade methods such as `RenderShadowRow()` or `InvertCursor()` now effectively request a projector refresh instead of performing immediate framebuffer work
@@ -491,6 +494,11 @@ Current persisted set also includes:
 - `margin_bell` (0/1) for bell at right-margin minus 8 columns
 - `host_id` (`IPv4[:port]`) for the default outbound shell-client target
 
+Setup-surface mapping note:
+
+- Modern setup (`F11`) exposes 23 persisted keys: all persisted keys except `flow_control`, `wrap_around`, and `margin_bell`.
+- Legacy setup (`F12`) retains those three persisted VT100-style keys and the runtime-only tab-stop editor.
+
 Runtime clamping note:
 
 - `buzzer_volume` is constrained to `0..80`
@@ -512,9 +520,11 @@ For value semantics and user/admin guidance see `docs/Configuration_Guide.md`.
 - QEMU-specific runtime/build fallback paths were intentionally removed from `VT100`.
 - Current implementation enforces strict separation of incoming log-mode command sessions and outbound shell-client raw sessions, coordinated through `wlan_host_autostart` and `host_id`.
 - For configuration changes, keep `CTConfig` defaults/parser/setters/save format and `Configuration_Guide.md` in sync.
-- `docs/Refactoring_Note.md` remains useful as historical refactoring context, but this file is the normative technical reference.
+- This file is the normative technical reference for the current implementation state.
 
 Renderer behavior note (current implementation):
 
-- Smooth scrolling is implemented for single-line scroll paths (`Scroll`, `InsertLines(1)`, `DeleteLines(1)`) with a tick-driven, non-blocking animation in the renderer update loop.
+- Smooth scrolling is implemented for single-line scroll paths (`Scroll`, `InsertLines(1)`, `DeleteLines(1)`) with projector-owned, non-blocking animation state published by `CTRenderer` and advanced by `CTRendererProjector`.
+- While smooth scrolling is active, renderer snapshot publishes may request `deferredFullRefreshPending` instead of an immediate full redraw so the projector can remain on the incremental path until the animation finishes.
+- Setup dialog entry explicitly aborts active smooth scrolling and forces one full projector refresh before the overlay draws.
 - Reverse index (RI) scrolling triggers at the top of the active scroll region.
