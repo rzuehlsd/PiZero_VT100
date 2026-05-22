@@ -178,11 +178,17 @@ public:
     void SetSwitchTxRx(boolean enabled);
 
     /// \brief Retrieve WLAN session mode policy.
-    /// \return 0=WLAN disabled, 1=log mode, 2=host mode.
+    /// \return 0=WLAN disabled, 1=remote log mode, 2=shell client mode.
     unsigned int GetWlanHostAutoStart(void) const { return m_WlanHostAutoStart; }
     /// \brief Set WLAN session mode policy.
-    /// \param mode 0=WLAN disabled, 1=log mode, 2=host mode.
+    /// \param mode 0=WLAN disabled, 1=remote log mode, 2=shell client mode.
     void SetWlanHostAutoStart(unsigned int mode);
+
+    /// \brief Retrieve the configured default shell-client target (IPv4[:port]).
+    /// \return Pointer to the host_id string (may be empty).
+    const char *GetHostId(void) const { return m_HostId; }
+    /// \brief Set the configured default shell-client target (IPv4[:port]).
+    void SetHostId(const char *pHostId);
 
     /// \brief Retrieve key repeat delay in milliseconds.
     /// \return Delay in milliseconds.
@@ -217,6 +223,12 @@ public:
     /// \brief Enable or disable smooth scrolling animation.
     /// \param enabled TRUE to enable smooth scrolling.
     void SetSmoothScrollEnabled(boolean enabled);
+    /// \brief Retrieve smooth-scroll line duration in milliseconds.
+    /// \return Duration per scrolled text line in milliseconds.
+    unsigned int GetSmoothScrollLineMs(void) const { return m_SmoothScrollLineMs; }
+    /// \brief Set smooth-scroll line duration in milliseconds.
+    /// \param durationMs Duration per scrolled text line in milliseconds.
+    void SetSmoothScrollLineMs(unsigned int durationMs);
 
     /// \brief Check whether automatic line wrap-around is enabled.
     /// \return TRUE if enabled.
@@ -304,20 +316,22 @@ private:
     unsigned int m_BuzzerVolume;            // 0-100% duty cycle for buzzer
     unsigned int m_KeyClick;                // 0=disabled, 1=enabled key click feedback
     unsigned int m_SwitchTxRx;              // 0=normal wiring, 1=swap TX/RX via GPIO16
-    unsigned int m_WlanHostAutoStart;       // 0=WLAN disabled, 1=log mode on connect, 2=host mode on connect
+    unsigned int m_WlanHostAutoStart;       // 0=WLAN disabled, 1=remote log mode on connect, 2=shell client mode on connect
     unsigned int m_KeyAutoRepeat;           // 0=disabled, 1=enabled keyboard auto-repeat
     unsigned int m_KeyRepeatDelayMs;        // Key repeat delay in milliseconds
     unsigned int m_KeyRepeatRateCps;        // Repeat frequency in characters per second
     unsigned int m_ScreenInverted;          // 0=normal, 1=swap fg/bg screen colors
     unsigned int m_SmoothScrollEnabled;     // 0=off, 1=on smooth scrolling animation
+    unsigned int m_SmoothScrollLineMs;      // Smooth-scroll line duration in milliseconds
     unsigned int m_WrapAroundEnabled;       // 0=off hold at right margin, 1=on wrap to next line
     unsigned int m_SerialDataBits;          // UART data bits (7 or 8)
     unsigned int m_SerialParityMode;        // UART parity (0=none, 1=even, 2=odd)
     unsigned int m_SoftwareFlowControl;     // 0=off, 1=on software flow control (XON/XOFF)
     unsigned int m_MarginBellEnabled;       // 0=off, 1=on margin bell (8 columns before right margin)
     char m_LogFileName[64];                 // Log filename (string, special handling)
+    char m_HostId[64];                      // Shell-client default target (string, special handling)
     bool m_TabStops[TabStopsMax];           // Tab stop positions (0-based columns)
 
     static const char ConfigFileName[];
-    TConfigParam s_ConfigParams[24]; // Instance array for config params
+    TConfigParam s_ConfigParams[26]; // Instance array for config params
 };

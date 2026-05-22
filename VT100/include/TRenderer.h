@@ -9,9 +9,7 @@
 // 2026-01-18     R. Zuehlsdorff        Initial creation
 //------------------------------------------------------------------------------
 
-
 #pragma once
-
 
 // Include Circle core components
 #include <circle/sched/task.h>
@@ -19,7 +17,6 @@
 #include <circle/display.h>
 #include <circle/string.h>
 #include <circle/chargenerator.h>
-#include <circle/bcmframebuffer.h>
 #include <circle/spinlock.h>
 #include <circle/types.h>
 
@@ -38,6 +35,11 @@
 #include "TColorPalette.h"
 #include "TFontConverter.h"
 
+class CShadowBuffer;
+class CTRendererProjector;
+class CRendererSurface;
+class CBcmFrameBuffer;
+
 /**
  * @class CTRenderer
  * @brief Combines Circle framebuffer access with a VT100-aware state machine.
@@ -50,6 +52,45 @@
 class CTRenderer : public CDevice, public CTask
 {
 public:
+    enum ELineAttribute
+    {
+        LineAttributeNormal,
+        LineAttributeDoubleWidth,
+        LineAttributeDoubleHeightTop,
+        LineAttributeDoubleHeightBottom
+    };
+
+    static constexpr unsigned MaxTextRows = 64;
+    static constexpr unsigned MaxTextColumns = 160;
+
+    struct TSnapshotCell
+    {
+        char ch;
+        CDisplay::TRawColor foreground;
+        CDisplay::TRawColor background;
+        unsigned charSet;
+        boolean bold;
+        boolean dim;
+        boolean underline;
+        boolean blink;
+        boolean reverseVideo;
+        boolean used;
+    };
+
+    struct TShadowStyle
+    {
+        CDisplay::TRawColor foreground;
+        CDisplay::TRawColor background;
+        unsigned charSet;
+        boolean bold;
+        boolean dim;
+        boolean underline;
+        boolean blink;
+        boolean reverseVideo;
+    };
+
+    using TShadowCell = TSnapshotCell;
+
     // Define realistic vintage terminal colors
     // static constexpr TRendererColor kColorBlack = DISPLAY_COLOR(12, 12, 12);
     static constexpr TRendererColor kColorBlack = DISPLAY_COLOR(0, 0, 0);
@@ -77,10 +118,14 @@ public:
         unsigned scrollEnd;
         boolean reverseAttribute;
         boolean boldAttribute;
+        boolean dimAttribute;
         boolean underlineAttribute;
         boolean blinkAttribute;
         boolean insertOn;
         boolean autoPage;
+        boolean vt52Mode;
+        boolean originMode;
+        boolean wrapAroundMode;
         boolean delayedUpdate;
         unsigned lastUpdateTicks;
         unsigned parserState;
@@ -89,6 +134,8 @@ public:
         unsigned g0CharSet;
         unsigned g1CharSet;
         boolean useG1;
+        ELineAttribute lineAttributes[MaxTextRows];
+        TSnapshotCell shadowCells[MaxTextRows][MaxTextColumns];
     };
 
     /// \brief Access the singleton renderer instance.
@@ -105,6 +152,11 @@ public:
     /// \brief Initialize framebuffer access and Circle device registration.
     /// \return TRUE on success, FALSE otherwise.
     boolean Initialize(void);
+
+    /// \brief Inject the shared render stack owned by CKernel.
+    void AttachRenderStack(CShadowBuffer *pShadowBuffer,
+                           CRendererSurface *pSurface,
+                           CTRendererProjector *pProjector);
 
     /// \brief Set the font to be used.
     /// \param rFont Font to be used for text rendering.
@@ -125,14 +177,11 @@ public:
     /// \return Render-specific color value.
     TRendererColor MapColor(EColorSelection color);
 
-    
-
     /// \brief Query the screen width in pixels.
     /// \return Width in pixels.
     unsigned GetWidth(void) const;
 
     /// \brief Query the screen height in pixels.
-    /// \return Height in pixels.
     unsigned GetHeight(void) const;
 
     /// \brief Query the screen width in characters.
@@ -149,6 +198,7 @@ public:
 
     /// \brief Access the underlying framebuffer device.
     /// \return Pointer to the framebuffer.
+
     CBcmFrameBuffer *GetDisplay(void);
 
     /// \brief Clear entire display area and home the cursor.
@@ -160,6 +210,11 @@ public:
     /// \param nCount Number of characters to be written.
     /// \return Number of written characters.
     int Write(const void *pBuffer, size_t nCount) override;
+
+    /// \brief Cancel active smooth scroll and force a full projector refresh.
+    /// \details Used before modal setup overlays take over the screen so the
+    /// render stack starts from a stable, non-incremental framebuffer state.
+    void AbortSmoothScrollAndForceFullRefresh(void);
 
     /// \brief Reset ANSI parser state (used by VT tests).
     void ResetParserState(void);
@@ -209,7 +264,7 @@ public:
 
     /// \brief Periodic display maintenance invoked from the task loop.
     void Update(void);
-    
+
     /// \brief Enable or disable cursor visibility.
     /// \param bVisible TRUE to show the cursor.
     void SetCursorMode(boolean bVisible);
@@ -218,6 +273,9 @@ public:
     /// \param bEnable TRUE to enable VT52 mode, FALSE for ANSI mode.
     void SetVT52Mode(boolean bEnable);
 
+    /// \brief Enable or disable DECAWM automatic wrap mode (ESC[?7h/l).
+    void SetWrapAroundMode(boolean bEnable);
+
     /// \brief Enable or disable automatic page mode (cursor wrap to top).
     /// \param bEnable TRUE to enable auto page mode, FALSE for normal scrolling.
     void SetAutoPageMode(boolean bEnable);
@@ -225,14 +283,19 @@ public:
     /// \brief Enable or disable smooth-scroll animation.
     /// \param bEnable TRUE to enable smooth-scroll animation.
     void SetSmoothScrollEnabled(boolean bEnable);
+    /// \brief Set smooth-scroll duration per text line.
+    /// \param durationMs Duration per text line in milliseconds.
+    void SetSmoothScrollLineMs(unsigned durationMs);
 
     /// \brief Query whether smooth-scroll animation is enabled.
     /// \return TRUE when smooth-scroll animation is enabled.
     boolean GetSmoothScrollEnabled(void) const { return m_bSmoothScrollEnabled; }
+    /// \brief Query smooth-scroll duration per text line.
+    /// \return Duration per text line in milliseconds.
+    unsigned GetSmoothScrollLineMs(void) const { return m_nSmoothScrollLineMs; }
 
     /// \brief Force-hide the cursor and restore underlying pixels.
     void ForceHideCursor(void);
-
 
     /// \brief Entry point of the rendering task.
     void Run(void) override;
@@ -255,21 +318,21 @@ public:
     /// \param color The logical color to be adjusted.
     /// \param factor Brightness factor (1.0 = no change, < 1.0 = darker, > 1.0 = brighter).
     /// \return The adjusted logical color.
-    CDisplay::TColor AdjustBrightness(CDisplay::TColor color, float factor);
+    CDisplay::TColor AdjustBrightness(CDisplay::TColor color, float factor) const;
 
     /// \brief Adjust brightness of a raw RGB565 color.
     /// \param color The raw RGB565 color to be adjusted.
     /// \param factor Brightness factor (1.0 = no change, < 1.0 = darker, > 1.0 = brighter).
     /// \return The adjusted raw RGB565 color.
-    CDisplay::TRawColor AdjustBrightness565(CDisplay::TRawColor color, float factor);
+    CDisplay::TRawColor AdjustBrightness565(CDisplay::TRawColor color, float factor) const;
 
     /// \brief Set scaling factors for bold and reverse video attributes.
     /// \param boldFactor Scaling factor for bold attribute.
     /// \param reverseBackgroundFactor Scaling factor for reverse video background.
     /// \param reverseForegroundFactor Scaling factor for reverse video foreground.
     void SetBrightnessScaling(float boldFactor = 1.6f,
-        float reverseBackgroundFactor = 0.7f,
-        float reverseForegroundFactor = 1.25f);
+                              float reverseBackgroundFactor = 0.7f,
+                              float reverseForegroundFactor = 1.25f);
 
     /// \brief Conduct a rendering self-test using various attributes.
     void doRenderTest(void);
@@ -289,18 +352,91 @@ public:
     /// \brief Restore the internal pixel buffer from a caller-provided buffer.
     void RestoreScreenBuffer(const void *buffer, size_t bufferSize);
 
-
 private:
+    friend class CTRendererProjector;
+
+    /// \brief Apply a font using either pixel-stable or row/column-stable cursor handling.
+    boolean ApplyFont(const TFont &rFont,
+                      CCharGenerator::TFontFlags FontFlags,
+                      boolean preservePixelCursor);
+
+    /// \brief Internal renderer helpers used by the projector implementation.
+    const CCharGenerator *GetProjectorCharGenerator(unsigned charSet, ELineAttribute attribute) const;
+    CDisplay::TRawColor ApplyProjectedGlyphBrightness(CDisplay::TRawColor color,
+                                                      boolean bold,
+                                                      boolean dim) const;
+    boolean IsSmoothScrollActive(void) const;
+    boolean ProcessInputByteLocked(char chChar);
+    void RealizePendingBottomScrollLocked(void);
+    size_t QueueDeferredInputLocked(const char *pBuffer, size_t nCount);
+    void DrainDeferredInputLocked(void);
+    void PublishProjectorState(void);
+
+    unsigned GetBaseCharWidth(void) const;
+    unsigned GetBaseCharHeight(void) const;
+    unsigned GetRowCount(void) const;
+    unsigned GetRowIndexFromY(unsigned nPosY) const;
+    unsigned GetColumnIndexFromX(unsigned nPosX, unsigned nPosY) const;
+    ELineAttribute GetLineAttributeForRow(unsigned row) const;
+    ELineAttribute GetLineAttributeForY(unsigned nPosY) const;
+    void SetLineAttributeForRow(unsigned row, ELineAttribute attribute);
+    void ResetLineAttributes(void);
+    TShadowCell (*GetActiveShadowCells(void))[MaxTextColumns];
+    const TShadowCell (*GetActiveShadowCells(void) const)[MaxTextColumns];
+    TShadowStyle GetCurrentShadowStyle(void) const;
+    TShadowStyle GetDefaultShadowStyle(void) const;
+    void ResetShadowBuffer(void);
+    void ResetShadowRow(unsigned row);
+    void ClearShadowCells(unsigned row, unsigned startColumn, unsigned endColumn);
+    void ShiftShadowCellsLeft(unsigned row, unsigned startColumn, unsigned count);
+    void ShiftShadowCellsRight(unsigned row, unsigned startColumn, unsigned count);
+    void ShiftShadowRowsUp(unsigned startRow, unsigned endRow, unsigned count);
+    void ShiftShadowRowsDown(unsigned startRow, unsigned endRow, unsigned count);
+    void FillPixelRows(unsigned startY, unsigned endY, CDisplay::TRawColor color);
+    void ScrollPixelRowsUp(unsigned startY, unsigned endY, unsigned deltaY);
+    void ClearUnusedBottomArea(CDisplay::TRawColor background);
+    void RenderShadowCell(unsigned row, unsigned column);
+    void RenderShadowRow(unsigned row);
+    void RenderShadowScreen(void);
+    boolean ShadowRowHasBlink(unsigned row) const;
+    boolean ActiveShadowHasBlinkCells(void) const;
+    void StoreShadowCellAt(unsigned nPosX,
+                           unsigned nPosY,
+                           char chChar,
+                           CDisplay::TRawColor foreground,
+                           CDisplay::TRawColor background,
+                           unsigned charSet);
+    void ShiftLineAttributesUp(unsigned startRow, unsigned endRow, unsigned count);
+    void ShiftLineAttributesDown(unsigned startRow, unsigned endRow, unsigned count);
+    boolean IsDoubleWidthLineAttribute(ELineAttribute attribute) const;
+    unsigned GetCharCellWidthForLineAttribute(ELineAttribute attribute) const;
+    unsigned GetCharCellWidthForY(unsigned nPosY) const;
+    unsigned GetColumnsForY(unsigned nPosY) const;
+    void RecomputeCursorXForCurrentLine(ELineAttribute previousAttribute);
+    void ApplyColumnMode(unsigned nColumns, boolean clearScreen);
+    void ClampCursorToLineWidth(void);
+    boolean SampleGlyphPixel(const CCharGenerator &charGen,
+                             char chChar,
+                             ELineAttribute attribute,
+                             unsigned nPosX,
+                             unsigned nPosY) const;
+
     /// \brief Write a single character respecting current state machine.
     void Write(char chChar);
 
     /// \brief Move cursor to column zero without changing row.
     void CarriageReturn(void);
+    /// \brief Clear the display from start of screen to cursor.
+    void ClearDisplayStart(void);
+    /// \brief Clear the active line from start of line to cursor.
+    void ClearLineStart(void);
+    /// \brief Clear the entire active line.
+    void ClearLine(void);
     /// \brief Clear the display from cursor to end of screen.
     void ClearDisplayEnd(void);
     /// \brief Clear the active line from cursor to end of line.
     void ClearLineEnd(void);
-    /// \brief Move cursor down handling scrolling.
+    /// \brief Move cursor down by one row without scrolling.
     void CursorDown(void);
     /// \brief Return cursor to home position.
     void CursorHome(void);
@@ -321,17 +457,33 @@ private:
     /// \brief Erase characters and shift remainder of line.
     void EraseChars(unsigned nCount);
     /// \brief Obtain current background color.
-    CDisplay::TRawColor GetTextBackgroundColor(void);
+    CDisplay::TRawColor GetTextBackgroundColor(void) const;
     /// \brief Obtain current foreground color.
-    CDisplay::TRawColor GetTextColor(void);
+    CDisplay::TRawColor GetTextColor(void) const;
     /// \brief Insert new blank lines starting at cursor row.
     void InsertLines(unsigned nCount);
+    /// \brief Insert blank character cells at the cursor position (ICH/IRM support).
+    void InsertChars(unsigned nCount);
     /// \brief Toggle insert mode state.
     void InsertMode(boolean bBegin);
     /// \brief Advance to next line applying scroll if necessary.
     void NewLine(void);
+    /// \brief Perform VT100 index semantics, scrolling at the bottom margin.
+    void IndexDown(void);
     /// \brief Scroll content downward for reverse index.
     void ReverseScroll(void);
+
+    /// \brief Initialize CSI parser state (ESC [ / C1 CSI).
+    void BeginCSI(void);
+    /// \brief Append one CSI parameter value to the internal list.
+    void CSIAddParam(unsigned value);
+    /// \brief Flush the current CSI parameter (and trailing empty parameter if needed).
+    void FinalizeCSIParams(void);
+
+    /// \brief Reset terminal modes/state similar to RIS (ESC c).
+    void ResetTerminalState(boolean clearScreen);
+    /// \brief Render DECALN alignment test pattern (ESC # 8).
+    void ScreenAlignmentTest(void);
 
     /// \brief Define the active scrolling region.
     void SetScrollRegion(unsigned nStartRow, unsigned nEndRow);
@@ -348,12 +500,16 @@ private:
     /// \brief Restore the saved cursor position and attributes.
     void RestoreCursor(void);
 
+    /// \brief Enter xterm-style alternate screen (smcup).
+    void EnterAlternateScreen(void);
+
+    /// \brief Leave xterm-style alternate screen (rmcup).
+    void LeaveAlternateScreen(void);
+
     /// \brief Scroll display buffer content upward one line.
     void Scroll(void);
     /// \brief Schedule smooth scroll animation for a region.
     boolean BeginSmoothScrollAnimation(unsigned nStartY, unsigned nEndY, boolean bScrollDown);
-    /// \brief Render one smooth scroll animation frame.
-    void RenderSmoothScrollFrame(void);
 
     /// \brief Render a character at an explicit position with specified color.
     void DisplayChar(char chChar, unsigned nPosX, unsigned nPosY, CDisplay::TRawColor nColor);
@@ -361,7 +517,6 @@ private:
     void EraseChar(unsigned nPosX, unsigned nPosY);
     /// \brief Invert current cursor pixels to show cursor state.
     void InvertCursor(void);
-
 
     // We always update entire pixel lines.
     /// \brief Expand the pending update area to include the provided rows.
@@ -385,6 +540,7 @@ private:
         StateVT52Row,
         StateVT52Col,
         StateBracket,
+        StateCSI,
         StateNumber1,
         StateQuestionMark,
         StateSemicolon,
@@ -397,6 +553,9 @@ private:
         StateG1
     };
 
+    static constexpr unsigned CSIParamMax = 16;
+    static constexpr size_t DeferredInputCapacity = 256 * 1024;
+
     enum ECharacterSet
     {
         CharSetUS,
@@ -407,7 +566,12 @@ private:
     CCharGenerator::TFontFlags m_FontFlags;
     CCharGenerator *m_pCharGen;
     CCharGenerator *m_pGraphicsCharGen;
+    CCharGenerator *m_pDoubleBothCharGen;
+    CCharGenerator *m_pGraphicsDoubleBothCharGen;
     EFontSelection m_CurrentFontSelection;
+    CShadowBuffer *m_pShadowBuffer;
+    CRendererSurface *m_pSurface;
+    CTRendererProjector *m_pProjector;
 
     ECharacterSet m_G0CharSet;
     ECharacterSet m_G1CharSet;
@@ -420,7 +584,6 @@ private:
         u16 *m_pBuffer16;
         u32 *m_pBuffer32;
     };
-    CBcmFrameBuffer *m_pFrameBuffer;
     unsigned m_nDisplayIndex;
     unsigned m_nSize;
     unsigned m_nPitch;
@@ -428,6 +591,7 @@ private:
     unsigned m_nHeight;
     unsigned m_nUsedWidth;
     unsigned m_nUsedHeight;
+    unsigned m_nColumnModeColumns;
     unsigned m_nDepth;
     CDisplay::TArea m_UpdateArea;
     TState m_State;
@@ -435,12 +599,14 @@ private:
     unsigned m_nScrollEnd;
     unsigned m_nCursorX;
     unsigned m_nCursorY;
+    boolean m_bWrapPending;
     boolean m_bCursorOn;
     boolean m_bCursorBlock;
     boolean m_bBlinkingCursor;
     boolean m_bCursorVisible;
     unsigned m_nCursorBlinkPeriodTicks;
     unsigned m_nNextCursorBlink;
+    boolean m_bTextBlinkVisible;
     CDisplay::TRawColor m_ForegroundColor;
     CDisplay::TRawColor m_BackgroundColor;
     CDisplay::TRawColor m_DefaultForegroundColor;
@@ -456,25 +622,37 @@ private:
     boolean m_bBlinkAttribute;
     boolean m_bInsertOn;
     boolean m_bVT52Mode;
+    boolean m_bOriginMode;
+    boolean m_bWrapAroundMode;
+    boolean m_bNewLineMode;
+    boolean m_bAltScreenActive;
+    boolean m_bAltScreenSavedValid;
+    u8 *m_pAltScreenSnapshot;
+    size_t m_nAltScreenSnapshotSize;
+    u8 *m_pDeferredInputBuffer;
+    size_t m_nDeferredInputCapacity;
+    size_t m_nDeferredInputCount;
+    boolean m_bDrainingDeferredInput;
+    boolean m_bSmoothScrollAwaitingLineEnd;
+    boolean m_bPendingBottomScroll;
+    TRendererState m_AltScreenSavedState;
     unsigned m_nParam1;
     unsigned m_nParam2;
     boolean m_bAutoPage;
+
+    // CSI parser state (ESC [ ... / C1 CSI)
+    boolean m_bCSIPrivate;
+    unsigned m_CSIParams[CSIParamMax];
+    unsigned m_nCSIParamCount;
+    unsigned m_nCSIParamValue;
+    boolean m_bCSIHaveValue;
+    boolean m_bCSILastWasSeparator;
+
     boolean m_bDelayedUpdate;
     unsigned m_nLastUpdateTicks;
     boolean m_bSmoothScrollEnabled;
-    boolean m_bSmoothScrollActive;
-    boolean m_bSmoothScrollDown;
-    unsigned m_nSmoothScrollStartY;
-    unsigned m_nSmoothScrollEndY;
-    unsigned m_nSmoothScrollOffset;
-    unsigned m_nSmoothScrollStep;
-    unsigned m_nSmoothScrollLastTick;
-    unsigned m_nSmoothScrollTickInterval;
-    u8 *m_pSmoothScrollSnapshot;
-    u8 *m_pSmoothScrollCompose;
-    size_t m_nSmoothScrollBufferSize;
-    unsigned m_nSmoothScrollStartTick;
-    unsigned  m_nSmoothScrollDebounceUntil; // tick until which we suppress smooth to avoid bursts
+    unsigned m_nSmoothScrollLineMs;
+    unsigned m_nSmoothScrollDebounceUntil; // tick until which we suppress smooth to avoid bursts
     unsigned m_nScrollStatsLastLogTick;
     unsigned long long m_ScrollNormalTicksAccum;
     unsigned long long m_ScrollSmoothTicksAccum;

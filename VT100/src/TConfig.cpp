@@ -30,8 +30,6 @@
 // Include application components
 #include "TRenderer.h"
 
-
-
 LOGMODULE("TConfig");
 
 // Singleton instance creation and access
@@ -55,6 +53,9 @@ namespace
     constexpr unsigned int KeyRepeatDelayMaxMs = 1000U;
     constexpr unsigned int KeyRepeatRateMinCps = 2U;
     constexpr unsigned int KeyRepeatRateMaxCps = 20U;
+    constexpr unsigned int SmoothScrollLineMinMs = 10U;
+    constexpr unsigned int SmoothScrollLineMaxMs = 500U;
+    constexpr unsigned int SmoothScrollLineDefaultMs = 170U;
 
     constexpr unsigned int FontSelectionMin = static_cast<unsigned int>(EFontSelection::VT100Font8x20);
     constexpr unsigned int FontSelectionMax = static_cast<unsigned int>(EFontSelection::VT100Font10x20Solid);
@@ -287,11 +288,11 @@ void CTConfig::logConfig(void) const
     LOGNOTE("Pi VT100 020: Config Settings");
     LOGNOTE("Screen: %ux%u", CTRenderer::Get()->GetWidth(), CTRenderer::Get()->GetHeight());
     LOGNOTE("Serial: %u baud", GetBaudRate());
-        LOGNOTE("Serial framing: %u data bits, parity=%s",
+    LOGNOTE("Serial framing: %u data bits, parity=%s",
             GetSerialDataBits(),
             GetSerialParityMode() == 0 ? "none" : (GetSerialParityMode() == 1 ? "even" : "odd"));
     LOGNOTE("Serial flow: software XON/XOFF %s", GetSoftwareFlowControl() ? "enabled" : "disabled");
-            LOGNOTE("Margin bell: %s", GetMarginBellEnabled() ? "enabled" : "disabled");
+    LOGNOTE("Margin bell: %s", GetMarginBellEnabled() ? "enabled" : "disabled");
     LOGNOTE("Line endings: %s", GetLineEndingModeString());
     LOGNOTE("Cursor: %s, %s", GetCursorBlock() ? "block" : "underline", GetCursorBlinking() ? "blinking" : "solid");
     LOGNOTE("VT test: %s", GetVTTestEnabled() ? "enabled" : "disabled");
@@ -309,28 +310,30 @@ void CTConfig::logConfig(void) const
     }
     else if (GetWlanHostAutoStart() == 2U)
     {
-        wlanMode = "host";
+        wlanMode = "shell_client";
     }
     LOGNOTE("WLAN mode policy: %s (wlan_host_autostart=%u)", wlanMode, GetWlanHostAutoStart());
     LOGNOTE("Screen mode: %s", GetScreenInverted() ? "inverse" : "normal");
     LOGNOTE("Smooth scroll: %s", GetSmoothScrollEnabled() ? "enabled" : "disabled");
+    LOGNOTE("Smooth scroll line time: %u ms", GetSmoothScrollLineMs());
     LOGNOTE("Wrap around: %s", GetWrapAroundEnabled() ? "enabled" : "disabled");
     LOGNOTE("Key repeat: delay=%u ms, rate=%u cps", GetKeyRepeatDelayMs(), GetKeyRepeatRateCps());
     bool logScreen = false;
     bool logFile = false;
     bool logWlan = false;
     ResolveLogOutputs(logScreen, logFile, logWlan);
-        LOGNOTE("Logging: outputs -> screen=%s, file=%s, wlan=%s (mode %u)",
+    LOGNOTE("Logging: outputs -> screen=%s, file=%s, wlan=%s (mode %u)",
             logScreen ? "on" : "off",
             logFile ? "on" : "off",
             logWlan ? "on" : "off",
             GetLogOutput());
-        LOGNOTE("Logging: active file=%s", GetLogFileName());
+    LOGNOTE("Logging: active file=%s", GetLogFileName());
 }
 
 CTConfig::CTConfig(void) : CTask()
 {
     strcpy(m_LogFileName, "vt100.log");
+    m_HostId[0] = '\0';
 
     // Initialize configuration parameter table with direct references
     static const TConfigParam configParams[] = {
@@ -343,18 +346,19 @@ CTConfig::CTConfig(void) : CTask()
         {"vt_test", &m_VTTestEnabled, 0, "VT test runner (0=off, 1=on)"},
         {"vt52_mode", &m_VT52Mode, 0, "Terminal mode (0=ANSI, 1=VT52)"},
         {"log_output", &m_LogOutput, 0, "Log output (0=off, 1=screen, 2=file, 3=wlan, 4=screen+file, 5=screen+wlan, 6=file+wlan, 7=screen+file+wlan)"},
-        {"text_color", (unsigned int*)&m_TextColorIndex, 1, "Text color index (0=black,1=white,2=amber,3=green)"},
-        {"background_color", (unsigned int*)&m_BackgroundColorIndex, 0, "Background color index (0=black,1=white,2=amber,3=green)"},
+        {"text_color", (unsigned int *)&m_TextColorIndex, 1, "Text color index (0=black,1=white,2=amber,3=green)"},
+        {"background_color", (unsigned int *)&m_BackgroundColorIndex, 0, "Background color index (0=black,1=white,2=amber,3=green)"},
         {"font_selection", &m_FontSelection, FontSelectionDefault, "Font selection (1=8x20,2=10x20,3=10x20Solid)"},
         {"buzzer_volume", &m_BuzzerVolume, 50, "Buzzer volume (0-100 percent duty cycle)"},
         {"key_click", &m_KeyClick, 1, "Key click feedback (0=off, 1=on)"},
         {"key_auto_repeat", &m_KeyAutoRepeat, 1, "Keyboard auto-repeat (0=off, 1=on)"},
         {"smooth_scroll", &m_SmoothScrollEnabled, 1, "Smooth scroll animation (0=off, 1=on)"},
+        {"smooth_scroll_ms", &m_SmoothScrollLineMs, SmoothScrollLineDefaultMs, "Smooth scroll duration per text line in milliseconds (10-500)"},
         {"wrap_around", &m_WrapAroundEnabled, 1, "Wrap around at right margin (0=off, 1=on)"},
         {"switch_txrx", &m_SwitchTxRx, 0, "Swap TX/RX wiring using GPIO16 (0=normal, 1=swapped)"},
         {"flow_control", &m_SoftwareFlowControl, 0, "Software flow control (0=off, 1=on XON/XOFF)"},
         {"margin_bell", &m_MarginBellEnabled, 0, "Margin bell (0=off, 1=on; rings 8 columns before right margin)"},
-        {"wlan_host_autostart", &m_WlanHostAutoStart, 0, "WLAN mode policy (0=off, 1=log, 2=host)"},
+        {"wlan_host_autostart", &m_WlanHostAutoStart, 0, "WLAN mode policy (0=off, 1=remote_log, 2=shell_client)"},
         {"repeat_delay_ms", &m_KeyRepeatDelayMs, KeyRepeatDelayMinMs, "Key repeat delay in milliseconds (250-1000)"},
         {"repeat_rate_cps", &m_KeyRepeatRateCps, 10, "Key repeat rate in characters per second (2-20)"},
         // Note: log_filename is handled as special case in ParseConfigLine()
@@ -371,7 +375,6 @@ CTConfig::CTConfig(void) : CTask()
 CTConfig::~CTConfig(void)
 {
 }
-
 
 boolean CTConfig::Initialize(void)
 {
@@ -406,12 +409,29 @@ void CTConfig::LoadDefaults(void)
     // Handle special case: log filename
     strcpy(m_LogFileName, "vt100.log");
 
+    // Special case: host_id (string)
+    m_HostId[0] = '\0';
+
     // Runtime-only setting (intentionally not persisted in VT100.txt)
     m_ScreenInverted = 0U;
+
+    SetSmoothScrollLineMs(m_SmoothScrollLineMs);
 
     InitDefaultTabStops(TabStopsMax);
 
     LOGNOTE("Config: Defaults loaded");
+}
+
+void CTConfig::SetHostId(const char *pHostId)
+{
+    if (pHostId == nullptr)
+    {
+        m_HostId[0] = '\0';
+        return;
+    }
+
+    strncpy(m_HostId, pHostId, sizeof(m_HostId) - 1);
+    m_HostId[sizeof(m_HostId) - 1] = '\0';
 }
 
 bool CTConfig::IsTabStop(unsigned int column) const
@@ -494,12 +514,14 @@ boolean CTConfig::SaveToFile(void)
         {"key_click", CString(), false},
         {"key_auto_repeat", CString(), false},
         {"smooth_scroll", CString(), false},
+        {"smooth_scroll_ms", CString(), false},
         {"wrap_around", CString(), false},
         {"repeat_delay_ms", CString(), false},
         {"repeat_rate_cps", CString(), false},
         {"switch_txrx", CString(), false},
         {"margin_bell", CString(), false},
         {"wlan_host_autostart", CString(), false},
+        {"host_id", CString(), false},
         {"log_output", CString(), false},
         {"log_filename", CString(), false},
     };
@@ -520,14 +542,16 @@ boolean CTConfig::SaveToFile(void)
     kv[13].value.Format("%u", m_KeyClick);
     kv[14].value.Format("%u", m_KeyAutoRepeat);
     kv[15].value.Format("%u", m_SmoothScrollEnabled);
-    kv[16].value.Format("%u", m_WrapAroundEnabled);
-    kv[17].value.Format("%u", m_KeyRepeatDelayMs);
-    kv[18].value.Format("%u", m_KeyRepeatRateCps);
-    kv[19].value.Format("%u", m_SwitchTxRx);
-    kv[20].value.Format("%u", m_MarginBellEnabled);
-    kv[21].value.Format("%u", m_WlanHostAutoStart);
-    kv[22].value.Format("%u", m_LogOutput);
-    kv[23].value.Format("%s", m_LogFileName);
+    kv[16].value.Format("%u", m_SmoothScrollLineMs);
+    kv[17].value.Format("%u", m_WrapAroundEnabled);
+    kv[18].value.Format("%u", m_KeyRepeatDelayMs);
+    kv[19].value.Format("%u", m_KeyRepeatRateCps);
+    kv[20].value.Format("%u", m_SwitchTxRx);
+    kv[21].value.Format("%u", m_MarginBellEnabled);
+    kv[22].value.Format("%u", m_WlanHostAutoStart);
+    kv[23].value.Format("%s", m_HostId);
+    kv[24].value.Format("%u", m_LogOutput);
+    kv[25].value.Format("%s", m_LogFileName);
 
     // Attempt to load existing content to preserve comments/order
     CString existing;
@@ -778,6 +802,14 @@ boolean CTConfig::ParseConfigLine(const char *pLine)
         return TRUE;
     }
 
+    // Special case: host_id (string)
+    if (strcmp(keyword, "host_id") == 0)
+    {
+        SetHostId(value);
+        LOGNOTE("Config: host_id set to %s", m_HostId);
+        return TRUE;
+    }
+
     // Use table to find and set parameter
     for (int i = 0; s_ConfigParams[i].keyword != nullptr; i++)
     {
@@ -793,9 +825,10 @@ boolean CTConfig::ParseConfigLine(const char *pLine)
                 return FALSE;
             }
 
-            if (param->variable == (unsigned int*)&m_TextColorIndex || param->variable == (unsigned int*)&m_BackgroundColorIndex)
+            if (param->variable == (unsigned int *)&m_TextColorIndex || param->variable == (unsigned int *)&m_BackgroundColorIndex)
             {
-                if (parsedValue > 3) {
+                if (parsedValue > 3)
+                {
                     LOGWARN("Config: Invalid color index %lu for %s, clamping to 0", parsedValue, keyword);
                     parsedValue = 0;
                 }
@@ -833,6 +866,27 @@ boolean CTConfig::ParseConfigLine(const char *pLine)
                 }
                 *(param->variable) = sanitizedValue;
                 LOGNOTE("Config: Parameter %s set to %u%% duty", keyword, *(param->variable));
+            }
+            else if (param->variable == &m_SmoothScrollLineMs)
+            {
+                unsigned int sanitizedValue = static_cast<unsigned int>(parsedValue);
+                if (value[0] == '-')
+                {
+                    LOGWARN("Config: Negative smooth_scroll_ms %s, using %u", value, SmoothScrollLineDefaultMs);
+                    sanitizedValue = SmoothScrollLineDefaultMs;
+                }
+                if (sanitizedValue < SmoothScrollLineMinMs)
+                {
+                    LOGWARN("Config: smooth_scroll_ms %u below minimum, clamping to %u", sanitizedValue, SmoothScrollLineMinMs);
+                    sanitizedValue = SmoothScrollLineMinMs;
+                }
+                else if (sanitizedValue > SmoothScrollLineMaxMs)
+                {
+                    LOGWARN("Config: smooth_scroll_ms %u above maximum, clamping to %u", sanitizedValue, SmoothScrollLineMaxMs);
+                    sanitizedValue = SmoothScrollLineMaxMs;
+                }
+                *(param->variable) = sanitizedValue;
+                LOGNOTE("Config: Parameter %s set to %u ms", keyword, sanitizedValue);
             }
             else if (param->variable == &m_SerialDataBits)
             {
@@ -976,7 +1030,7 @@ boolean CTConfig::ParseConfigLine(const char *pLine)
                     sanitizedValue = 2U;
                 }
                 *(param->variable) = sanitizedValue;
-                const char *modeName = (sanitizedValue == 0U) ? "off" : ((sanitizedValue == 1U) ? "log" : "host");
+                const char *modeName = (sanitizedValue == 0U) ? "off" : ((sanitizedValue == 1U) ? "remote_log" : "shell_client");
                 LOGNOTE("Config: Parameter %s set to %s (%u)", keyword, modeName, sanitizedValue);
             }
             else if (param->variable == &m_SoftwareFlowControl || param->variable == &m_MarginBellEnabled)
@@ -1229,7 +1283,7 @@ void CTConfig::SetWlanHostAutoStart(unsigned int mode)
         sanitized = 2U;
     }
     m_WlanHostAutoStart = sanitized;
-    const char *modeName = (m_WlanHostAutoStart == 0U) ? "off" : ((m_WlanHostAutoStart == 1U) ? "log" : "host");
+    const char *modeName = (m_WlanHostAutoStart == 0U) ? "off" : ((m_WlanHostAutoStart == 1U) ? "remote_log" : "shell_client");
     LOGNOTE("Config: wlan_host_autostart set to %s (%u)", modeName, m_WlanHostAutoStart);
 }
 
@@ -1279,6 +1333,21 @@ void CTConfig::SetSmoothScrollEnabled(boolean enabled)
 {
     m_SmoothScrollEnabled = enabled ? 1U : 0U;
     LOGNOTE("Config: smooth_scroll %s", m_SmoothScrollEnabled ? "enabled" : "disabled");
+}
+
+void CTConfig::SetSmoothScrollLineMs(unsigned int durationMs)
+{
+    unsigned int sanitized = durationMs;
+    if (sanitized < SmoothScrollLineMinMs)
+    {
+        sanitized = SmoothScrollLineMinMs;
+    }
+    else if (sanitized > SmoothScrollLineMaxMs)
+    {
+        sanitized = SmoothScrollLineMaxMs;
+    }
+    m_SmoothScrollLineMs = sanitized;
+    LOGNOTE("Config: smooth_scroll_ms updated to %u", m_SmoothScrollLineMs);
 }
 
 void CTConfig::SetWrapAroundEnabled(boolean enabled)

@@ -79,6 +79,8 @@ private:
     void WriteHeader();
     /// \brief Flush buffered log data to the SD card.
     void Flush();
+    /// \brief Mirror a file I/O failure to the fallback target once.
+    void ReportFileError(const char *operation, int errorCode);
 
 private:
     static CTFileLog *s_pInstance;
@@ -89,10 +91,12 @@ private:
     bool m_FileOpen;
     bool m_Initialized;
     bool m_Active;
+    bool m_FileErrorReported;
     CString m_FilePath;
     unsigned m_PendingFlushBytes;
     unsigned m_PendingFlushLines;
 
     static constexpr unsigned FlushByteThreshold = 1024;
     static constexpr unsigned FlushLineThreshold = 8;
+    static constexpr unsigned ImmediateFlushLineCount = 16;
 };

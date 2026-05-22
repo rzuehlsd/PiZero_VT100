@@ -42,6 +42,11 @@ class CTUART;
 class CTFileLog;
 class CTSetup;
 class CVTTest;
+class CSocket;
+class CTWlanHost;
+class CShadowBuffer;
+class CRendererSurface;
+class CTRendererProjector;
 
 #include "hal.h"
 
@@ -103,6 +108,8 @@ public:
     bool IsLocalModeEnabled() const;
     /// \brief Toggle local keyboard loopback mode.
     void ToggleLocalMode();
+    /// \brief Check whether visible screen output is currently suppressed.
+    bool IsScreenOutputBlocked() const;
 
     /// \brief Forward a key press to the VT test runner (manual confirmation).
     bool HandleVTTestKey(const char *pString);
@@ -110,10 +117,12 @@ public:
     /// \brief Run periodic VT test tick (if enabled).
     void RunVTTestTick();
 
-    /// \brief Forward keyboard-generated host output to TCP host mode or UART fallback.
+    /// \brief Forward keyboard-generated output to TCP shell client mode or UART fallback.
     void SendHostOutput(const char *pData, size_t nLength);
-    /// \brief Consume bytes received from WLAN host bridge and render them.
+    /// \brief Consume bytes received from WLAN shell client bridge and render them.
     void HandleWlanHostRx(const char *pData, size_t nLength);
+    /// \brief Consume keyboard input for interactive outbound RAW TCP bridge setup (wlan_host_autostart=2).
+    bool HandleShellClientKey(const char *pString);
 
 protected:
     /// \brief Mount the filesystem and prepare SD card access.
@@ -124,6 +133,8 @@ private:
     void EnsureSerialTaskStarted();
     /// \brief Drain the buffered UART input and pass to renderer.
     void ProcessSerial();
+    /// \brief Write a visible message unless a setup dialog currently owns the screen.
+    void WriteScreenMessage(const char *pData, size_t nLength);
 
     // do not change this order - some members depend on others
     CKernelOptions m_Options;
@@ -145,15 +156,20 @@ private:
     // Tasks are created inside constructor and
     // initialized in kernel::Initialize()
     CTRenderer *m_pRenderer;
+    CShadowBuffer *m_pShadowBuffer;
+    CRendererSurface *m_pRendererSurface;
+    CTRendererProjector *m_pRendererProjector;
     CTFontConverter *m_pFontConverter;
     CTKeyboard *m_pKeyboard;
     CTConfig *m_pConfig;
     CTUART *m_pUART;
     CTFileLog *m_pFileLog;
     CTWlanLog *m_pWlanLog;
+    CTWlanHost *m_pWlanHost;
     CTSetup *m_pSetup;
     CVTTest *m_pVTTest;
     CDevice *m_pLogTarget;
+    CDevice *m_pScreenLogGate;
     CNullDevice *m_pNullLog;
 
     boolean m_bWlanLoggerEnabled;

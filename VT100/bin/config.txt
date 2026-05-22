@@ -1,3 +1,10 @@
 dtoverlay=miniuart-bt   
 enable_uart=1
 display_hdmi_rotate=2
+
+# Ensure the full framebuffer is visible (no TV/CRT overscan cropping)
+disable_overscan=1
+overscan_left=0
+overscan_right=0
+overscan_top=0
+overscan_bottom=0

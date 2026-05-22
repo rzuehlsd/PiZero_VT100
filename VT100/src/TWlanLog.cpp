@@ -593,7 +593,7 @@ void CTWlanLog::ProcessLine(const char *line)
         SendLine("  status - show WLAN status");
         SendLine("  echo <text> - repeat text back to you");
         SendLine("  exit   - disconnect this session");
-        SendLine("Host mode is a dedicated session type (wlan_host_autostart: 0=off, 1=log, 2=host).");
+        SendLine("Shell client is a dedicated session type (wlan_host_autostart: 0=off, 1=remote_log, 2=shell_client).");
         SendLine("Other text is logged at notice level.");
         return;
     }
@@ -770,18 +770,18 @@ void CTWlanLog::AcceptClient()
 
     ResetConnectionState();
     CTConfig *config = CTConfig::Get();
-    const bool autoHostMode = (config != nullptr && config->GetWlanHostAutoStart() == 2U);
-    if (autoHostMode)
+    const bool autoShellClientMode = (config != nullptr && config->GetWlanHostAutoStart() == 2U);
+    if (autoShellClientMode)
     {
         m_HostModeActive = true;
     }
 
-    if (!autoHostMode)
+    if (!autoShellClientMode)
     {
         SendTelnetNegotiation();
     }
 
-    if (!autoHostMode)
+    if (!autoShellClientMode)
     {
         AnnounceConnection(remoteIP, remotePort);
     }
@@ -792,22 +792,22 @@ void CTWlanLog::AcceptClient()
         if (haveIP)
         {
             m_pLogger->Write(FromTerminal, LogNotice,
-                             "Client connected from %s:%u for host operation",
+                             "Client connected from %s:%u for shell client operation",
                              (const char *)ipString, remotePort);
         }
         else
         {
             m_pLogger->Write(FromTerminal, LogNotice,
-                             "Client connected (address pending): port %u for host operation",
+                             "Client connected (address pending): port %u for shell client operation",
                              remotePort);
         }
     }
 
-    if (autoHostMode)
+    if (autoShellClientMode)
     {
         if (m_pLogger)
         {
-            m_pLogger->Write(FromTerminal, LogNotice, "Host bridge mode auto-enabled");
+            m_pLogger->Write(FromTerminal, LogNotice, "Shell client mode auto-enabled");
         }
     }
     else
@@ -857,7 +857,7 @@ void CTWlanLog::CloseClient(const char *reason, bool sendLocked)
             bool resumeLocalAfterDisconnect = false;
             if (wasHostMode)
             {
-                disconnectMsg = "\r\nHost disconnected - resume normal operation\r\n";
+                disconnectMsg = "\r\nShell client disconnected - resume normal operation\r\n";
                 resumeLocalAfterDisconnect = true;
             }
             else if (reason != nullptr)

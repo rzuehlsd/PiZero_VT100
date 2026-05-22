@@ -187,19 +187,17 @@ CTKeyboard::~CTKeyboard (void)
 
 boolean CTKeyboard::Initialize (void)
 {
-    boolean bOK = TRUE;
-
+	// Important: Do not fail initialization if the keyboard is not yet enumerated.
+	// USB devices can appear slightly later during startup.
 	if (m_pUSBHost != nullptr)
 	{
 		m_pUSBHost->UpdatePlugAndPlay();
 	}
-	if (m_pKeyboardDevice == nullptr)
-	{
-		bOK = UpdateKeyboard (TRUE);
-	}
-    Start();
-	LOGNOTE("Keyboard subsystem initialized");
-	return bOK;
+
+	(void)UpdateKeyboard(TRUE);
+	Start();
+	LOGNOTE("Keyboard subsystem initialized (device may connect shortly after boot)");
+	return TRUE;
 }
 
 bool CTKeyboard::UpdateKeyboard (boolean bDevicesUpdated)

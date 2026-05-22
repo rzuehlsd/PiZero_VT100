@@ -17,6 +17,8 @@ Below you see the original VT100 terminal (the color has turned to yellow over t
   </tr>
 </table>
 
+The follwing link gives a very good view of the original VT100 from 1079:
+- [Pictures of a VT100 from 1979](https://www.artstation.com/artwork/d05JgW)
 
 The current VT100 terminal firmware turns a Raspberry Pi Zero W into a self-contained ANSI/VT100-compatible console. It boots straight into the terminal without Linux, using the Circle bare-metal framework for deterministic hardware access. The design targets headless benches and retro workstations that need a physical keyboard and display front-end for serial hosts.
 
@@ -56,6 +58,8 @@ When implementation changes affect behavior, update these documents in lockstep 
 
 The application initialises USB keyboard input, the framebuffer, GPIO, UART, and WLAN within Circle and runs a cooperative task loop that keeps the terminal responsive even under heavy serial traffic. Classic aesthetics are preserved by rendering converted VT100 ROM fonts at 1024x768, while modern conveniences such as remote logging remain available.
 
+The current renderer keeps terminal text, attributes, and DEC line-size state primarily in a shadow buffer and then projects that model onto the framebuffer through a dedicated projector task. During active smooth scrolling the projector stays on the incremental region-update path and defers any required catch-up full refresh until the animation completes. This makes state restore, scrolling, insert/delete operations, and external `vttest`-style screen rewrites behave against one consistent terminal model instead of depending on already-drawn pixels.
+
 ## Scope and Goals
 
 - Provide a responsive VT100/ANSI terminal experience with integrated keyboard, framebuffer, and UART handling.
@@ -78,7 +82,8 @@ The application initialises USB keyboard input, the framebuffer, GPIO, UART, and
   - [x] VT100 10x20 CRT-style font derived from DEC VT100 ROM Font
   - [x] VT100 10x20 solid font derived from DEC VT100 ROM Font
   - [x] DEC VT100 Special Graphics Character Set support (via `ESC ( 0` and `ESC ( B`)
-  - [x] Dynamic Double-Width / Double-Height glyph scaling for all fonts
+  - [x] Dynamic Double-Width / Double-Height line attributes with DEC top/bottom-half semantics (`ESC #3/#4/#5/#6`)
+  - [x] Visible SGR blink text rendering synchronized to the existing cursor blink cadence
   - [x] White, amber, and green on black simulate DEC monochrome terminals (VT100, VT220, VT320)
 - [x] VT100 and ANSI escape sequence parser and renderer based on the VT-parse project
 - [x] Configurable optional VT52 escape sequence support
@@ -86,11 +91,12 @@ The application initialises USB keyboard input, the framebuffer, GPIO, UART, and
 - [x] Logging infrastructure with screen, file, and WLAN sinks
   - [x] Real-time debug output with formatted log messages
   - [x] WLAN debug output via telnet session
-  - [x] WLAN host mode to integrate remote hosts via tcp/ip
-  - [x] WLAN logging and WLAN host mode successfully validated with local loopback (`./VT100_PTY <ip> 2323 --autorespond`)
+  - [x] WLAN split between incoming telnet log mode and outbound shell-client mode (current implementation)
+  - [x] Shell-client mode can auto-connect from `host_id` or prompt locally for `IPv4[:port]`
+  - [x] WLAN logging and shell-client mode successfully validated with local loopback and raw TCP helper tooling
 - [x] GPIO16-controlled TX/RX swap to simulate Null Modem cables with straight DB9 cables
 - [x] Configuration of system via VT100 Setup Screens A and B for supported parameters
-- [x] Separate on-screen setup dialog covering all file-based configuration parameters (F11)
+- [x] Separate on-screen setup dialog covering the 23 persisted `VT100.txt` keys that are implemented there, including `smooth_scroll`, `smooth_scroll_ms`, and `host_id` (F11)
 
 
 
@@ -98,16 +104,16 @@ The following table gives an overview of implementation highlights:
 
 | Area | Highlights |
 | --- | --- |
-| **Core Terminal** | ANSI/VT100 parser, ROM-derived fonts, framebuffer renderer with cursor control |
+| **Core Terminal** | ANSI/VT100 parser, ROM-derived fonts, shadow-buffer-first framebuffer renderer with DEC line-size control and visible blink attributes |
 | **Input** | USB keyboard with F12 legacy setup, F11 modern setup, F10 local mode toggle, optional key click |
 | **Serial** | Configurable UART baud rates, software flow control (XON/XOFF), GPIO16 TX/RX swap |
-| **Display & Audio** | Runtime font switching, colour themes, buzzer tones, periodic status tasks |
+| **Display & Audio** | Runtime font switching, colour themes, buzzer tones, projector-owned smooth-scroll tuning, periodic status tasks |
 | **Configuration** | SD-based `VT100.txt`, Circle `cmdline.txt`/`config.txt`, manual SD-card editing |
 | **Logging** | Bitmask-controlled outputs (screen, file, WLAN), telnet console, timestamped files |
 | **Networking** | WLAN bring-up with WPA supplicant, telnet banner showing `ip:2323` |
 | **Deployment** | Makefile-driven build, SD card copy workflow, optional bootloader assets |
 
-WLAN remote operation test status: WLAN logging mode and WLAN host mode have been successfully tested with local loopback using `VT100_PTY --autorespond`.
+WLAN remote operation test status: WLAN logging mode and outbound shell-client mode have been successfully tested with local loopback and the helper workflows documented in `VT100/tools/README.md`.
 
 And here are the results of the internal tests which could be switched on in VT100.txt config file:
 
@@ -182,30 +188,34 @@ Create or edit `VT100.txt` on the boot partition. The firmware loads it on start
 
 | Key | Allowed values | Default | Notes |
 | --- | --------------- | ------- | ----- |
-| `baud_rate` | 1200–921600 | 115200 | Host serial speed |
+| `baud_rate` | 50–921600 | 115200 | Host serial speed |
 | `serial_bits` | 7/8 | 8 | UART data bits (SET-UP B Bits/Char) |
 | `serial_parity` | 0–2 | 0 | UART parity (0=none, 1=even, 2=odd) |
 | `background_color` | 0–3 | 0 | Palette: 0=black, 1=white, 2=amber, 3=green |
-| `buzzer_volume` | 0–100 | 50 | Sets 800 Hz buzzer duty cycle (0 disables tone) |
+| `buzzer_volume` | 0–80 | 50 | Sets 800 Hz buzzer duty cycle (0 disables tone; values above 80 are clamped) |
 | `cursor_blinking` | 0/1 | 0 | 1 enables blink animation |
 | `cursor_type` | 0/1 | 0 | Cursor style (0=underline, 1=block) |
+| `key_auto_repeat` | 0/1 | 1 | Enables or disables keyboard auto-repeat |
 | `vt_test` | 0/1 | 0 | Run built-in VT test sequences |
+| `vt52_mode` | 0/1 | 0 | Terminal mode: 0=ANSI (VT100), 1=VT52 |
 | `font_selection` | 1–3 | 2 | Choose between 8x20, 10x20 CRT, 10x20 solid |
 | `flow_control` | 0/1 | 0 | Software XON/XOFF UART flow control |
 | `key_click` | 0/1 | 1 | Enables or disables key click feedback |
 | `line_ending` | 0–2 | 0 | Enter key behaviour: 0=LF, 1=CRLF, 2=CR |
+| `host_id` | String (IPv4[:port]) | empty | Default shell-client target used when `wlan_host_autostart=2` |
 | `log_filename` | String (≤63 chars) | vt100.log | Used when file logging is active |
 | `log_output` | 0–7 | 0 | 0=off, 1=screen, 2=file, 3=WLAN, 4=screen+file, 5=screen+WLAN, 6=file+WLAN, 7=all |
 | `smooth_scroll` | 0/1 | 1 | Enables non-blocking smooth single-line scroll animation |
+| `smooth_scroll_ms` | 10–500 | 170 | Sets the target duration per scrolled text line |
 | `wrap_around` | 0/1 | 1 | Controls right-margin wrap (`1`) vs overwrite-at-last-column (`0`) |
 | `repeat_delay_ms` | 250–1000 | 250 | Delay before auto-repeat starts |
 | `repeat_rate_cps` | 2–20 | 10 | Characters per second once repeating |
 | `margin_bell` | 0/1 | 0 | Rings bell 8 columns before right margin when enabled |
 | `switch_txrx` | 0/1 | 0 | Drives GPIO16 high to swap wiring |
-| `wlan_host_autostart` | 0–2 | 0 | WLAN mode policy: 0=off, 1=log, 2=host |
+| `wlan_host_autostart` | 0–2 | 0 | Current implementation policy: 0=off, 1=log mode, 2=outbound shell-client mode |
 | `text_color` | 0–3 | 1 | Foreground palette: 0=black, 1=white, 2=amber, 3=green |
 
-On screen configuration can be done by using one of the VT100 Set Up Dialogs A and B which can be triggered by F12 key and in an additional extended configuration dialog that also covers parameter of VT100.txt configuration file. This Dialog is triggered by F11 key.
+On-screen configuration is available through the VT100 SET-UP dialogs A and B, opened with `F12`, and through an extended configuration dialog opened with `F11`. The extended dialog covers 23 persisted `VT100.txt` keys plus the runtime-applied visual settings; `flow_control`, `wrap_around`, and `margin_bell` remain on the legacy VT100-style `F12` path.
 
 #### VT100 SETUP Screen A Parameter Mapping (current status)
 
@@ -247,7 +257,7 @@ The table below maps original VT100 SET-UP B terms to the current firmware confi
 
 #### VT100 Extended Setup Dialog (F11)
 
-Press `F11` to open the extende setup dialog. The dialog uses DEC special graphics box drawing, keeps the active terminal color/font theme, uses a centered double-width title, and shows a three-column `parameter` / `value` / `description` view for all persisted `VT100.txt` keys.
+Press `F11` to open the extended setup dialog. The dialog uses DEC special graphics box drawing, keeps the active terminal color/font theme, uses a centered normal-width title, and shows a three-column `parameter` / `value` / `description` view for the 23 persisted `VT100.txt` keys exposed there, including `smooth_scroll`, `smooth_scroll_ms`, and `host_id`. The remaining persisted keys `flow_control`, `wrap_around`, and `margin_bell` stay mapped to the VT100-compatible `F12` setup flow. Before the overlay takes over the screen, the renderer aborts any active smooth-scroll animation and forces a stable projector refresh so the dialog always starts from a complete framebuffer state. Press `F12` for the legacy VT100 setup screens; their title renders as a true two-line DEC double-height header with `TO EXIT PRESS "SET-UP"` directly below it, matching the original VT100 layout more closely.
 
 Controls:
 
@@ -258,9 +268,11 @@ Controls:
 
 Runtime apply on `Return` (current firmware):
 
-- Immediate runtime apply: renderer visuals (`text_color`, `background_color`, `font_selection`, cursor type/blink, VT52 mode, smooth scroll) and HAL settings (`buzzer_volume`, `switch_txrx`).
-- Persisted and used by runtime logic without dedicated re-init: `line_ending`, `key_click`, `key_auto_repeat`, `wrap_around`, `margin_bell`.
-- Persisted (applied on subsystem init / reconnect / reboot): serial framing (`baud_rate`, `serial_bits`, `serial_parity`, `flow_control`), keyboard repeat timing (`repeat_delay_ms`, `repeat_rate_cps`), logging targets (`log_output`, `log_filename`), and `wlan_host_autostart`.
+- Immediate runtime apply: renderer visuals (`text_color`, `background_color`, `font_selection`, cursor type/blink, VT52 mode, `smooth_scroll`, `smooth_scroll_ms`) and HAL settings (`buzzer_volume`, `switch_txrx`).
+- Persisted and used by runtime logic without dedicated re-init: `line_ending`, `key_click`, `key_auto_repeat`.
+- Persisted (applied on subsystem init / reconnect / reboot): serial framing (`baud_rate`, `serial_bits`, `serial_parity`), keyboard repeat timing (`repeat_delay_ms`, `repeat_rate_cps`), logging targets (`log_output`, `log_filename`), and WLAN host settings (`wlan_host_autostart`, `host_id`).
+- Persisted legacy-setup-only keys: `flow_control`, `wrap_around`, and `margin_bell` are edited through `F12`, not through the modern `F11` table.
+- While a setup dialog is visible, cooked and raw keyboard events are routed into `CTSetup`, queued in a small FIFO, and then processed in the setup task context so redraws remain stable even when the shell-client connection is active.
 
 ### DEC Local Mode (F10)
 
@@ -299,6 +311,9 @@ key_auto_repeat=1
 
 # smooth_scroll: 0=off, 1=on
 smooth_scroll=1
+
+# smooth_scroll_ms: 10..500 milliseconds per text line
+smooth_scroll_ms=170
 
 # wrap_around: 0=overwrite at last column, 1=wrap to next line
 wrap_around=1
@@ -357,8 +372,13 @@ switch_txrx=0
 # 7=screen+file+wlan
 log_output=0
 
-# wlan_host_autostart: 0=off, 1=command/log mode after connect, 2=auto-enable host bridge mode
+
+# wlan_host_autostart: 0=off, 1=remote log mode, 2=outbound shell-client mode
 wlan_host_autostart=0
+
+# host_id: default shell-client target when wlan_host_autostart=2
+# Format: IPv4[:port] (e.g. 192.168.2.10 or 192.168.2.10:2323). Leave empty to prompt.
+host_id=
 
 # Log file name (max 63 chars)
 log_filename=vt100.log
@@ -389,20 +409,19 @@ The terminal ships with a logging subsystem that mirrors messages to any combina
 - Messages use familiar prefixes (`[NOTE]`, `[WARN]`, `[ERROR]`) with file/line metadata to simplify troubleshooting.
 - Screen logging integrates with the terminal view without breaking VT100 escape handling.
 - WLAN logging announces readiness with `WLAN ready: telnet <ip>:2323`; connect via telnet to monitor remotely.
-- Host integration over TCP is available through a raw host session path (`socat` + `screen` + stdin/stdout host app).
+- Outbound shell-client integration over raw TCP is available for host-side helpers and interactive shells.
 
 Refer to `VT100/docs/VT100_Architecture.md` for technical architecture and implementation details, and `VT100/docs/Configuration_Guide.md` for runtime controls and configuration.
 
 For the architecture and lifecycle model of WLAN log mode and host mode separation, see `VT100/docs/VT100_Architecture.md` (section 8.3).
+For host-side helper scripts and character-mode client recommendations, see `VT100/tools/README.md`.
 
 ## WLAN Telnet and Host Mode
 
-This firmware currently supports two WLAN session behaviors on the same endpoint (`<ip>:2323`):
+This firmware currently supports two WLAN behaviors that share the same raw TCP port (`2323`) but serve different roles:
 
 1. **Log mode** (command prompt mode) for remote diagnostics and control.
-2. **Host mode** (transparent VT100 host traffic over TCP).
-
-The long-term target is a stricter separation of both modes; see section “Planned mode separation” below.
+2. **Shell-client mode** for an outbound VT100-initiated raw TCP session to a configured host.
 
 ### Log mode (WLAN diagnostics)
 
@@ -426,82 +445,99 @@ What you get in this mode (current):
 - Mirrored log output (`[NOTE]`, `[WARN]`, `[ERROR]` etc.) over telnet.
 - Device/network status via `status`.
 - Session close via `exit`.
+- The telnet endpoint stays in command/log mode when `wlan_host_autostart=1`.
 
-### Host mode (transparent host bridge)
+For host-side caveats about `telnet` line mode versus character mode, see `VT100/tools/README.md`.
 
-In host mode, VT100 keyboard TX is sent to the TCP peer and TCP RX is rendered directly on the VT100 screen. This effectively simulates a serial host over TCP.
+### Shell-client mode (outbound raw TCP)
 
-Recommended entry:
+When `wlan_host_autostart=2`, the VT100 enters shell-client mode. In this mode the VT100 itself initiates an outbound raw TCP connection to a target host and then bridges VT100 keyboard TX to that remote peer while rendering TCP RX directly on the screen.
 
-- Set `wlan_host_autostart=2` and connect a host client.
+Current behavior in the implementation:
 
-Behavior in host mode:
+- The target is taken from `host_id` when configured.
+- If `host_id` is empty, the VT100 prompts locally on screen for `IPv4[:port]` and defaults to port `2323`.
+- Host names are not accepted in this path; the parser expects numeric IPv4 plus optional port.
+- UART host rendering is suspended while the outbound shell-client session is active to avoid mixed sources.
 
-  - Keyboard TX from the VT100 app is sent to the active TCP client.
-  - TCP RX from the client is rendered directly to the VT100 screen.
-  - UART host rendering is suspended while host mode is active to avoid mixed sources.
+Typical configuration:
 
-Session end in host mode:
-
-- Host mode remains raw until the TCP client disconnects.
-- On reconnect, mode selection is applied again from `wlan_host_autostart`.
-
-### Use local host-loopback helper (`VT100_PTY`)
-
-The recommended host-mode test path is the wrapper helper script:
-
-```bash
-./VT100_PTY <ip> 2323 --autorespond
+```ini
+wlan_host_autostart=2
+host_id=192.168.2.10:2323
 ```
 
-Current helper behavior (`--autorespond`):
+Session behavior:
 
-- Uses `socat` + PTY + `screen` internally.
-- Runs `VT100_SCREEN_ECHO.py` as stdin/stdout responder on the PTY.
-- Echoes printable lines back to VT100 with prefix `SIMHOST:`.
-- Filters known startup/log lines to avoid re-echo loops.
-- Sends `exit` during helper shutdown so host session closes cleanly.
+- Keyboard TX from the VT100 app is sent to the connected remote TCP peer.
+- TCP RX from that peer is rendered directly to the VT100 screen.
+- The raw shell-client session remains active until the remote side disconnects or WLAN mode is disabled.
+- On the next activation, mode selection is applied again from `wlan_host_autostart`, reusing `host_id` if present.
 
-Manual equivalent (advanced):
+Recommended host-side helpers are documented in `VT100/tools/README.md`.
+
+Typical host-side workflows:
 
 ```bash
-socat PTY,link=/tmp/vt100,raw,echo=0 TCP:<ip>:2323
-screen /tmp/vt100 115200
+cd VT100/tools
+./start_raw_shell_server.sh --kill-existing
 ```
+
+For a local character-mode client against that raw listener:
+
+```bash
+cd VT100/tools
+./raw_shell_client.sh 127.0.0.1 2323
+```
+
+Alternative character-mode clients from the tools README:
+
+```bash
+nc <host-ip> <port>
+```
+
+or
+
+```bash
+socat -,raw,echo=0 TCP:<host-ip>:<port>
+```
+
+If `telnet` must be used for troubleshooting, switch it to character mode (`Ctrl-]`, then `mode character`).
 
 Recommended workflow:
 
 1. Set `wlan_host_autostart=2`.
-2. Start `./VT100_PTY <ip> 2323 --autorespond`.
-3. Interact with the VT100 app and verify host bridge RX/TX plus `SIMHOST:` responses.
+2. Set `host_id=<server-ip>[:port]` or leave it empty to use the on-screen prompt.
+3. Start a raw TCP server on the host side, for example with `./start_raw_shell_server.sh` from `VT100/tools`.
+4. Interact with the VT100 and verify outbound connect, RX/TX bridging, and shell behavior.
 
-### Helper tooling placement (recommended)
+### Host-side tooling reference
 
-To keep host-loopback tooling scoped with firmware docs/tools, place helper files under:
+The raw shell helper scripts live here:
 
-- `VT100/tools/host_loopback/VT100_PTY`
-- `VT100/tools/host_loopback/VT100_SCREEN_ECHO.py`
+- `VT100/tools/README.md`
+- [VT100/tools/start_raw_shell_server.sh](/Volumes/SSD1000/2_Workbench/2_HW_Projekte/4_Realisierte_Projekte/21_PiZero_VT100/VT100/tools/start_raw_shell_server.sh)
+- [VT100/tools/raw_shell_client.sh](/Volumes/SSD1000/2_Workbench/2_HW_Projekte/4_Realisierte_Projekte/21_PiZero_VT100/VT100/tools/raw_shell_client.sh)
 
-Optional compatibility path:
+Use that README as the source of truth for host-side helper usage and client-mode caveats.
 
-- Keep a root-level launcher `./VT100_PTY` that forwards to `VT100/tools/host_loopback/VT100_PTY` so existing commands remain valid.
-
-### Auto-start host mode on connect
+### Auto-start shell-client mode
 
 Set the config parameter in `VT100.txt`:
 
 ```ini
 wlan_host_autostart=2
+host_id=192.168.2.10:2323
 ```
 
-With this enabled, each new telnet client starts directly in host bridge mode. Set `wlan_host_autostart=1` to start in command/log mode.
+With this enabled, the VT100 starts the outbound shell-client path instead of waiting in telnet log mode. Set `wlan_host_autostart=1` to keep the incoming `telnet <ip> 2323` endpoint in command/log mode.
 
 ### Strict mode separation
 
 WLAN modes are handled as strictly separated session types:
 
 - **Log mode**: remote logs, status, diagnostics, and orderly `exit` only.
-- **Host mode**: raw stdin/stdout host bridge only; no log/status chatter over the host payload channel.
+- **Shell-client mode**: raw outbound TCP bridge only; no log/status chatter over the host payload channel.
 
 Architecture-relevant mode-separation details are maintained in `VT100/docs/VT100_Architecture.md` (section 8.3).
 
@@ -544,7 +580,7 @@ These changes keep VTTest self-contained while preserving normal keyboard/UART b
 - [x] Implementation of additional on-screen configuration dialog for all file-based parameters
 - [x] Implementation of TCP host connection
 - [x] Implement smooth scrolling (single-line, non-blocking animation)
-- [ ] Test coverage on Unix hosts with tool `vttest`
+- [x] Test coverage on Unix hosts with tool `vttest`
 
 ## Templates
 
@@ -579,11 +615,11 @@ The table below lists the escape and control sequences handled by this firmware,
 | ESC Y r c | VT52 direct cursor address | ✓ | — | — | — | — | Implemented | [PASS] |
 | ESC H | Set tab stop (HTS) | — | ✓ | ✓ | ✓ | ✓ | Implemented (ANSI mode) | [PASS] |
 | ESC < | Enter ANSI Mode | ✓ | — | — | — | — | Implemented | [PASS] |
-| ESC #3 | Double-height line (top) | — | ✓ | ✓ | ✓ | — | Implemented | [PASS] |
-| ESC #4 | Double-height line (bottom) | — | ✓ | ✓ | ✓ | — | Implemented | [PASS] |
+| ESC #3 | Double-height line (top) | — | ✓ | ✓ | ✓ | — | Implemented (renders upper half of DEC double-height glyph) | [PASS] |
+| ESC #4 | Double-height line (bottom) | — | ✓ | ✓ | ✓ | — | Implemented (renders lower half of DEC double-height glyph) | [PASS] |
 | ESC #5 | Normal line size | — | ✓ | ✓ | ✓ | — | Implemented | [PASS] |
 | ESC #6 | Double-width line | — | ✓ | ✓ | ✓ | — | Implemented | [PASS] |
-| ESC #8 | Screen test | — | ✓ | ✓ | ✓ | — | Parsed (ignored) | [PASS] |
+| ESC #8 | Screen test | — | ✓ | ✓ | ✓ | — | Implemented (DECALN fill) | [PASS] |
 | ESC [ A | Cursor up (CUU) | — | ✓ | ✓ | ✓ | ✓ | Implemented | [PASS] |
 | ESC [ B | Cursor down (CUD) | — | ✓ | ✓ | ✓ | ✓ | Implemented | [PASS] |
 | ESC [ C | Cursor right (CUF) | — | ✓ | ✓ | ✓ | ✓ | Implemented | [PASS] |
@@ -597,17 +633,19 @@ The table below lists the escape and control sequences handled by this firmware,
 | ESC [ n L | Insert lines (IL) | — | ✓ | ✓ | ✓ | ✓ | Implemented | [PASS] |
 | ESC [ n M | Delete lines (DL) | — | ✓ | ✓ | ✓ | ✓ | Implemented | [PASS] |
 | ESC [ n P | Delete characters (DCH) | — | ✓ | ✓ | ✓ | ✓ | Implemented | [PASS] |
-| ESC [ 4 h / 4 l | Insert mode (IRM) | — | ✓ | ✓ | ✓ | ✓ | Parsed (not supported) | [PASS] |
-| ESC [ n m | Select graphic rendition (SGR) | — | ✓ | ✓ | ✓ | ✓ | Partial (0,1,4,5,7) | [PASS] |
+| ESC [ 4 h / 4 l | Insert mode (IRM) | — | ✓ | ✓ | ✓ | ✓ | Implemented | [PASS] |
+| ESC [ n m | Select graphic rendition (SGR) | — | ✓ | ✓ | ✓ | ✓ | Partial (monochrome subset: 0,1,2,4,5,7,22,24,27) | [PASS] |
 | ESC [ 0 m | SGR reset (attributes/colors) | — | ✓ | ✓ | ✓ | ✓ | Implemented | [PASS] |
 | ESC [ 1 m | SGR bold/intense | — | ✓ | ✓ | ✓ | ✓ | Implemented | [PASS] |
 | ESC [ 2 m | SGR dim/half-bright | — | ✓ | ✓ | ✓ | ✓ | Implemented | [PASS] |
+| ESC [ 22 m | SGR normal intensity | — | ✓ | ✓ | ✓ | ✓ | Implemented | [PASS] |
 | ESC [ 4 m | SGR underline | — | ✓ | ✓ | ✓ | ✓ | Implemented | [PASS] |
-| ESC [ 5 m | SGR blink | — | ✓ | ✓ | ✓ | ✓ | Implemented | [PASS] |
+| ESC [ 24 m | SGR underline off | — | ✓ | ✓ | ✓ | ✓ | Implemented | [PASS] |
+| ESC [ 5 m | SGR blink | — | ✓ | ✓ | ✓ | ✓ | Implemented (visible text blink synchronized to the cursor blink cadence) | [PASS] |
 | ESC [ 7 m | SGR reverse video | — | ✓ | ✓ | ✓ | ✓ | Implemented | [PASS] |
 | ESC [ 27 m | SGR reverse off | — | ✓ | ✓ | ✓ | ✓ | Implemented | [PASS] |
-| ESC [ 30-37 / 90-97 m | Set foreground color | — | ✓ | ✓ | ✓ | ✓ | Set in VT100.txt | [PASS] |
-| ESC [ 40-47 / 100-107 m | Set background color | — | ✓ | ✓ | ✓ | ✓ | Set in VT100.txt | [PASS] |
+| ESC [ 30-37 / 90-97 m | Set foreground color | — | ✓ | ✓ | ✓ | ✓ | Not implemented as ANSI color rendering | [PASS] |
+| ESC [ 40-47 / 100-107 m | Set background color | — | ✓ | ✓ | ✓ | ✓ | Not implemented as ANSI color rendering | [PASS] |
 | ESC [ ? 2 l | Enter VT52 Mode | — | ✓ | ✓ | ✓ | — | Implemented | [PASS] |
 | ESC [ ? 25 h / l | Cursor visible (DECTCEM) | — | ✓ | ✓ | ✓ | — | Implemented | [PASS] |
 | ESC [ r1; r2 r | Scroll region (DECSTBM) | — | ✓ | ✓ | ✓ | — | Implemented | [PASS] |
@@ -618,9 +656,94 @@ The table below lists the escape and control sequences handled by this firmware,
 
 **VT52 note:** The parser supports a strict VT52 mode enabled via `ESC [ ? 2 l` and disabled via `ESC <`. `ESC H` acts as VT52 Home only in VT52 mode; in ANSI mode, it acts as HTS (Set Tab Stop).
 
-**Color note:** The firmware emulates monochrome VT100/VT220/VT320 terminals. ANSI color SGR codes are parsed but not applied; choose text/background colors in `VT100.txt` instead.
+**Color note:** The firmware emulates monochrome VT100/VT220/VT320 terminals. ANSI color SGR codes are intentionally ignored; choose text/background colors in `VT100.txt` instead.
 
+**Source-of-truth note:** The status entries above are derived from the current renderer implementation in `VT100/src/TRenderer.cpp`. When this table and older prose disagree, the code should be treated as authoritative.
 
+## VT100 Conformance Assessment
+
+The primary compatibility goal for this project is VT52 plus the core VT100 behavior set. Later DEC/xterm-style extensions and features that conflict with the reduced 60% hardware are secondary.
+
+The table below groups the current implementation into three buckets for practical conformance work:
+
+- `100%`: implemented in the current parser/renderer without an explicit known limitation in code.
+- `Partial`: implemented only as a subset, approximation, or with visible behavioral limits.
+- `Not met`: explicitly ignored or absent in the current implementation.
+
+This is still not a claim of full original-hardware fidelity. If you need near-complete hardware-level VT100 behavior, see the recommendation near the top of this README.
+
+Hardware and product-scope constraints that intentionally shape this assessment:
+
+- `DECCOLM` (`80/132 columns`) is outside the target because the current framebuffer/display geometry is fixed by the hardware design. With the default `VT100Font10x20` on the current 1024-pixel-wide framebuffer, the renderer can show only about 102 text columns, not 132. As a result, the second `vttest` cursor-movement screen, which is intentionally built against a 132-column layout, cannot be displayed correctly on this hardware.
+- `DECKPAM` and `DECKPNM` are outside the target because the reduced 60% keyboard has no numeric keypad block.
+- `DECCKM` is lower priority for the same reason: it only changes which escape sequences dedicated cursor keys send to host applications.
+
+For local `vttest` runs this also means: the second movement-test screen is only avoided if `vttest` itself is started with a reduced `max_cols` value such as `24x80.80`. If that run still draws a 132-column second pass, the geometry override was not actually applied to the running `vttest` process.
+
+Current `vttest` status for the first VT100 section: with the fixes in this repository, the 80-column tests in the first section now pass, including cursor movements, autowrap, and cursor-control characters inside escape sequences. The remaining visible mismatch in that section is limited to the 132-column `DECCOLM` passes, which stay outside the hardware-supported display geometry.
+
+`DECCKM` explained briefly: in normal cursor-key mode the arrow keys typically send `ESC [ A/B/C/D`; in application cursor-key mode they send `ESC O A/B/C/D`. Some full-screen host applications care about that distinction.
+
+| VT100 property | Fulfillment | Notes |
+| --- | --- | --- |
+| VT52 compatibility mode | 100% | VT52 control subset and mode switching are implemented and are a primary target. |
+| Basic cursor control (`BS`, `CR`, `LF`, `CUU`, `CUD`, `CUF`, `CUB`, `CUP`, `HVP`) | 100% | Implemented in the parser and dedicated cursor helpers. |
+| Screen and line erase (`ED`, `EL`) | 100% | Variants `0`, `1`, and `2` are implemented. |
+| Character edits (`ICH`, `DCH`, `ECH`) | 100% | Insert, delete, and erase-char behavior is present. |
+| Line edits (`IL`, `DL`) | 100% | Works within the active scroll region. |
+| Scroll semantics (`IND`, `NEL`, `RI`) | 100% | Forward and reverse scrolling behavior is implemented. |
+| Scroll region (`DECSTBM`) | 100% | Includes VT100-style clamping for oversized parameters. |
+| Wraparound mode (`DECAWM`) | 100% | Uses VT100-style wrap-pending behavior at the last column. |
+| Origin mode (`DECOM`) | 100% | Cursor addressing is relative to the active scroll region. |
+| Save and restore cursor (`DECSC`, `DECRC`, `CSI s/u`) | 100% | Position, modes, and key attributes are restored. |
+| Tab handling (`HT`, `HTS`, `TBC`, `CBT`) | 100% | Forward tab, set/clear stop, clear-all, and back-tab are implemented. |
+| Device reports (`DA`, `DSR 5`, `DSR 6`) | 100% | The terminal replies to identity and status queries. |
+| Character sets (`G0/G1`, DEC Special Graphics) | Partial | Standard DEC ASCII plus DEC Special Graphics switching are implemented, and `vttest` Character Sets test 3 passes on that basis, but there is no DEC Alternate Character Set implementation. |
+| Alignment test (`DECALN`, `ESC #8`) | 100% | Implemented as full-screen alignment fill. |
+| Insert mode (`IRM`, `CSI 4 h/l`) | 100% | Printable characters are inserted when the mode is enabled. |
+| SGR core subset (`0`, `1`, `2`, `4`, `5`, `7`, `22`, `24`, `27`) | Partial | Supported set is limited to monochrome attributes plus explicit off-codes. |
+| SGR blink text behavior | 100% | Blink-marked text now visibly hides and reappears on the shared cursor/text blink cadence. |
+| DEC line attributes (`ESC #3`, `#4`, `#5`, `#6`) | 100% | Double-width and double-height line attributes now use distinct VT100 top/bottom-half semantics, with `#5` restoring normal line size. |
+| Application keypad mode (`DECKPAM`, `DECKPNM`) | Not targeted | Explicitly ignored by the parser and intentionally outside scope because the 60% keyboard has no numeric keypad. |
+| Cursor key application mode (`DECCKM`) | Not targeted | Explicitly ignored by the parser; accepted limitation for the reduced keyboard/input model. |
+| 80/132-column switching (`DECCOLM`) | Not targeted | Outside scope because the current hardware uses a fixed display geometry. |
+| ANSI color rendering via SGR | Not met | Terminal remains monochrome; colors are selected via configuration instead. |
+| Full original VT100 hardware fidelity | Not met | The project emulates behavior, not the complete DEC hardware stack. |
+
+## Practical vttest Plan
+
+The most reliable way to turn the matrix above into an evidence-based report is to run `vttest` from a Unix host against the firmware and record each section as `pass`, `partial`, or `fail`.
+
+Recommended workflow:
+
+1. Start with the built-in `VTTest` for a quick on-device sanity check of cursoring, scrolling, wraparound, DEC graphics, and line attributes.
+2. Connect from a Unix host in raw character mode. Avoid telnet line mode, otherwise control-key and cursor tests become misleading.
+3. Run `vttest` and keep a simple report sheet with these columns: `section`, `expected result`, `observed result`, `status`, `notes`.
+4. Treat the code-based matrix in this README as the expected baseline before you begin. Any mismatch between `vttest` and the matrix is worth investigating.
+
+Suggested `vttest` interpretation for the current implementation:
+
+| vttest area | Expected result | Why |
+| --- | --- | --- |
+| Cursor movement and direct cursor addressing | Pass | Core cursor commands are implemented and already covered by the internal test suite. |
+| Screen clearing and line clearing | Pass | `ED` and `EL` variants are implemented. |
+| Insert/delete chars and lines | Pass | `ICH`, `DCH`, `ECH`, `IL`, and `DL` are implemented in the renderer. |
+| Scrolling, reverse index, and scroll regions | Pass | `IND`, `NEL`, `RI`, and `DECSTBM` are implemented. |
+| Wraparound tests | Pass | The renderer carries a dedicated wrap-pending state for VT100-style behavior. |
+| Origin mode tests | Pass | `DECOM` is implemented and influences cursor addressing. |
+| Device attributes and status reports | Pass | Primary `DA`, `DSR 5`, and `DSR 6` replies are implemented. |
+| Tab stop handling | Pass | Forward tab, set/clear tab stop, clear all, and back-tab are present. |
+| VT52 mode tests | Pass | VT52 subset and ANSI escape back to normal mode are implemented. |
+| DEC special graphics | Partial | Standard DEC ASCII plus DEC Special Graphics switching work, which is sufficient for `vttest` Character Sets test 3, but there is no DEC Alternate Character Set implementation. |
+| SGR attribute tests | Partial | Bold, dim, underline, reverse, reset, and visible blink now work for the monochrome SGR subset, but ANSI color rendering remains intentionally unsupported. |
+| Blink attribute tests | Pass | `SGR 5` is rendered visibly by reusing the existing cursor blink cadence. |
+| DEC double-width / double-height line tests | Pass | Internal VTTest sequences use true `ESC #3`/`#4` top-and-bottom pairs plus `#5` reset semantics. |
+| Keypad application mode tests | Not targeted | `DECKPAM` and `DECKPNM` are outside the current product scope because the keyboard has no numeric keypad. |
+| Cursor key application mode tests | Not targeted | `DECCKM` is outside the current product scope and currently ignored. |
+| 80/132-column switching tests | Not targeted | `DECCOLM` is outside scope because the display geometry is fixed by the hardware. |
+| ANSI color tests | Fail | The firmware is monochrome and does not apply color SGR codes. |
+
+When you run `vttest`, capture the exact menu section names alongside the outcomes. That gives you a reproducible conformance ledger and a concrete backlog for the remaining `partial` and `fail` items.
 
 ## Troubleshooting
 
@@ -665,13 +788,13 @@ Checklist:
 telnet <ip-or-hostname.local> 2323
 ```
 
-### Connected via telnet, but only logs appear (no transparent host traffic)
+### Connected via telnet, but only logs appear (no shell-client traffic)
 
-You are in command/log mode. Follow section 9.2 to switch to host bridge mode and to return to command/log mode.
+You are in command/log mode. Follow section 9.2 to switch to shell-client mode and to return to command/log mode.
 
-### Host mode enabled but VT100 still follows UART host
+### Shell-client mode enabled but VT100 still follows UART host
 
-Expected behavior in current firmware: UART rendering is paused while WLAN host mode is active. If behavior looks mixed:
+Expected behavior in current firmware: UART rendering is paused while shell-client mode is active. If behavior looks mixed:
 
 - Ensure only one active telnet client is connected.
 - Repeat the section 9.2 mode-switch sequence once.

@@ -115,6 +115,8 @@ private:
     unsigned m_scrollLineIndex = 0;
     unsigned m_scrollNextTick = 0;
 
+    bool m_bDecomDemoActive = false;
+
     TBoundaryTestMode m_BoundaryTestMode = BoundaryTestNone;
     unsigned m_BoundaryRow = 0;
     unsigned m_BoundaryStartCol = 0;
