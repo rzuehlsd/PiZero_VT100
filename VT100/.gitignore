@@ -6,7 +6,9 @@ Hardware/AdapterBoard/VT100-backups/*.zip
 **/.DS_Store
 
 # Local generated artifacts
+docs/doxygen/html/
 build/*.o
+build/*.d
 build/*.elf
 build/*.img
 build/*.lst

@@ -140,6 +140,8 @@ Reconstructed from git commit history and intended as a concise daily summary of
 ## 2026-05-22
 - Implemented features: aligned the user and technical documentation with the current shadow-buffer/projector renderer behavior, including deferred full-refresh handling during smooth scroll and stable setup-overlay entry.
 - Codebase changes: updated `README.md`, `docs/Configuration_Guide.md`, and `docs/VT100_Architecture.md` to describe projector-owned smooth-scroll refresh flow, setup-triggered smooth-scroll abort/full-refresh behavior, the FIFO-based setup input handoff, corrected the documented split between the 23-key modern setup dialog and the legacy-only `flow_control`/`wrap_around`/`margin_bell` keys, aligned `VT100/bin/VT100.txt` plus `templates/VT100.txt` with the current `buzzer_volume`, `wlan_host_autostart`, and `host_id` semantics, corrected the modern setup field descriptions in `TSetup.cpp`, removed a stale `docs/Refactoring_Note.md` reference from the architecture document, and fixed `VT100/Makefile` to emit dependency files for active compile rules so changed renderer/config sources no longer leave stale objects that cause spurious link failures.
+- Implemented features: moved generated build and Doxygen output out of normal Git review scope so local documentation and firmware builds no longer flood `git status`.
+- Codebase changes: expanded repo ignore rules for `VT100/docs/doxygen/html/`, `VT100/build/*.d`, and `VT100/bin/kernel.img`, and prepared the repository to drop already tracked generated artifacts from the index without deleting local outputs.
 
 ## 2026-02-23
 
