@@ -6521,7 +6521,7 @@
 		)
 		(uuid "0d5f5e9f-5c22-40eb-b22a-3116621a8214")
 	)
-	(text "Version 2.3 (Fehlerbehebungen)\n- 40V 2A DIP Gleichrichter verwenden\n- Hinweise auf Verwendung von LM2576-5.0 statt LM2576-adj\n- Pads bei SMD Widerständen anpassen für 1206 und 0805\n- RX / TX Level Shifter mit 1k in Serie für Begrenzung über Schutzdiode im Pi"
+	(text "Version 2.3 (Fehlerbehebungen)\n- 40V 2A DIP Gleichrichter verwenden\n- Hinweise auf Verwendung von LM2576-5.0 statt LM2576-adj\n- Pads bei SMD Widerständen anpassen für 1206 und 0805\n- RX / TX Level Shifter mit PMOS BSS138 für ecte 3,3V/5V Umsetzung"
 		(exclude_from_sim no)
 		(at 180.086 174.244 0)
 		(effects
