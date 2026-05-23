@@ -144,6 +144,8 @@ Reconstructed from git commit history and intended as a concise daily summary of
 - Codebase changes: expanded repo ignore rules for `VT100/docs/doxygen/html/`, `VT100/build/*.d`, and `VT100/bin/kernel.img`, and prepared the repository to drop already tracked generated artifacts from the index without deleting local outputs.
 - Implemented features: updated the V2.3 adapter-board schematic note so the documented RX/TX level shifter implementation matches the current PMOS-based design direction.
 - Codebase changes: changed the V2.3 KiCad schematic revision note from the earlier resistor-based RX/TX level-shifter wording to a PMOS BSS138-based 3.3V/5V translation note.
+- Implemented features: restored CI-friendly submodule resolution for `third_party/circle` so fresh clones and GitHub Actions jobs can fetch the referenced Circle revision again.
+- Codebase changes: replaced the superproject's `third_party/circle` gitlink from a local-only checkpoint commit with the nearest public ancestor commit (`5d819ab2`, `release-50.1` merge) published in `rsta2/circle`, preserving fetchability without pulling in the newer incompatible `Step51` API changes.
 
 ## 2026-02-23
 
