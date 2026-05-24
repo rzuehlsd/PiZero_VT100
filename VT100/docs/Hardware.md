@@ -27,6 +27,13 @@ The MAX3232 board with Vcc connected to the 5V output of the Pi Zero handles the
 </div>
 
 
+**3D preview of the documented V2.3 board:**
+
+<div style="text-align: center;">
+  <img src="images/3dView_V23.png" alt="3D view of Adapterboard V2.3" width="70%" height="auto"/>
+</div>
+
+
 The images above show the documented V2.3 schematic and layout, which use an LM2576 switching regulator to provide the 5 V / 2 A rail for the display controller and the MBC2 through the DIN6 connector. If an LM2576-adj is used, both SMD resistors can be populated to select a voltage slightly above 5 V (for example 5.1 - 5.2 V). This was observed as a possible mitigation for occasional display flicker when the screen is inverted (white background). If an LM2576-5V is used, one resistor position is bridged (0R).
 
 The USB keyboard input is wired to two test points below the USB connector of the Pi. Click and bell sounds are generated via an 800 Hz PWM signal from GPIO and a small buzzer. Switching of the Tx/Rx lines of the RS-232 connector is done by a relay controlled from a GPIO pin.

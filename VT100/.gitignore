@@ -1,5 +1,6 @@
 backups/
 Hardware/AdapterBoard/VT100-backups/*.zip
+Hardware/AdapterBoard/VT100-V23/VT100-V23-backups/*.zip
 
 # Local metadata
 .DS_Store
