@@ -146,6 +146,8 @@ Reconstructed from git commit history and intended as a concise daily summary of
 - Codebase changes: changed the V2.3 KiCad schematic revision note from the earlier resistor-based RX/TX level-shifter wording to a PMOS BSS138-based 3.3V/5V translation note.
 - Implemented features: restored CI-friendly submodule resolution for `third_party/circle` so fresh clones and GitHub Actions jobs can fetch the referenced Circle revision again.
 - Codebase changes: replaced the superproject's `third_party/circle` gitlink from a local-only checkpoint commit with the nearest public ancestor commit (`5d819ab2`, `release-50.1` merge) published in `rsta2/circle`, preserving fetchability without pulling in the newer incompatible `Step51` API changes.
+- Implemented features: restored Mermaid diagram rendering in the generated Doxygen documentation for Markdown architecture diagrams.
+- Codebase changes: extended the custom Doxygen HTML header hook to detect Mermaid syntax in generic Doxygen `fragment` blocks as well as explicit Mermaid code fences, then convert those blocks into Mermaid render containers before page initialization.
 
 ## 2026-02-23
 

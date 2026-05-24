@@ -33,11 +33,68 @@ document.addEventListener("DOMContentLoaded", function () {
     return;
   }
 
-  document.querySelectorAll("pre.mermaid").forEach(function (block) {
+  function normalizeMermaidText(text) {
+    return text
+      .replace(/\u00a0/g, " ")
+      .replace(/\r/g, "")
+      .trim();
+  }
+
+  function extractMermaidSource(block) {
+    var source = normalizeMermaidText(block.textContent || "");
+    if (!source) {
+      return null;
+    }
+
+    var lines = source.split("\n");
+    while (lines.length && !lines[0].trim()) {
+      lines.shift();
+    }
+
+    if (lines.length && lines[0].trim() === "mermaid") {
+      lines.shift();
+    }
+
+    while (lines.length) {
+      var firstLine = lines[0].trim();
+      if (!firstLine || firstLine.indexOf("%%") === 0) {
+        break;
+      }
+      break;
+    }
+
+    var probeLines = lines.filter(function (line) {
+      var trimmed = line.trim();
+      return trimmed && trimmed.indexOf("%%") !== 0;
+    });
+    if (!probeLines.length) {
+      return null;
+    }
+
+    var first = probeLines[0];
+    var mermaidStart = /^(graph|flowchart|sequenceDiagram|classDiagram|stateDiagram|erDiagram|journey|gantt|pie|mindmap|timeline|gitGraph|quadrantChart|requirementDiagram|block-beta|packet-beta|xychart-beta|kanban|sankey-beta|C4Context|C4Container|C4Component|C4Dynamic|C4Deployment)\b/;
+    if (!mermaidStart.test(first)) {
+      return null;
+    }
+
+    return lines.join("\n").trim();
+  }
+
+  document.querySelectorAll("pre.mermaid, code.language-mermaid, div.fragment, pre.fragment").forEach(function (block) {
+    var host = block;
+    if (block.tagName === "CODE" && block.parentElement && block.parentElement.tagName === "PRE") {
+      host = block.parentElement;
+    }
+
+    var source = extractMermaidSource(host);
+    if (!source) {
+      return;
+    }
+
     var container = document.createElement("div");
     container.className = "mermaid";
-    container.textContent = block.textContent;
-    block.parentNode.replaceChild(container, block);
+    container.textContent = source;
+    host.parentNode.replaceChild(container, host);
   });
 
   mermaid.initialize({ startOnLoad: false, securityLevel: "loose" });
