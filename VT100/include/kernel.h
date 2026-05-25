@@ -38,7 +38,7 @@ class CTRenderer;
 class CTFontConverter;
 class CTKeyboard;
 class CTConfig;
-class CTUART;
+class CUART;
 class CTFileLog;
 class CTSetup;
 class CVTTest;
@@ -129,8 +129,6 @@ protected:
     boolean initFilesystem(void);
 
 private:
-    /// \brief Ensure the UART task is running prior to serial operations.
-    void EnsureSerialTaskStarted();
     /// \brief Drain the buffered UART input and pass to renderer.
     void ProcessSerial();
     /// \brief Write a visible message unless a setup dialog currently owns the screen.
@@ -162,7 +160,7 @@ private:
     CTFontConverter *m_pFontConverter;
     CTKeyboard *m_pKeyboard;
     CTConfig *m_pConfig;
-    CTUART *m_pUART;
+    CUART *m_pUART;
     CTFileLog *m_pFileLog;
     CTWlanLog *m_pWlanLog;
     CTWlanHost *m_pWlanHost;
@@ -174,7 +172,6 @@ private:
 
     boolean m_bWlanLoggerEnabled;
     boolean m_bMDNSAdvertised;
-    bool m_bSerialTaskStarted;
     bool m_bTelnetReady;
     bool m_bWaitingMessageActive;
     bool m_bWaitingMessageShowsIP;

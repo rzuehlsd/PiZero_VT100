@@ -10,6 +10,10 @@ Reconstructed from git commit history and intended as a concise daily summary of
 	- `Codebase changes: ...`
 - Keep entries concise and based on completed, merged work.
 
+## 2026-05-25
+- Implemented features: removed the obsolete UART task wrapper so UART runtime behavior now matches the already kernel-polled serial design without the previous no-op task lifecycle and now follows the non-task naming convention as `CUART`.
+- Codebase changes: converted the former task wrapper into the lightweight singleton UART service `CUART`, renamed the active UART implementation files from `TUART` to `CUART`, removed the unused kernel serial-task start/suspend bookkeeping, and updated the architecture documentation to describe the service-based polling path accurately.
+
 ## 2026-05-24
 - Implemented features: added the missing V2.3 3D board preview image to the hardware documentation so the documented adapter-board revision now includes schematic, layout, and rendered board views together.
 - Codebase changes: embedded `docs/images/3dView_V23.png` in `docs/Hardware.md` and extended `VT100/.gitignore` to ignore local ZIP backups created under `Hardware/AdapterBoard/VT100-V23/VT100-V23-backups/`.

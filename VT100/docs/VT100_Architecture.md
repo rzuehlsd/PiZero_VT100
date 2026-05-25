@@ -55,7 +55,7 @@ Primary modules in `VT100/src`:
 - `TRendererSurface.cpp` (`CRendererSurface`) — framebuffer backend that owns `CBcmFrameBuffer`, raw pixel storage, color conversion, and row-oriented pixel operations
 - `TFontConverter.cpp` + `VT100_FontConverter.cpp` — VT100 font conversion and lookup
 - `TKeyboard.cpp` (`CTKeyboard`) — USB keyboard processing, repeat, line-ending conversion
-- `TUART.cpp` (`CTUART`) — serial init and polling read/write abstraction
+- `CUART.cpp` (`CUART`) — serial init and polling read/write abstraction
 - `TSetup.cpp` (`CTSetup`) — legacy setup + modern setup dialog
 - `TFileLog.cpp` (`CTFileLog`) — SD log sink with fallback
 - `TWlanHost.cpp` (`CTWlanHost`) — telnet/log sink + outbound shell-client mode
@@ -73,7 +73,7 @@ graph TD
   CKernel --> CRendererSurface
   CKernel --> CTRendererProjector
   CKernel --> CTKeyboard
-  CKernel --> CTUART
+  CKernel --> CUART
   CKernel --> CTSetup
   CKernel --> CTFileLog
   CKernel --> CTWlanHost
@@ -101,7 +101,7 @@ graph TD
   CTWlanHost --> CNetSubSystem
   CTWlanHost --> CWPASupplicant
 
-  CTUART --> CSerialDevice
+  CUART --> CSerialDevice
   CRendererSurface --> CBcmFrameBuffer
   CTRendererProjector --> CCharGenerator
   CShadowBuffer --> TProjectorState
@@ -142,7 +142,7 @@ sequenceDiagram
   participant Surface as CRendererSurface
   participant Projector as CTRendererProjector
   participant Keyboard as CTKeyboard
-  participant UART as CTUART
+  participant UART as CUART
   participant Setup as CTSetup
   participant Wlan as CTWlanHost
 
@@ -181,7 +181,7 @@ Implementation notes aligned with current code:
 
 - `CTRenderer` uses `TASK_LEVEL` spin locking while mutating parser/runtime state, and `CShadowBuffer` exposes its own `TASK_LEVEL` spin lock for projector snapshot access.
 - `CTRendererProjector` runs as its own cooperative `CTask` and refreshes the framebuffer at a fixed cadence instead of repainting synchronously inside renderer call sites.
-- `CTUART` task exists but serial data path is polled by kernel via `DrainSerialInput()`.
+- `CUART` is now a lightweight UART service; the serial data path is polled by kernel via `DrainSerialInput()`.
 - kernel run loop services serial, optional networking, scheduler yield, and HAL updates.
 
 ## 6. Runtime data flows
@@ -209,7 +209,7 @@ sequenceDiagram
   participant Kbd as CTKeyboard
   participant Kcb as kernel onKeyPressed
   participant Router as CKernel::SendHostOutput
-  participant Uart as CTUART
+  participant Uart as CUART
   participant Wlan as CTWlanHost
   participant Rndr as CTRenderer
 

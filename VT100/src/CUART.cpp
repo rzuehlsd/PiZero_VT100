@@ -1,6 +1,6 @@
 //------------------------------------------------------------------------------
-// Module:        CTUART
-// Description:   Provides buffered UART handling as a Circle task abstraction.
+// Module:        CUART
+// Description:   Provides buffered UART handling as a singleton service.
 // Author:        R. Zuehlsdorff, ralf.zuehlsdorff@t-online.de
 // Created:       2026-01-27
 // License:       MIT License (https://opensource.org/license/mit/)
@@ -9,49 +9,44 @@
 // 2026-01-27     R. Zuehlsdorff        Initial creation
 //------------------------------------------------------------------------------
 
-#include "TUART.h"
+#include "CUART.h"
 #include "TConfig.h"
 #include <circle/logger.h>
-#include <circle/sched/scheduler.h>
-#include <string.h>
 
-LOGMODULE("CTUART");
+LOGMODULE("CUART");
 
 // Singleton instance creation and access
 // teardown handled by runtime
 // CAUTION: Only possible if constructor does not need parameters
-static CTUART *s_pThis = 0;
-CTUART::ReceiveHandler CTUART::g_ReceiveHandler = nullptr;
-CTUART *CTUART::Get(void)
+static CUART *s_pThis = 0;
+CUART::ReceiveHandler CUART::g_ReceiveHandler = nullptr;
+CUART *CUART::Get(void)
 {
     if (s_pThis == 0)
     {
-        s_pThis = new CTUART();
+        s_pThis = new CUART();
     }
     return s_pThis;
 }
 
-CTUART::CTUART()
-    : CTask(),
-      m_pSerial(nullptr),
+CUART::CUART()
+    : m_pSerial(nullptr),
       m_pInterruptSystem(nullptr),
-      m_bTaskRunning(false),
-      m_bEverStarted(false),
       m_bSoftwareFlowControl(false),
       m_bFlowStopped(false),
       m_FlowHighThreshold(0),
       m_FlowLowThreshold(0)
 {
-    SetName("UART");
-    Suspend();
-    LOGERR("UART: CTUART constructed");
+    LOGNOTE("UART service constructed");
 }
 
-CTUART::~CTUART() {
+CUART::~CUART()
+{
+    delete m_pSerial;
+    m_pSerial = nullptr;
+}
 
-};
-
-bool CTUART::Initialize(CInterruptSystem *pInterruptSystem, ReceiveHandler recvFunc)
+bool CUART::Initialize(CInterruptSystem *pInterruptSystem, ReceiveHandler recvFunc)
 {
     m_pInterruptSystem = pInterruptSystem;
     if (m_pSerial)
@@ -63,9 +58,6 @@ bool CTUART::Initialize(CInterruptSystem *pInterruptSystem, ReceiveHandler recvF
     unsigned int baud = 115200;
     unsigned int dataBits = 8;
     CSerialDevice::TParity parity = CSerialDevice::ParityNone;
-
-    m_bTaskRunning = false;
-    m_bEverStarted = false;
 
     LOGNOTE("Initializing serial port...");
 
@@ -105,7 +97,7 @@ bool CTUART::Initialize(CInterruptSystem *pInterruptSystem, ReceiveHandler recvF
         LOGERR("Serial port initialization failed");
         return false;
     }
-    // Use polling reads in the UART task (no ISR handler registration)
+    // Use polling reads in the UART service (no ISR handler registration)
     LOGNOTE("Serial port initialized at %u baud (%u%c1)",
             baud,
             dataBits,
@@ -114,63 +106,13 @@ bool CTUART::Initialize(CInterruptSystem *pInterruptSystem, ReceiveHandler recvF
     return true;
 }
 
-bool CTUART::EnsureStarted()
-{
-    if (m_bTaskRunning)
-    {
-        return true;
-    }
-
-    if (m_pSerial == nullptr)
-    {
-        LOGWARN("UART task start requested before initialization");
-        return false;
-    }
-
-    bool wasEverStarted = m_bEverStarted;
-    if (!wasEverStarted)
-    {
-        Start();
-        m_bEverStarted = true;
-    }
-    else
-    {
-        Resume();
-    }
-
-    m_bTaskRunning = true;
-    LOGNOTE("UART task %s", wasEverStarted ? "resumed" : "started");
-    return true;
-}
-
-void CTUART::SuspendTask()
-{
-    if (!m_bTaskRunning)
-    {
-        return;
-    }
-
-    Suspend();
-    m_bTaskRunning = false;
-    LOGNOTE("UART task suspended");
-}
-
-void CTUART::Send(const char *buf, size_t len)
+void CUART::Send(const char *buf, size_t len)
 {
     if (m_pSerial)
         m_pSerial->Write(buf, len);
 }
 
-void CTUART::Run()
-{
-    // The UART task is now a placeholder as ProcessSerial in kernel calls DrainSerialInput directly.
-    while (!IsSuspended())
-    {
-        CScheduler::Get()->Yield();
-    }
-}
-
-int CTUART::DrainSerialInput(char *dest, size_t maxLen)
+int CUART::DrainSerialInput(char *dest, size_t maxLen)
 {
     if (dest == nullptr || maxLen == 0)
     {

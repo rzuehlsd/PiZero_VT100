@@ -34,7 +34,7 @@
 #include "TKeyboard.h"
 #include "TConfig.h"
 #include "TShadowBuffer.h"
-#include "TUART.h"
+#include "CUART.h"
 #include "TFileLog.h"
 #include "TWlanLog.h"
 #include "TWlanHost.h"
@@ -203,7 +203,7 @@ static void onKeyPressed(const char *pString)
         return;
     }
 
-    CTUART::Get()->Send(pString, strlen(pString));
+    CUART::Get()->Send(pString, strlen(pString));
 }
 
 static void onKeyPressedRaw(unsigned char ucModifiers, const unsigned char RawKeys[6])
@@ -294,7 +294,6 @@ CKernel::CKernel(void)
       m_pNullLog(nullptr),
       m_bWlanLoggerEnabled(FALSE),
       m_bMDNSAdvertised(FALSE),
-      m_bSerialTaskStarted(false),
       m_bTelnetReady(false),
       m_bWaitingMessageActive(false),
       m_bWaitingMessageShowsIP(false),
@@ -308,7 +307,7 @@ CKernel::CKernel(void)
     m_pRenderer = CTRenderer::Get();
     m_pKeyboard = CTKeyboard::Get();
     m_pConfig = CTConfig::Get();
-    m_pUART = CTUART::Get();
+    m_pUART = CUART::Get();
     m_pFileLog = CTFileLog::Get();
     m_pWlanLog = CTWlanLog::Get();
     m_pWlanHost = CTWlanHost::Get();
@@ -379,19 +378,6 @@ void CKernel::WriteScreenMessage(const char *pData, size_t nLength)
     }
 
     m_pRenderer->Write(pData, nLength);
-}
-
-void CKernel::EnsureSerialTaskStarted()
-{
-    if (m_bSerialTaskStarted)
-    {
-        return;
-    }
-
-    if (m_pUART != nullptr && m_pUART->EnsureStarted())
-    {
-        m_bSerialTaskStarted = true;
-    }
 }
 
 void CKernel::ToggleSetupDialog()
@@ -830,8 +816,6 @@ void CKernel::MarkTelnetReady()
         static const char ReadyMsg[] = "\r\nTelnet client connected - enabling local output\r\n";
         WriteScreenMessage(ReadyMsg, sizeof ReadyMsg - 1);
     }
-
-    EnsureSerialTaskStarted();
 }
 
 void CKernel::ApplyRuntimeConfig()
@@ -972,12 +956,6 @@ void CKernel::MarkTelnetWaiting()
 
     m_bTelnetReady = false;
     m_bWaitingMessageActive = true;
-
-    if (m_pUART != nullptr)
-    {
-        m_pUART->SuspendTask();
-    }
-    m_bSerialTaskStarted = false;
 
     if (!haveIPNow)
     {

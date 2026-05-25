@@ -35,7 +35,7 @@ TARGET   = $(BUILDDIR)/kernel
 # 	$(BUILDDIR)/TFontConverter.o \
 # 	$(BUILDDIR)/VT100_FontConverter.o \
 # 	$(BUILDDIR)/TRenderer.o \
-# 	$(BUILDDIR)/TConfig.o $(BUILDDIR)/TKeyboard.o $(BUILDDIR)/TUART.o 
+# 	$(BUILDDIR)/TConfig.o $(BUILDDIR)/TKeyboard.o $(BUILDDIR)/CUART.o 
 
 OBJS := \
 	$(BUILDDIR)/main.o \
@@ -49,7 +49,7 @@ OBJS := \
 	$(BUILDDIR)/TRenderer.o \
 	$(BUILDDIR)/TConfig.o \
 	$(BUILDDIR)/TKeyboard.o \
-	$(BUILDDIR)/TUART.o \
+	$(BUILDDIR)/CUART.o \
 	$(BUILDDIR)/TFileLog.o \
 	$(BUILDDIR)/TWlanLog.o \
 	$(BUILDDIR)/TWlanHost.o \
