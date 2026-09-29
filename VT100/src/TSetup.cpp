@@ -74,7 +74,7 @@ namespace
     constexpr unsigned int kModernDialogMinRows = 12U;
     constexpr unsigned int kModernDialogMinCols = 72U;
     constexpr unsigned int kModernRowBufferSize = 192U;
-    constexpr unsigned int kModernFieldCount = 23U;
+    constexpr unsigned int kModernFieldCount = 24U;
 
     static const char *kModernFieldNames[kModernFieldCount] = {
         "line_ending",
@@ -96,6 +96,7 @@ namespace
         "repeat_delay_ms",
         "repeat_rate_cps",
         "switch_txrx",
+        "sbc_power",
         "wlan_host_autostart",
         "host_id",
         "log_output",
@@ -121,6 +122,7 @@ namespace
         "Repeat delay 250-1000 ms",
         "Repeat rate 2-20 cps",
         "Swap UART TX/RX",
+        "SBC power on/off via GPIO7",
         "WLAN mode: Off/RemoteLog/ShellClient",
         "Default shell target IPv4[:port]",
         "Log outputs bitmask: bit1=screen, bit2=file, bit3=wlan",
@@ -1347,6 +1349,7 @@ void CTSetup::InitializeModernFromConfig()
     m_ModernConfig.repeatDelayMs = m_pConfig->GetKeyRepeatDelayMs();
     m_ModernConfig.repeatRateCps = m_pConfig->GetKeyRepeatRateCps();
     m_ModernConfig.switchTxRx = m_pConfig->GetSwitchTxRx() != 0U;
+    m_ModernConfig.sbcPower = m_pConfig->GetSbcPower() != 0U;
     m_ModernConfig.wlanModePolicy = m_pConfig->GetWlanHostAutoStart();
     strncpy(m_ModernConfig.hostId, m_pConfig->GetHostId(), sizeof(m_ModernConfig.hostId) - 1);
     m_ModernConfig.hostId[sizeof(m_ModernConfig.hostId) - 1] = '\0';
@@ -1381,6 +1384,7 @@ void CTSetup::ApplyModernToConfig()
     m_pConfig->SetKeyRepeatDelayMs(m_ModernConfig.repeatDelayMs);
     m_pConfig->SetKeyRepeatRateCps(m_ModernConfig.repeatRateCps);
     m_pConfig->SetSwitchTxRx(m_ModernConfig.switchTxRx ? TRUE : FALSE);
+    m_pConfig->SetSbcPower(m_ModernConfig.sbcPower ? TRUE : FALSE);
     m_pConfig->SetWlanHostAutoStart(m_ModernConfig.wlanModePolicy);
     m_pConfig->SetHostId(m_ModernConfig.hostId);
     m_pConfig->SetLogOutput(m_ModernConfig.logOutput);
@@ -1913,6 +1917,9 @@ void CTSetup::ChangeModernValue(int delta)
     case ModernFieldSwitchTxRx:
         m_ModernConfig.switchTxRx = !m_ModernConfig.switchTxRx;
         break;
+    case ModernFieldSbcPower:
+        m_ModernConfig.sbcPower = !m_ModernConfig.sbcPower;
+        break;
     case ModernFieldWlanHostAutoStart:
         m_ModernConfig.wlanModePolicy = CycleUnsigned(m_ModernConfig.wlanModePolicy, 0U, 2U, delta);
         break;
@@ -2042,6 +2049,9 @@ void CTSetup::FormatModernValue(TModernField field, char *pBuffer, size_t buffer
         break;
     case ModernFieldSwitchTxRx:
         text = BoolName(m_ModernConfig.switchTxRx);
+        break;
+    case ModernFieldSbcPower:
+        text = BoolName(m_ModernConfig.sbcPower);
         break;
     case ModernFieldWlanHostAutoStart:
         text = kWlanModeNames[m_ModernConfig.wlanModePolicy <= 2U ? m_ModernConfig.wlanModePolicy : 0U];

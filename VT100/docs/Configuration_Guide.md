@@ -45,12 +45,12 @@ Modern setup controls:
 
 Modern setup coverage (current implementation):
 
-- `F11` edits 23 persisted keys: `line_ending`, `baud_rate`, `serial_bits`, `serial_parity`, `cursor_type`, `cursor_blinking`, `vt_test`, `vt52_mode`, `font_selection`, `text_color`, `background_color`, `buzzer_volume`, `key_click`, `key_auto_repeat`, `smooth_scroll`, `smooth_scroll_ms`, `repeat_delay_ms`, `repeat_rate_cps`, `switch_txrx`, `wlan_host_autostart`, `host_id`, `log_output`, and `log_filename`.
+- `F11` edits 24 persisted keys: `line_ending`, `baud_rate`, `serial_bits`, `serial_parity`, `cursor_type`, `cursor_blinking`, `vt_test`, `vt52_mode`, `font_selection`, `text_color`, `background_color`, `buzzer_volume`, `key_click`, `key_auto_repeat`, `smooth_scroll`, `smooth_scroll_ms`, `repeat_delay_ms`, `repeat_rate_cps`, `switch_txrx`, `sbc_power`, `wlan_host_autostart`, `host_id`, `log_output`, and `log_filename`.
 - `F12` remains the edit surface for the persisted VT100-style keys `flow_control`, `wrap_around`, and `margin_bell`, plus the runtime-only Setup A tab-stop map.
 
 Modern setup save/apply behavior (current implementation):
 
-- Applied immediately on `Enter`: `text_color`, `background_color`, `font_selection`, `cursor_type`, `cursor_blinking`, `vt52_mode`, `smooth_scroll`, `smooth_scroll_ms`, `buzzer_volume`, `switch_txrx`.
+- Applied immediately on `Enter`: `text_color`, `background_color`, `font_selection`, `cursor_type`, `cursor_blinking`, `vt52_mode`, `smooth_scroll`, `smooth_scroll_ms`, `buzzer_volume`, `switch_txrx`, `sbc_power`.
 - Persisted and used by runtime logic without dedicated re-init: `line_ending`, `key_click`, `key_auto_repeat`.
 - Persisted and applied on subsystem init/reconnect/reboot: `baud_rate`, `serial_bits`, `serial_parity`, `repeat_delay_ms`, `repeat_rate_cps`, `log_output`, `log_filename`, `wlan_host_autostart`, `host_id`.
 - Persisted but edited through legacy setup (`F12`): `flow_control`, `wrap_around`, `margin_bell`.
@@ -94,10 +94,11 @@ Persisted by `CTConfig::SaveToFile()`:
 24. `host_id` (string, `IPv4[:port]`, empty means prompt locally on VT100)
 25. `log_output` (0..7; 0=none, 1=screen, 2=file, 3=wlan, 4=screen+file, 5=screen+wlan, 6=file+wlan, 7=screen+file+wlan)
 26. `log_filename` (string, max 63 chars)
+27. `sbc_power` (0=off, 1=on via GPIO7; default 0)
 
 Dialog mapping note:
 
-- Persisted keys exposed in modern setup (`F11`): items 1-9, 11-17, 19-21, 23-26.
+- Persisted keys exposed in modern setup (`F11`): items 1-9, 11-17, 19-21, 23-27.
 - Persisted keys that remain on legacy setup (`F12`): item 10 `flow_control`, item 18 `wrap_around`, item 22 `margin_bell`.
 
 ### A4) WLAN usage (operator level)

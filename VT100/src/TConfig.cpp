@@ -303,6 +303,7 @@ void CTConfig::logConfig(void) const
     LOGNOTE("Key click: %s", GetKeyClick() ? "enabled" : "disabled");
     LOGNOTE("Key auto-repeat: %s", GetKeyAutoRepeatEnabled() ? "enabled" : "disabled");
     LOGNOTE("TX/RX wiring: %s", GetSwitchTxRx() ? "swapped" : "normal");
+    LOGNOTE("SBC power: %s", GetSbcPower() ? "on" : "off");
     const char *wlanMode = "off";
     if (GetWlanHostAutoStart() == 1U)
     {
@@ -359,6 +360,7 @@ CTConfig::CTConfig(void) : CTask()
         {"flow_control", &m_SoftwareFlowControl, 0, "Software flow control (0=off, 1=on XON/XOFF)"},
         {"margin_bell", &m_MarginBellEnabled, 0, "Margin bell (0=off, 1=on; rings 8 columns before right margin)"},
         {"wlan_host_autostart", &m_WlanHostAutoStart, 0, "WLAN mode policy (0=off, 1=remote_log, 2=shell_client)"},
+        {"sbc_power", &m_SbcPower, 0, "SBC power using GPIO7 (0=off, 1=on)"},
         {"repeat_delay_ms", &m_KeyRepeatDelayMs, KeyRepeatDelayMinMs, "Key repeat delay in milliseconds (250-1000)"},
         {"repeat_rate_cps", &m_KeyRepeatRateCps, 10, "Key repeat rate in characters per second (2-20)"},
         // Note: log_filename is handled as special case in ParseConfigLine()
@@ -524,6 +526,7 @@ boolean CTConfig::SaveToFile(void)
         {"host_id", CString(), false},
         {"log_output", CString(), false},
         {"log_filename", CString(), false},
+        {"sbc_power", CString(), false},
     };
 
     kv[0].value.Format("%u", m_LineEnding);
@@ -552,6 +555,7 @@ boolean CTConfig::SaveToFile(void)
     kv[23].value.Format("%s", m_HostId);
     kv[24].value.Format("%u", m_LogOutput);
     kv[25].value.Format("%s", m_LogFileName);
+    kv[26].value.Format("%u", m_SbcPower);
 
     // Attempt to load existing content to preserve comments/order
     CString existing;
@@ -1016,6 +1020,22 @@ boolean CTConfig::ParseConfigLine(const char *pLine)
                 *(param->variable) = sanitizedValue;
                 LOGNOTE("Config: Parameter %s %s", keyword, sanitizedValue ? "enabled" : "disabled");
             }
+            else if (param->variable == &m_SbcPower)
+            {
+                unsigned int sanitizedValue = static_cast<unsigned int>(parsedValue);
+                if (value[0] == '-')
+                {
+                    LOGWARN("Config: Negative sbc_power %s, using 0", value);
+                    sanitizedValue = 0U;
+                }
+                else if (sanitizedValue > 1U)
+                {
+                    LOGWARN("Config: Invalid sbc_power %lu, clamping to 1", parsedValue);
+                    sanitizedValue = sanitizedValue ? 1U : 0U;
+                }
+                *(param->variable) = sanitizedValue;
+                LOGNOTE("Config: Parameter %s %s", keyword, sanitizedValue ? "enabled" : "disabled");
+            }
             else if (param->variable == &m_WlanHostAutoStart)
             {
                 unsigned int sanitizedValue = static_cast<unsigned int>(parsedValue);
@@ -1273,6 +1293,12 @@ void CTConfig::SetSwitchTxRx(boolean enabled)
 {
     m_SwitchTxRx = enabled ? 1U : 0U;
     LOGNOTE("Config: switch_txrx %s", m_SwitchTxRx ? "enabled" : "disabled");
+}
+
+void CTConfig::SetSbcPower(boolean enabled)
+{
+    m_SbcPower = enabled ? 1U : 0U;
+    LOGNOTE("Config: sbc_power %s", m_SbcPower ? "enabled" : "disabled");
 }
 
 void CTConfig::SetWlanHostAutoStart(unsigned int mode)

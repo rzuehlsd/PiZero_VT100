@@ -11,7 +11,6 @@
 
 #pragma once
 
-
 // Include Circle core components
 #include <circle/types.h>
 #include <circle/timer.h>
@@ -29,7 +28,6 @@
  */
 
 // Forward declarations and includes for classes used in this module
-
 
 /**
  * @class CHAL
@@ -77,6 +75,12 @@ public:
     /// \brief Toggle the hardware RX/TX pin swap relay.
     void SwitchRxTx(void);
 
+    /// \brief Switch SBC power through GPIO7.
+    void SwitchSbcOn(bool enable);
+
+    /// \brief Apply the configured SBC power state.
+    void ConfigureSbcOn(boolean enable);
+
     // Apply configured RX/TX swap state
     /// \brief Set the RX/TX swap mode explicitly.
     void ConfigureRxTxSwap(boolean enableSwap);
@@ -100,27 +104,31 @@ private:
 private:
     enum
     {
-        PWMFrequencyHz  = 800,
+        PWMFrequencyHz = 800,
         PWMPeriodMicros = 1000000U / PWMFrequencyHz,
-        PWMGPIOPin      = 12,
-        RxTXSwitchPin   = 16
+        PWMGPIOPin = 12,
+        RxTXSwitchPin = 16,
+        SBCSwitchPin = 7
     };
 
-    CInterruptSystem  *m_pInterruptSystem;
-    CTimer            *m_pTimer;
-    CUserTimer         m_UserTimer;
-    CGPIOPin           m_Pin;
-    CGPIOPin           m_RxTXSwitchPin;
+    CInterruptSystem *m_pInterruptSystem;
+    CTimer *m_pTimer;
+    CUserTimer m_UserTimer;
+    CGPIOPin m_Pin;
+    CGPIOPin m_RxTXSwitchPin;
+    CGPIOPin m_SBCSwitchPin;
 
-    boolean            m_bGPIO16Configured;
-    boolean            m_bBuzzerPinConfigured;
-    boolean            m_bTimerInitialized;
-    boolean            m_bActive;
-    boolean            m_bUseTimer;
-    boolean            m_bHighPhase;
-    boolean            m_bRxTxSwitchMode;
-    unsigned           m_nConfiguredBuzzerVolume;
-    unsigned           m_nStopTicks;
-    unsigned           m_nOnMicros;
-    unsigned           m_nOffMicros;
+    boolean m_bGPIO16Configured;
+    boolean m_bGPIO7Configured;
+    boolean m_bBuzzerPinConfigured;
+    boolean m_bTimerInitialized;
+    boolean m_bActive;
+    boolean m_bUseTimer;
+    boolean m_bHighPhase;
+    boolean m_bRxTxSwitchMode;
+    boolean m_bSbcOn;
+    unsigned m_nConfiguredBuzzerVolume;
+    unsigned m_nStopTicks;
+    unsigned m_nOnMicros;
+    unsigned m_nOffMicros;
 };

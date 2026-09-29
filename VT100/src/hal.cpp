@@ -21,25 +21,26 @@ CHAL *CHAL::Get(void)
     return s_pThis;
 }
 
-
-
 CHAL::CHAL(CInterruptSystem *pInterruptSystem, CTimer *pTimer)
-:   m_pInterruptSystem(pInterruptSystem),
-    m_pTimer(pTimer),
-    m_UserTimer(pInterruptSystem, UserTimerHandler, this),
-    m_Pin(),
-    m_bTimerInitialized(FALSE),
-    m_bActive(FALSE),
-    m_bUseTimer(FALSE),
-    m_bHighPhase(FALSE),
-    m_nConfiguredBuzzerVolume(100),
-    m_nStopTicks(0),
-    m_nOnMicros(0),
-    m_nOffMicros(0)
+    : m_pInterruptSystem(pInterruptSystem),
+      m_pTimer(pTimer),
+      m_UserTimer(pInterruptSystem, UserTimerHandler, this),
+      m_Pin(),
+      m_SBCSwitchPin(),
+      m_bTimerInitialized(FALSE),
+      m_bActive(FALSE),
+      m_bUseTimer(FALSE),
+      m_bHighPhase(FALSE),
+      m_nConfiguredBuzzerVolume(100),
+      m_nStopTicks(0),
+      m_nOnMicros(0),
+      m_nOffMicros(0)
 {
     m_bGPIO16Configured = FALSE;
+    m_bGPIO7Configured = FALSE;
     m_bBuzzerPinConfigured = FALSE;
     m_bRxTxSwitchMode = FALSE;
+    m_bSbcOn = FALSE;
     s_pThis = this;
 }
 
@@ -75,6 +76,13 @@ boolean CHAL::Initialize(void)
     m_bGPIO16Configured = TRUE;
     LOGNOTE("GPIO%u configured as output RxTX Switch", RxTXSwitchPin);
 
+    m_SBCSwitchPin.AssignPin(SBCSwitchPin);
+    m_SBCSwitchPin.SetMode(GPIOModeOutput);
+    m_SBCSwitchPin.Write(LOW);
+    m_bGPIO7Configured = TRUE;
+    m_bSbcOn = FALSE;
+    LOGNOTE("GPIO%u configured as output for SBC power", SBCSwitchPin);
+
     m_Pin.AssignPin(PWMGPIOPin);
     m_Pin.SetMode(GPIOModeOutput);
     m_Pin.Write(LOW);
@@ -83,7 +91,7 @@ boolean CHAL::Initialize(void)
 
     if (!m_UserTimer.Initialize())
     {
-        LOGERR( "Failed to initialize user timer");
+        LOGERR("Failed to initialize user timer");
         return FALSE;
     }
 
@@ -103,11 +111,11 @@ void CHAL::Click(void)
     StartBuzzer(m_nConfiguredBuzzerVolume, 25);
 }
 
-void CHAL::StartBuzzer (unsigned duty, unsigned duration)
+void CHAL::StartBuzzer(unsigned duty, unsigned duration)
 {
     if (!m_bTimerInitialized)
     {
-        LOGERR( "Start requested before PWM initialized");
+        LOGERR("Start requested before PWM initialized");
         return;
     }
 
@@ -125,7 +133,7 @@ void CHAL::StartBuzzer (unsigned duty, unsigned duration)
     m_nOnMicros = (PWMPeriodMicros * duty) / 100;
     if (m_nOnMicros == 0)
     {
-        m_nOnMicros = 1;  // guarantee progress for very small values
+        m_nOnMicros = 1; // guarantee progress for very small values
     }
     m_nOffMicros = PWMPeriodMicros - m_nOnMicros;
 
@@ -202,7 +210,7 @@ void CHAL::Update(void)
 
 void CHAL::UserTimerHandler(CUserTimer *pTimer, void *pParam)
 {
-    (void) pTimer;
+    (void)pTimer;
 
     CHAL *pThis = static_cast<CHAL *>(pParam);
     if (pThis != 0)
@@ -250,6 +258,31 @@ void CHAL::SwitchRxTx(void)
     }
 
     ConfigureRxTxSwap(TRUE);
+}
+
+void CHAL::SwitchSbcOn(bool enable)
+{
+    ConfigureSbcOn(enable ? TRUE : FALSE);
+}
+
+void CHAL::ConfigureSbcOn(boolean enable)
+{
+    if (!m_bGPIO7Configured)
+    {
+        LOGWARN("GPIO%u not configured for SBC power", SBCSwitchPin);
+        return;
+    }
+
+    if (m_bSbcOn == (enable ? TRUE : FALSE))
+    {
+        LOGNOTE("SBC power already %s", enable ? "on" : "off");
+        return;
+    }
+
+    m_SBCSwitchPin.Write(enable ? HIGH : LOW);
+    m_bSbcOn = enable ? TRUE : FALSE;
+    LOGNOTE("GPIO%u set %s for SBC power", SBCSwitchPin,
+            enable ? "HIGH" : "LOW");
 }
 
 void CHAL::ConfigureRxTxSwap(boolean enableSwap)

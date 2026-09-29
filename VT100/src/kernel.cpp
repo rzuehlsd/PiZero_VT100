@@ -572,6 +572,7 @@ boolean CKernel::Initialize(void)
 
         m_HAL.ConfigureBuzzerVolume(m_pConfig->GetBuzzerVolume());
         m_HAL.ConfigureRxTxSwap(m_pConfig->GetSwitchTxRx() != 0);
+        m_HAL.ConfigureSbcOn(m_pConfig->GetSbcPower() != 0);
 
         bool logToScreen = true;
         bool logToFile = false;
@@ -845,6 +846,7 @@ void CKernel::ApplyRuntimeConfig()
 
     m_HAL.ConfigureBuzzerVolume(m_pConfig->GetBuzzerVolume());
     m_HAL.ConfigureRxTxSwap(m_pConfig->GetSwitchTxRx() != 0);
+    m_HAL.ConfigureSbcOn(m_pConfig->GetSbcPower() != 0);
 }
 
 void CKernel::SendHostOutput(const char *pData, size_t nLength)

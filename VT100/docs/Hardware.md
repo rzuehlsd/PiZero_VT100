@@ -8,6 +8,7 @@ The carrier board can be mounted directly inside the terminal enclosure of a 60%
 - 5 VDC / 2 A power supply (input 7–9 V DC or AC / 2 A wall adapter)
 - RS‑232 interface to the host computer with MAX3232
 - Alternative host interface via Mini‑DIN‑6 connector and 4‑pin header (used by me for my MBC2-Z80)
+- Switched 5 V supply for a DIN6-connected SBC, controlled by Pi GPIO7 in the V2.3 design
 - USB‑A connector for a wired USB keyboard
 - Switch (relay) to swap RxD and TxD for RS-232
 - 800 Hz buzzer (optional)
@@ -74,17 +75,29 @@ To connect the display controller to power and the hdmi connector at the Pi addi
 
 ## Revision status
 
-- Carrier board schematic V2.3 is the latest documented board revision in this repository. This board has as of today not been manufactured and tested!
-- VT100 terminal integration was validated with a provisional backplate and carrier board V2.0 and also worked cleanly with V2.2.
-- A routing issue near the rectifier in V2.0 required a follow-up revision.
-- Revision V2.1 and V2.2 use a 40 V / 2 A DIP rectifier and support AC/DC supplies up to 12 V, so either polarity of the power connector can be used.
-- OpenSCAD backplate files were updated to support carrier board V2.1 and above.
-- Version 2.2 moved the RxD protection resistor network toward the Mini DIN6 connector and powered the MAX3232 from 3.3 V for Pi-side signal compatibility.
-- Known remaining V2.2 limitation: with a null-modem cable, the unprotected Pi TxD GPIO can still briefly see 5 V until the relay is switched.
-- V2.3 design change: add true 3.3V/5V level shifters with BSS138 on RxD and TxD to eliminate that transient null-modem risk.
+- Carrier board schematic V2.3 is the latest documented revision in this repository. It has not yet been manufactured or hardware-tested; GPIO7 SBC power switching therefore remains unvalidated on the physical board.
+- Changes in V2.3:
+  - Use a 40 V / 2 A DIP bridge rectifier.
+  - Clarify the use of LM2576-5.0 versus LM2576-adj.
+  - Adapt SMD resistor pads for both 1206 and 0805 packages.
+  - Add PMOS BSS138 level shifters on RxD and TxD for true 3.3 V / 5 V translation.
+  - Allow the SBC interface 5 V supply to be switched by Pi GPIO7; firmware setting `sbc_power` selects off (`0`) or on (`1`) at startup and when setup settings are saved with Enter.
+  - Change the USB-A connector to the top-mount MOLEX 67643 variant.
+- Changes in V2.2:
+  - Move the RxD protection resistor network toward the Mini-DIN-6 connector and power the MAX3232 from 3.3 V for Pi-side signal compatibility.
+  - Use a 40 V / 2 A DIP rectifier, supporting AC/DC supplies up to 12 V with either input polarity.
+  - Retain a null-modem limitation: the unprotected Pi TxD GPIO can briefly see 5 V until the relay is switched.
+- Changes in V2.1:
+  - Update the OpenSCAD backplate files to support this and later carrier-board revisions.
+  - Use a 40 V / 2 A DIP rectifier for AC/DC input up to 12 V with either polarity.
+- Changes in V2.0:
+  - Validate the terminal integration with a provisional backplate and carrier board.
+  - Identify a routing issue near the rectifier, requiring a follow-up revision.
+- The VT100 terminal integration also worked cleanly with V2.2.
 
 ## Firmware interaction notes (2026-02-18)
 
 - Keyboard hotkeys currently used by firmware runtime: `F12` (legacy setup), `F11` (modern setup), `F10` (local keyboard loopback mode).
 - GPIO16 is used by firmware to control the relay-based TX/RX swap (`switch_txrx`).
 - GPIO12 is used by firmware for the 800 Hz buzzer output (`buzzer_volume`, key click, bell).
+- GPIO7 is used to switch power of connected SBC on or off

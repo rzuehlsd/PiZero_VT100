@@ -478,3 +478,7 @@ Reconstructed from git commit history and intended as a concise daily summary of
 ## 2026-02-25
 - Implemented features: finalized shell-client mode integration around a dedicated `CTWlanHost` runtime task path and aligned local repository hygiene to keep generated artifacts out of everyday commits.
 - Codebase changes: updated kernel/config/setup/WLAN host paths plus the new `include/TWlanHost.h` integration and synchronized config templates/bin defaults and README wording, then cleaned transient local artifacts (`build/*`, `bin/kernel.img`, `.DS_Store`) and extended `VT100/.gitignore` with local metadata/build artifact patterns.
+
+## 2026-09-29
+- Implemented features: added persistent SBC power control through GPIO7 and the modern setup dialog for an SBC connected through the DIN6 connector; verified the setup dialog, with board-level hardware validation still pending.
+- Codebase changes: added the `sbc_power` setting, `CHAL::ConfigureSbcOn(bool)` application path, setup integration, config templates, documented its default value in `VT100/docs/Configuration_Guide.md`, documented V2.3 hardware revisions in `VT100/docs/Hardware.md` and the README status summary, added a GitHub-style README table of contents and moved the status summary ahead of the license section, and marked the completed setup-parameter task plus pending hardware test in `VT100/Hardware/ToDo.md`.

@@ -88,6 +88,7 @@ private:
         ModernFieldRepeatDelay,
         ModernFieldRepeatRate,
         ModernFieldSwitchTxRx,
+        ModernFieldSbcPower,
         ModernFieldWlanHostAutoStart,
         ModernFieldHostId,
         ModernFieldLogOutput,
@@ -116,6 +117,7 @@ private:
         unsigned int repeatDelayMs;
         unsigned int repeatRateCps;
         bool switchTxRx;
+        bool sbcPower;
         unsigned int wlanModePolicy;
         char hostId[64];
         unsigned int logOutput;

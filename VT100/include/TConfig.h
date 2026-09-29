@@ -177,6 +177,11 @@ public:
     /// \param enabled TRUE to swap the wiring.
     void SetSwitchTxRx(boolean enabled);
 
+    /// \brief Check whether SBC power is enabled.
+    unsigned int GetSbcPower(void) const { return m_SbcPower; }
+    /// \brief Enable or disable SBC power.
+    void SetSbcPower(boolean enabled);
+
     /// \brief Retrieve WLAN session mode policy.
     /// \return 0=WLAN disabled, 1=remote log mode, 2=shell client mode.
     unsigned int GetWlanHostAutoStart(void) const { return m_WlanHostAutoStart; }
@@ -316,6 +321,7 @@ private:
     unsigned int m_BuzzerVolume;            // 0-100% duty cycle for buzzer
     unsigned int m_KeyClick;                // 0=disabled, 1=enabled key click feedback
     unsigned int m_SwitchTxRx;              // 0=normal wiring, 1=swap TX/RX via GPIO16
+    unsigned int m_SbcPower;                // 0=off, 1=on via GPIO7
     unsigned int m_WlanHostAutoStart;       // 0=WLAN disabled, 1=remote log mode on connect, 2=shell client mode on connect
     unsigned int m_KeyAutoRepeat;           // 0=disabled, 1=enabled keyboard auto-repeat
     unsigned int m_KeyRepeatDelayMs;        // Key repeat delay in milliseconds

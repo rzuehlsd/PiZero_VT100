@@ -1,5 +1,52 @@
 # VT100 Terminal Emulation on Raspberry Pi Zero W with Circle Bare Metal  Framework
 
+## Table of Contents
+
+- [Motivation](#motivation)
+- [Regards](#regards)
+- [Current Change Status](#current-change-status-2026-09-29)
+- [License Statement](#license-statement)
+- [Documentation Policy](#documentation-policy)
+- [Software Implementation](#software-implementation)
+  - [Scope and Goals](#scope-and-goals)
+  - [Main Features](#main-features)
+  - [Compile Environment Setup](#compile-environment-setup)
+    - [Make Targets](#make-targets)
+    - [macOS (tested)](#macos-tested)
+    - [Important Note about Homebrew formulas](#important-note-about-homebrew-formulas)
+  - [Configuration](#configuration)
+    - [Configuration File: VT100.txt](#configuration-file-vt100txt)
+    - [Available Options](#available-options)
+      - [Configuration Summary](#configuration-summary)
+      - [VT100 SETUP Screen A Parameter Mapping](#vt100-setup-screen-a-parameter-mapping-current-status)
+      - [VT100 SETUP Screen B Parameter Mapping](#vt100-setup-screen-b-parameter-mapping-current-status)
+      - [VT100 Extended Setup Dialog (F11)](#vt100-extended-setup-dialog-f11)
+    - [DEC Local Mode (F10)](#dec-local-mode-f10)
+    - [Example VT100.txt](#example-vt100txt)
+  - [Circle Boot Files](#circle-boot-files)
+  - [Display Orientation](#display-orientation)
+  - [Debug and Logging](#debug-and-logging)
+  - [WLAN Telnet and Host Mode](#wlan-telnet-and-host-mode)
+    - [Log mode (WLAN diagnostics)](#log-mode-wlan-diagnostics)
+    - [Shell-client mode (outbound raw TCP)](#shell-client-mode-outbound-raw-tcp)
+    - [Host-side tooling reference](#host-side-tooling-reference)
+    - [Auto-start shell-client mode](#auto-start-shell-client-mode)
+    - [Strict mode separation](#strict-mode-separation)
+  - [Internal VT100 Test Integration](#internal-vt100-test-integration)
+  - [Initial Implementation Plan](#initial-implementation-plan)
+  - [Templates](#templates)
+  - [Overview on Escape Sequence Coverage](#overview-on-escape-sequence-coverage)
+  - [VT100 Conformance Assessment](#vt100-conformance-assessment)
+  - [Practical vttest Plan](#practical-vttest-plan)
+  - [Troubleshooting](#troubleshooting)
+    - [Build fails with stdint.h missing](#build-fails-with-fatal-error-stdinth-no-such-file-or-directory)
+    - [VT100.txt changes have no effect](#vt100txt-changes-have-no-effect)
+    - [Cannot connect to WLAN telnet console](#cannot-connect-to-wlan-telnet-console)
+    - [Telnet shows logs but no shell-client traffic](#connected-via-telnet-but-only-logs-appear-no-shell-client-traffic)
+    - [Shell-client uses UART instead of the remote host](#shell-client-mode-enabled-but-vt100-still-follows-uart-host)
+    - [screen does not connect directly to TCP](#screen-does-not-connect-directly-to-tcp)
+    - [Auto-enter host mode on every connect](#auto-enter-host-mode-on-every-connect)
+
 ## Motivation
 My main motivation was that I wanted a terminal emulation for my VT100 replica (https://www.instructables.com/23-Scale-VT100-Terminal-Reproduction/) which I printed and assembled. I wanted something that could start within seconds, so a bare metal implementation on a Pi Zero seems to be the way to go. I looked into the PiGFX implementation by Filippo Bergamasco (https://github.com/fbergama/pigfx) and PiVT VT220 Emulator by Hans Hübner (https://github.com/hanshuebner/pivt). PiGFX for my taste was to much focused on reproducing vintage games on Z80 hardware or similar whereas PiVt was focused on VT220 with minimal configurability. Also the support for VT100 features like font stretching, double width fonts and double width double height fonts was missing in both implementations. 
 So I decided to start my own VT100 Emulator journay and here is the result.
@@ -24,7 +71,7 @@ The current VT100 terminal firmware turns a Raspberry Pi Zero W into a self-cont
 
 This project also includes a PCB design to support enhanced features such as a buzzer, an RS-232 adapter, a Mini-DIN-6 adapter for MBC2-Z80, and power distribution for the Pi Zero, MBC2, and display, plus a backplate to mount the board inside a 60% VT100 replica designed by megardi.
 
-My aim was to replicate the behaivior of a true VT100 as close as possible (vttest will show the final result ;-) ) and be able to mimic a VT52, VT220 and my favorite the VT320 in amber, also I did not replicate the small deviations of the VT220 or VT320 font sets. I got the original font definitions for a VT100 font from the ROM data used by Lard Brinkhoff to simulate a VT100 terminal in software on a Pi.
+My aim was to replicate the behaivior of a true VT100 as close as possible (vttest will show the final result ;-) ) and be able to mimic a VT52, VT220 and my favorite the VT320 in amber, also I did not replicate the small deviations of the VT220 or VT320 font sets. I got the original font definitions for a VT100 font from the ROM data used by Lars Brinkhoff to simulate a VT100 terminal in software on a Pi.
 
 If you want a nearly 100% VT100 terminal simulation, please go for the VT100 simulation from Lars Brinkhoff (https://github.com/larsbrinkhoff/terminal-simulator). He simulates the complete VT100 hardware with original ROMs on a Raspberry Pi. The Pi executes the ROM by an 8080 emulator and simulates other components like video display with character generator ROM, settings NVRAM, Intel 8251 USART, and a keyboard matrix scanner. 
 
@@ -33,6 +80,11 @@ If you want a nearly 100% VT100 terminal simulation, please go for the VT100 sim
 Many thanks to Rene Stange (https://github.com/rsta2) for the creation of the Circle bare metal framework for Raspberry Pis. Without his work this project would not have been possible.
 
 I take my hat off to the engineers a DEC which did a terrific job implementing the VT100 based on the technologies available at that time. They squeezed all functionality I implemented on a Pi with 1 GHz frequency and 512MB into a 8080A with 2Mhz, 8kB of ROM (including the original VT100 7x10 font) and 3kB of RAM. Granted, a lot of the features I had to implement in software were done with analog circuits, but I really feel embarressed by their skills.
+
+## Current Change Status (2026-09-29)
+
+- Hardware: the V2.3 design adds a GPIO7-controlled 5 V supply for a DIN6-connected SBC, BSS138 RX/TX level shifters, a 40 V / 2 A bridge rectifier, revised resistor pads, regulator notes, and a top-mount USB-A connector. The V2.3 board has not yet been manufactured or hardware-tested; the GPIO7 power test remains pending.
+- Firmware: persistent `sbc_power` (default `0`) is available in the modern F11 setup and is applied at startup and when setup settings are saved with Enter. Setup-dialog behavior has been verified.
 
 ## License Statement 
 Copyright (C) 2026 Ralf Zühlsdorff
@@ -96,7 +148,7 @@ The current renderer keeps terminal text, attributes, and DEC line-size state pr
   - [x] WLAN logging and shell-client mode successfully validated with local loopback and raw TCP helper tooling
 - [x] GPIO16-controlled TX/RX swap to simulate Null Modem cables with straight DB9 cables
 - [x] Configuration of system via VT100 Setup Screens A and B for supported parameters
-- [x] Separate on-screen setup dialog covering the 23 persisted `VT100.txt` keys that are implemented there, including `smooth_scroll`, `smooth_scroll_ms`, and `host_id` (F11)
+- [x] Separate on-screen setup dialog covering the 24 persisted `VT100.txt` keys implemented there, including `smooth_scroll`, `smooth_scroll_ms`, `host_id`, and SBC power via `sbc_power` / GPIO7 (F11)
 
 
 

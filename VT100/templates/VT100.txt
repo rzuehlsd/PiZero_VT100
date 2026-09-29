@@ -70,6 +70,9 @@ margin_bell=0
 # switch_txrx: 0=normal wiring, 1=swapped via GPIO16
 switch_txrx=0
 
+# sbc_power: 0=off, 1=on via GPIO7
+sbc_power=0
+
 # wlan_host_autostart: 0=off, 1=remote log mode, 2=outbound shell-client mode
 wlan_host_autostart=0
 
